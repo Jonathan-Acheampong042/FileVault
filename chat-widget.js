@@ -158,7 +158,8 @@ async function getAIResponse(userMessage) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 message: userMessage,
-                history: messages
+                history: messages,
+                systemPrompt: AI_CONFIG.systemPrompt
             })
         });
 

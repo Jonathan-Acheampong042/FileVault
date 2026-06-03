@@ -11,12 +11,12 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 app.post('/api/chat', async (req, res) => {
     try {
-        const { message, history } = req.body;
+        const { message, history, systemPrompt } = req.body;
 
         const messages = [
             {
                 role: 'system',
-                content: `You are a helpful assistant for FileVault, a secure file sharing platform. Help users with uploading, finding, and downloading files. Keep answers short and friendly.`
+                content: systemPrompt || `You are the FileVault AI assistant. Only answer questions about the current FileVault application, including the public library page, admin login, manager portal, folder selection, file upload, file list, file search, sorting, and sync status. Do not describe signup, third-party providers, profile pages, or any features that are not part of this version of FileVault. If the user asks about unavailable functionality, say "That feature is not available in this version of FileVault." Keep responses concise, factual, and aligned with the site."`
             },
             ...(history || []).map(m => ({
                 role: m.role === 'model' ? 'assistant' : 'user',
