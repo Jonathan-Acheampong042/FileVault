@@ -294,7 +294,8 @@
                         .eq('id', session.user.id)
                         .single()
                         .catch(() => ({ data: null }));
-                    window.location.href = (profile?.role === 'admin' || profile?.role === 'manager')
+                    const isAdmin = profile?.role === 'admin' || profile?.role === 'manager' || ADMIN_EMAIL_ALLOWLIST.includes(session.user.email || '');
+                    window.location.href = isAdmin
                         ? 'https://jonathan-acheampong042.github.io/Project-One/manager.html'
                         : 'https://jonathan-acheampong042.github.io/Project-One/index.html';
                 })();
@@ -306,7 +307,8 @@
             const { data: { session } } = await _supabase.auth.getSession();
             if (session) {
                 const { data: profile } = await _supabase.from('user_profiles').select('role').eq('id', session.user.id).single().catch(() => ({ data: null }));
-                window.location.href = (profile?.role === 'admin' || profile?.role === 'manager')
+                const isAdmin = profile?.role === 'admin' || profile?.role === 'manager' || ADMIN_EMAIL_ALLOWLIST.includes(session.user.email || '');
+                window.location.href = isAdmin
                     ? 'https://jonathan-acheampong042.github.io/Project-One/manager.html'
                     : 'https://jonathan-acheampong042.github.io/Project-One/index.html';
             }

@@ -743,10 +743,10 @@ console.log('dbResult:', JSON.stringify(dbResult));
             }
 
             // Show role badge in header
-            const roleLabel = profile.role === 'admin' ? '🛡️ Admin' : '🔧 Manager';
+            const roleLabel = profile?.role === 'manager' ? '🔧 Manager' : '🛡️ Admin';
             const roleBadge = document.createElement('span');
             roleBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full ml-2 ' + 
-                (profile.role === 'admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400');
+                (profile?.role === 'manager' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400');
             roleBadge.innerText = roleLabel;
             document.querySelector('header h1').appendChild(roleBadge);
 
