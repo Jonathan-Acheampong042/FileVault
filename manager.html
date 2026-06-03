@@ -50,7 +50,8 @@
                     <span class="material-symbols-outlined text-white text-xl">admin_panel_settings</span>
                 </button>
                 <div>
-                    <h1 class="font-bold text-xl text-white leading-tight">Manager Dashboard</h1>
+                    <h1 class="font-bold text-xl text-white leading-tight">Admin Manager Portal</h1>
+                    <p class="text-sm text-white/40 mt-1">Quickly manage folders, uploads, and sync status from one dashboard.</p>
                     <div class="flex items-center gap-1.5 mt-0.5">
                         <span class="sync-dot sync-ok" id="syncDot"></span>
                         <span id="syncLabel" class="text-[10px] text-white/40 font-medium">Checking sync...</span>
@@ -192,6 +193,7 @@
         'https://lvhecpvwpzmstciewziv.supabase.co',
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI'
     );
+    const ADMIN_EMAIL_ALLOWLIST = ['admin@nharnharblay21@gmail.com']; // Replace with your actual admin email(s)
 
     let allFiles = [];
     let availableFolders = [];
@@ -733,7 +735,8 @@ console.log('dbResult:', JSON.stringify(dbResult));
                 .eq('id', session.user.id)
                 .single();
             
-            if (!profile || (profile.role !== 'admin' && profile.role !== 'manager')) {
+            const isAdmin = profile?.role === 'admin' || profile?.role === 'manager' || ADMIN_EMAIL_ALLOWLIST.includes(session.user.email || '');
+            if (!isAdmin) {
                 // Not privileged — redirect to user page
                 window.location.href = 'https://jonathan-acheampong042.github.io/Project-One/index.html';
                 return;

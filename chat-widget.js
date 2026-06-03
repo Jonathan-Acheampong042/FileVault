@@ -3,10 +3,13 @@ const AI_CONFIG = {
     apiKey: '', // Keep this empty for security
     provider: 'gemini',
     model: 'gemini-1.5-flash',
-  systemPrompt: `You are a helpful AI assistant for FileVault, a file management system. 
-You help users with organizing, finding, and managing their files. 
-Keep responses concise and friendly.`
+    systemPrompt: `You are the FileVault AI assistant. Help users with the FileVault admin dashboard, manager portal, folder and file organization, file upload workflow, search/filter features, sync status, and admin-only access.
+Keep responses concise, use the user-facing labels from the site, and do not mention signup or third-party login providers.`
 };
+
+const CHAT_API_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:3000/api/chat'
+    : 'https://project-one-187u.onrender.com/api/chat';
 
 // Chat State
 let chatOpen = false;
@@ -150,7 +153,7 @@ async function getAIResponse(userMessage) {
     
     try {
         // 2. Fetch from YOUR server, not the external API
-        const response = await fetch('https://project-one-187u.onrender.com/api/chat', {
+        const response = await fetch(CHAT_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
