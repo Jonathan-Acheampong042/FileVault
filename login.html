@@ -46,7 +46,7 @@
     <div class="relative w-full max-w-md">
         <div class="absolute -inset-1 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 rounded-3xl blur-2xl opacity-30"></div>
 
-        <div class="relative bg-slate-900/80 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl animate-slide-up">
+        <div id="loginCard" class="relative bg-slate-900/80 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl animate-slide-up">
             <!-- Logo -->
             <div class="text-center mb-6">
                 <div class="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mb-3 shadow-lg shadow-blue-500/30">
@@ -141,10 +141,15 @@
         );
 
         // ── Handle password recovery link ─────────────────────────
+        // Detect recovery token in URL hash on page load
+        if (window.location.hash.includes('type=recovery')) {
+            document.getElementById('loginCard').classList.add('hidden');
+            document.getElementById('resetCard').classList.remove('hidden');
+        }
+
         _supabase.auth.onAuthStateChange((event, session) => {
             if (event === 'PASSWORD_RECOVERY') {
-                // Show reset form, hide login form
-                document.querySelector('.relative.bg-slate-900\\/80').classList.add('hidden');
+                document.getElementById('loginCard').classList.add('hidden');
                 document.getElementById('resetCard').classList.remove('hidden');
             }
         });
