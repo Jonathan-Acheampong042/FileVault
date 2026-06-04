@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>FileVault | Manager Portal</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%233b82f6'/><stop offset='100%25' stop-color='%237c3aed'/></linearGradient></defs><path d='M50 2 L90 15 L90 55 Q90 88 50 98 Q10 88 10 55 L10 15 Z' fill='url(%23g)'/><circle cx='40' cy='45' r='11' fill='white' opacity='.25'/><circle cx='50' cy='40' r='13' fill='white' opacity='.25'/><circle cx='61' cy='45' r='10' fill='white' opacity='.25'/><rect x='31' y='45' width='38' height='14' rx='2' fill='white' opacity='.25'/><rect x='42' y='51' width='16' height='12' rx='3' fill='white' opacity='.9'/><path d='M45 51 L45 47 Q50 41 55 47 L55 51' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' opacity='.9'/><circle cx='50' cy='56' r='2' fill='%236366f1'/><rect x='49' y='56' width='2' height='4' rx='1' fill='%236366f1'/></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
@@ -107,6 +108,16 @@
                     </div>
                 </div>
                 <div>
+                    <label class="text-xs font-bold text-white/40 uppercase tracking-wider block mb-2">Description <span class="text-white/20 font-normal normal-case">(optional)</span></label>
+                    <input type="text" id="fileDescription" placeholder="Short note about these files…"
+                        class="w-full p-3 bg-white/5 border border-white/10 rounded-xl outline-none focus:border-blue-500/50 text-white text-sm placeholder-white/30 transition-all"/>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-white/40 uppercase tracking-wider block mb-2">Expiry <span class="text-white/20 font-normal normal-case">(optional – leave blank for no expiry)</span></label>
+                    <input type="number" id="expiryDays" placeholder="Days until link expires (e.g. 7)" min="1" max="365"
+                        class="w-full p-3 bg-white/5 border border-white/10 rounded-xl outline-none focus:border-blue-500/50 text-white text-sm placeholder-white/30 transition-all"/>
+                </div>
+                <div>
                     <label class="text-xs font-bold text-white/40 uppercase tracking-wider block mb-2">File</label>
                     <div id="uploadZone" class="upload-zone glass-card p-6 rounded-xl border-2 border-dashed border-white/10 text-center cursor-pointer">
                         <span class="material-symbols-outlined text-4xl text-white/30 mb-2 block">upload_file</span>
@@ -148,13 +159,31 @@
                 </div>
             </div>
 
+            <!-- Bulk Actions Bar (shown when files selected) -->
+            <div id="bulkBar" class="hidden mb-4 flex items-center gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                <span id="bulkCount" class="text-blue-400 text-xs font-bold flex-1">0 selected</span>
+                <button onclick="bulkDownloadZip()" class="text-xs flex items-center gap-1 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg transition-all font-bold">
+                    <span class="material-symbols-outlined text-sm">download</span> Download ZIP
+                </button>
+                <button onclick="bulkDelete()" class="text-xs flex items-center gap-1 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-all font-bold">
+                    <span class="material-symbols-outlined text-sm">delete_sweep</span> Delete All
+                </button>
+                <button onclick="clearSelection()" class="text-xs text-white/40 hover:text-white px-2 py-1.5 rounded-lg transition-all">
+                    <span class="material-symbols-outlined text-sm">close</span>
+                </button>
+            </div>
+            </div>
+
             <!-- Tabs -->
-            <div class="flex gap-2 mb-6 p-1 bg-white/5 rounded-xl">
+            <div class="flex gap-2 mb-6 p-1 bg-white/5 rounded-xl flex-wrap">
                 <button onclick="switchTab('db')" id="tab-db" class="tab-btn active flex-1 py-2 rounded-lg text-sm font-bold border border-transparent text-white/70">
                     <span class="material-symbols-outlined text-sm mr-1">table_chart</span> Database View
                 </button>
                 <button onclick="switchTab('storage')" id="tab-storage" class="tab-btn flex-1 py-2 rounded-lg text-sm font-bold border border-transparent text-white/70">
                     <span class="material-symbols-outlined text-sm mr-1">cloud</span> Storage View
+                </button>
+                <button onclick="switchTab('tracker')" id="tab-tracker" class="tab-btn flex-1 py-2 rounded-lg text-sm font-bold border border-transparent text-white/70">
+                    <span class="material-symbols-outlined text-sm mr-1">bar_chart</span> Downloads
                 </button>
             </div>
 
@@ -183,6 +212,28 @@
                 </div>
             </div>
             <div id="syncIssues" class="mt-4 hidden"></div>
+        </section>
+
+        <!-- File Request Section -->
+        <section class="glass-card p-6 rounded-2xl border border-white/10">
+            <h4 class="text-white/60 font-bold mb-1 flex items-center gap-2 text-sm">
+                <span class="material-symbols-outlined">upload_file</span> File Request Link
+            </h4>
+            <p class="text-white/30 text-xs mb-4">Share a link so anyone can upload a file directly to your vault.</p>
+            <div class="flex gap-2">
+                <select id="requestFolder" class="flex-1 p-3 bg-white/5 border border-white/10 rounded-xl outline-none text-white text-sm">
+                    <option value="" class="text-black">Root folder</option>
+                </select>
+                <button onclick="generateRequestLink()" class="px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">link</span> Generate Link
+                </button>
+            </div>
+            <div id="requestLinkResult" class="hidden mt-3 p-3 bg-white/5 rounded-xl flex items-center gap-2">
+                <input id="requestLinkUrl" readonly class="flex-1 bg-transparent text-blue-300 text-xs outline-none truncate"/>
+                <button onclick="copyRequestLink()" class="text-white/40 hover:text-white transition-all" title="Copy">
+                    <span class="material-symbols-outlined text-sm">content_copy</span>
+                </button>
+            </div>
         </section>
 
     </main>
@@ -303,11 +354,16 @@
             </div>`;
         availableFolders.forEach(folder => {
             html += `
-            <div onclick="filterByFolder('${folder}')" class="folder-item glass-card px-3 py-2 rounded-lg cursor-pointer border border-white/10 hover:border-white/20 transition-all text-sm text-white/70 flex items-center gap-2">
-                <span class="material-symbols-outlined text-sm">folder_open</span> ${folder}
+            <div class="folder-item glass-card px-3 py-2 rounded-lg cursor-pointer border border-white/10 hover:border-white/20 transition-all text-sm text-white/70 flex items-center gap-2 group">
+                <span class="material-symbols-outlined text-sm" onclick="filterByFolder('${folder}')">folder_open</span>
+                <span class="flex-1 truncate" onclick="filterByFolder('${folder}')">${folder}</span>
+                <button onclick="event.stopPropagation();deleteFolder('${folder}')" class="opacity-0 group-hover:opacity-100 text-red-400/60 hover:text-red-400 transition-all" title="Delete folder">
+                    <span class="material-symbols-outlined text-xs">delete</span>
+                </button>
             </div>`;
         });
         container.innerHTML = html;
+        populateRequestFolderSelect();
     }
 
     // Filter files by folder
@@ -338,6 +394,7 @@
         currentTab = tab;
         document.getElementById('tab-db').classList.toggle('active', tab === 'db');
         document.getElementById('tab-storage').classList.toggle('active', tab === 'storage');
+        document.getElementById('tab-tracker').classList.toggle('active', tab === 'tracker');
         loadManagerFiles();
     }
 
@@ -387,10 +444,47 @@
 
         if (currentTab === 'db') {
             await loadFromDB(container);
-        } else {
+        } else if (currentTab === 'storage') {
             await loadFromStorage(container);
+        } else if (currentTab === 'tracker') {
+            await loadDownloadTracker(container);
+            return; // skip sync update for tracker
         }
         await updateSyncStatus();
+    }
+
+    async function loadDownloadTracker(container) {
+        try {
+            const { data, error } = await _supabase
+                .from('files_list')
+                .select('file_name, folder_name, download_count, created_at')
+                .order('download_count', { ascending: false });
+            if (error) throw error;
+            const files = data || [];
+            document.getElementById('fileCountBadge').innerText = `${files.length} files tracked`;
+            if (files.length === 0) {
+                container.innerHTML = `<p class="text-white/40 text-center py-10 col-span-full text-sm">No files tracked yet.</p>`;
+                return;
+            }
+            const maxCount = Math.max(...files.map(f => f.download_count || 0), 1);
+            container.innerHTML = `<div class="col-span-full space-y-2">
+                ${files.map(f => {
+                    const pct = Math.round(((f.download_count || 0) / maxCount) * 100);
+                    return `<div class="flex items-center gap-3 p-3 bg-white/3 rounded-xl hover:bg-white/5 transition-all">
+                        <div class="min-w-0 flex-1">
+                            <p class="text-white/80 text-xs font-semibold truncate">${f.file_name}</p>
+                            <p class="text-[10px] text-white/30">${f.folder_name || 'Root'}</p>
+                            <div class="mt-1.5 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all" style="width:${pct}%"></div>
+                            </div>
+                        </div>
+                        <span class="text-blue-400 font-bold text-sm shrink-0">${f.download_count || 0}</span>
+                    </div>`;
+                }).join('')}
+            </div>`;
+        } catch (err) {
+            container.innerHTML = `<p class="text-red-400 text-center col-span-full text-sm">Tracker Error: ${err.message}<br><span class="text-white/30 text-xs">Make sure the 'download_count' column exists in your files_list table.</span></p>`;
+        }
     }
 
     async function loadFromDB(container) {
@@ -483,36 +577,230 @@
         }
     }
 
+    // Selection state
+    let selectedFiles = new Set(); // stores storagePath keys
+
+    function toggleFileSelect(storagePath, checkbox) {
+        if (checkbox.checked) {
+            selectedFiles.add(storagePath);
+        } else {
+            selectedFiles.delete(storagePath);
+        }
+        updateBulkBar();
+    }
+
+    function updateBulkBar() {
+        const bar = document.getElementById('bulkBar');
+        const countEl = document.getElementById('bulkCount');
+        if (selectedFiles.size > 0) {
+            bar.classList.remove('hidden');
+            countEl.innerText = `${selectedFiles.size} file${selectedFiles.size !== 1 ? 's' : ''} selected`;
+        } else {
+            bar.classList.add('hidden');
+        }
+    }
+
+    function clearSelection() {
+        selectedFiles.clear();
+        document.querySelectorAll('.file-checkbox').forEach(cb => cb.checked = false);
+        updateBulkBar();
+    }
+
+    async function bulkDelete() {
+        if (selectedFiles.size === 0) return;
+        if (!confirm(`Delete ${selectedFiles.size} file(s)? This cannot be undone.`)) return;
+        setStatus(`Deleting ${selectedFiles.size} file(s)...`, 'blue');
+        let done = 0;
+        for (const path of selectedFiles) {
+            const name = path.split('/').pop();
+            await Promise.all([
+                _supabase.storage.from('vault-files').remove([path]),
+                _supabase.from('files_list').delete().eq('file_name', name)
+            ]);
+            done++;
+        }
+        selectedFiles.clear();
+        updateBulkBar();
+        setStatus(`✓ Deleted ${done} file(s).`, 'green');
+        loadManagerFiles();
+    }
+
+    async function bulkDownloadZip() {
+        if (selectedFiles.size === 0) return;
+        setStatus('Preparing ZIP…', 'blue');
+        // Collect public URLs for selected files
+        const links = [];
+        for (const path of selectedFiles) {
+            const { data } = _supabase.storage.from('vault-files').getPublicUrl(path);
+            links.push({ name: path.split('/').pop(), url: data.publicUrl });
+        }
+        // Use JSZip via CDN if available, otherwise open each in tab
+        if (typeof JSZip !== 'undefined') {
+            const zip = new JSZip();
+            for (const { name, url } of links) {
+                const res = await fetch(url);
+                const blob = await res.blob();
+                zip.file(name, blob);
+            }
+            const content = await zip.generateAsync({ type: 'blob' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(content);
+            a.download = 'FileVault-Export.zip';
+            a.click();
+        } else {
+            // Fallback: open each file in new tab
+            links.forEach(({ url }) => window.open(url, '_blank'));
+        }
+        setStatus(`✓ Done — ${links.length} file(s) exported.`, 'green');
+    }
+
+    async function renameFile(storagePath, dbId, oldName) {
+        const newName = prompt('Rename file to:', oldName);
+        if (!newName || newName.trim() === oldName) return;
+        const trimmed = newName.trim();
+        setStatus('Renaming…', 'blue');
+
+        const folder = storagePath.includes('/') ? storagePath.split('/').slice(0, -1).join('/') : '';
+        const newPath = folder ? `${folder}/${trimmed}` : trimmed;
+
+        // Copy + delete in storage (Supabase has no rename)
+        const { error: copyErr } = await _supabase.storage.from('vault-files').copy(storagePath, newPath);
+        if (copyErr) { setStatus('Storage rename failed: ' + copyErr.message, 'red'); return; }
+        await _supabase.storage.from('vault-files').remove([storagePath]);
+
+        // Update DB
+        const { data: urlData } = _supabase.storage.from('vault-files').getPublicUrl(newPath);
+        if (dbId) {
+            await _supabase.from('files_list').update({ file_name: trimmed, download_url: urlData.publicUrl }).eq('id', dbId);
+        } else {
+            await _supabase.from('files_list').update({ file_name: trimmed, download_url: urlData.publicUrl }).eq('file_name', oldName);
+        }
+
+        setStatus(`✓ Renamed to "${trimmed}".`, 'green');
+        loadManagerFiles();
+    }
+
+    async function moveFile(storagePath, dbId, fileName) {
+        const targetFolder = prompt('Move to folder (leave blank for Root):', '');
+        if (targetFolder === null) return;
+        const target = targetFolder.trim();
+        const newPath = target ? `${target}/${fileName}` : fileName;
+        if (newPath === storagePath) return;
+
+        setStatus('Moving file…', 'blue');
+        const { error: copyErr } = await _supabase.storage.from('vault-files').copy(storagePath, newPath);
+        if (copyErr) { setStatus('Move failed: ' + copyErr.message, 'red'); return; }
+        await _supabase.storage.from('vault-files').remove([storagePath]);
+
+        const { data: urlData } = _supabase.storage.from('vault-files').getPublicUrl(newPath);
+        const newFolder = target || 'Root';
+        if (dbId) {
+            await _supabase.from('files_list').update({ folder_name: newFolder, download_url: urlData.publicUrl }).eq('id', dbId);
+        } else {
+            await _supabase.from('files_list').update({ folder_name: newFolder, download_url: urlData.publicUrl }).eq('file_name', fileName);
+        }
+
+        setStatus(`✓ Moved to "${newFolder}".`, 'green');
+        loadFolders();
+        renderSidebarFolders();
+        loadManagerFiles();
+    }
+
+    async function editDescription(dbId, current) {
+        const desc = prompt('Edit description:', current || '');
+        if (desc === null) return;
+        if (dbId) {
+            await _supabase.from('files_list').update({ description: desc.trim() }).eq('id', dbId);
+            setStatus('✓ Description updated.', 'green');
+            loadManagerFiles();
+        }
+    }
+
+    async function deleteFolder(folderName) {
+        if (!folderName) return;
+        if (!confirm(`Delete the entire "${folderName}" folder and all its files? This cannot be undone.`)) return;
+        setStatus(`Deleting folder "${folderName}"…`, 'blue');
+
+        // List all files in that folder
+        const { data: storageData } = await _supabase.storage.from('vault-files').list(folderName, { limit: 200 });
+        const paths = (storageData || []).map(f => `${folderName}/${f.name}`);
+        if (paths.length > 0) {
+            await _supabase.storage.from('vault-files').remove(paths);
+        }
+        await _supabase.from('files_list').delete().eq('folder_name', folderName);
+
+        setStatus(`✓ Folder "${folderName}" deleted.`, 'green');
+        loadFolders();
+        renderSidebarFolders();
+        loadManagerFiles();
+    }
+
     function renderFileCard(row, source) {
         const icon = getFileIcon(row.file_name);
         const colorClasses = getFileColor(row.file_name);
         const [textColor, bgColor] = colorClasses.split(' ');
         const storagePath = row._storagePath || (row.folder_name && row.folder_name !== 'Root' ? `${row.folder_name}/${row.file_name}` : row.file_name);
         const fileSize = formatFileSize(row.file_size);
+        const safeId = JSON.stringify(storagePath).replace(/"/g, '&quot;');
+        const safeName = row.file_name.replace(/'/g, "\\'");
+
+        // Expiry badge
+        let expiryBadge = '';
+        if (row.expires_at) {
+            const expiresDate = new Date(row.expires_at);
+            const now = new Date();
+            const daysLeft = Math.ceil((expiresDate - now) / (1000 * 60 * 60 * 24));
+            const isExpired = daysLeft <= 0;
+            expiryBadge = `<span class="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-bold ${isExpired ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}">
+                <span class="material-symbols-outlined text-[9px]">schedule</span>
+                ${isExpired ? 'Expired' : `${daysLeft}d left`}
+            </span>`;
+        }
+
+        // Download count badge
+        const dlCount = row.download_count || 0;
+        const dlBadge = `<span class="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 text-white/40 font-bold">
+            <span class="material-symbols-outlined text-[9px]">download</span> ${dlCount}
+        </span>`;
 
         return `
         <div class="file-item glass-card p-5 rounded-2xl border border-white/5 hover:border-white/20 transition-all">
-            <div class="flex items-center gap-3 mb-3">
+            <div class="flex items-start gap-3 mb-3">
+                <input type="checkbox" class="file-checkbox mt-1 accent-blue-500 cursor-pointer" onchange="toggleFileSelect('${storagePath.replace(/'/g,"\\'")}', this)">
                 <div class="${bgColor} w-12 h-12 rounded-xl flex items-center justify-center shrink-0">
                     <span class="material-symbols-outlined ${textColor} text-2xl">${icon}</span>
                 </div>
                 <div class="min-w-0 flex-1">
                     <p class="font-semibold text-white/80 text-sm truncate" title="${row.file_name}">${row.file_name}</p>
-                    <p class="text-[10px] text-white/40 mt-0.5 flex items-center gap-1">
+                    <p class="text-[10px] text-white/40 mt-0.5 flex items-center gap-1 flex-wrap">
                         <span class="material-symbols-outlined text-[10px]">folder</span> ${row.folder_name || 'Root'}
                         <span class="text-white/20">·</span>
                         <span>${fileSize}</span>
                     </p>
                     ${row.created_at ? `<p class="text-[10px] text-white/30 mt-0.5">${formatDate(row.created_at)}</p>` : ''}
+                    <div class="flex gap-1 mt-1 flex-wrap">${dlBadge}${expiryBadge}</div>
+                    ${row.description ? `<p class="text-[10px] text-white/50 mt-1 italic line-clamp-2">${row.description}</p>` : ''}
                 </div>
             </div>
-            <div class="flex gap-2">
-                <a href="${row.download_url}" target="_blank" class="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-white/5 hover:bg-blue-500/20 text-white/60 hover:text-blue-400 text-xs font-bold transition-all">
-                    <span class="material-symbols-outlined text-sm">visibility</span> View
+            <div class="flex gap-1.5 flex-wrap">
+                <a href="${row.download_url}" target="_blank" class="flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg bg-white/5 hover:bg-blue-500/20 text-white/60 hover:text-blue-400 text-xs font-bold transition-all">
+                    <span class="material-symbols-outlined text-sm">visibility</span>
                 </a>
-                <button onclick="deleteFile('${storagePath}', ${row.id || 'null'})"
-                    class="px-3 py-2 rounded-lg bg-white/5 hover:bg-red-500/20 text-white/60 hover:text-red-400 text-sm transition-all" title="Delete">
-                    <span class="material-symbols-outlined">delete</span>
+                <button onclick="renameFile('${storagePath.replace(/'/g,"\\'")}', ${row.id || 'null'}, '${safeName}')"
+                    class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-yellow-500/20 text-white/60 hover:text-yellow-400 text-xs transition-all" title="Rename">
+                    <span class="material-symbols-outlined text-sm">edit</span>
+                </button>
+                <button onclick="moveFile('${storagePath.replace(/'/g,"\\'")}', ${row.id || 'null'}, '${safeName}')"
+                    class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-cyan-500/20 text-white/60 hover:text-cyan-400 text-xs transition-all" title="Move to folder">
+                    <span class="material-symbols-outlined text-sm">drive_file_move</span>
+                </button>
+                <button onclick="editDescription(${row.id || 'null'}, ${JSON.stringify(row.description || '')})"
+                    class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-purple-500/20 text-white/60 hover:text-purple-400 text-xs transition-all" title="Edit description">
+                    <span class="material-symbols-outlined text-sm">notes</span>
+                </button>
+                <button onclick="deleteFile('${storagePath.replace(/'/g,"\\'")}', ${row.id || 'null'})"
+                    class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-red-500/20 text-white/60 hover:text-red-400 text-sm transition-all ml-auto" title="Delete">
+                    <span class="material-symbols-outlined text-sm">delete</span>
                 </button>
             </div>
         </div>`;
@@ -524,6 +812,8 @@
         const folderSelect = document.getElementById('folderSelect');
         const btn = document.getElementById('uploadBtn');
         const files = fileInput.files;
+        const description = document.getElementById('fileDescription').value.trim();
+        const expiryDays = parseInt(document.getElementById('expiryDays').value);
 
         if (files.length === 0) { setStatus('Please select at least one file.', 'yellow'); return; }
 
@@ -554,11 +844,19 @@
             // STEP 2: Get public URL + save to DB
             const { data: urlData } = _supabase.storage.from('vault-files').getPublicUrl(path);
 
-            const { error: dbError } = await _supabase.from('files_list').insert({
+            const insertData = {
                 file_name: file.name,
                 download_url: urlData.publicUrl,
                 folder_name: folder || 'Root'
-            });
+            };
+            if (description) insertData.description = description;
+            if (!isNaN(expiryDays) && expiryDays > 0) {
+                const expiresAt = new Date();
+                expiresAt.setDate(expiresAt.getDate() + expiryDays);
+                insertData.expires_at = expiresAt.toISOString();
+            }
+
+            const { error: dbError } = await _supabase.from('files_list').insert(insertData);
 
             if (dbError) {
                 setStatus(`⚠ ${file.name} uploaded but DB failed: ${dbError.message}`, 'yellow');
@@ -580,6 +878,8 @@
         }
 
         fileInput.value = '';
+        document.getElementById('fileDescription').value = '';
+        document.getElementById('expiryDays').value = '';
         loadFolders();
         renderSidebarFolders();
         loadManagerFiles();
@@ -719,6 +1019,32 @@ console.log('dbResult:', JSON.stringify(dbResult));
         } catch (err) {
             setStatus('Repair failed: ' + err.message, 'red');
         }
+    }
+
+    // ─── FILE REQUEST LINK ────────────────────────────────────
+    function generateRequestLink() {
+        const folder = document.getElementById('requestFolder').value;
+        const base = window.location.origin + window.location.pathname.replace('manager.html', 'upload-request.html');
+        const url = `${base}?folder=${encodeURIComponent(folder || 'Root')}`;
+        document.getElementById('requestLinkUrl').value = url;
+        document.getElementById('requestLinkResult').classList.remove('hidden');
+    }
+
+    function copyRequestLink() {
+        const url = document.getElementById('requestLinkUrl').value;
+        navigator.clipboard.writeText(url).then(() => {
+            setStatus('✓ Link copied to clipboard!', 'green');
+        });
+    }
+
+    // Populate request folder dropdown after loadFolders
+    function populateRequestFolderSelect() {
+        const sel = document.getElementById('requestFolder');
+        if (!sel) return;
+        sel.innerHTML = '<option value="" class="text-black">Root folder</option>';
+        availableFolders.forEach(f => {
+            sel.innerHTML += `<option value="${f}" class="text-black">${f}</option>`;
+        });
     }
 
 // ─── AUTH ────────────────────────────────────────────────────

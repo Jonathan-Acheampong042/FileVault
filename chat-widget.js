@@ -12,6 +12,11 @@ USER PAGE (public - anyone can visit):
 - Filter by folder using the left sidebar (toggle with top-left icon)
 - Sign In / Create Account button in the top-right header
 - Profile avatar (top right) when logged in — links to profile page
+- File descriptions — short notes appear under each file name
+- Expiring files — files with an expiry show a countdown badge (e.g. "3d left"); expired files are hidden automatically
+- Bulk download — select multiple files using checkboxes then click "Download ZIP" to download them all as a ZIP file
+- Recent Downloads — a "Recently Downloaded" strip at the top shows files you have downloaded before in this browser; click Clear to remove it
+- Download tracking — each download is counted; totals are visible to managers in the Downloads tab
 
 LOGIN PAGE:
 - Sign In tab: email + password login
@@ -21,17 +26,26 @@ LOGIN PAGE:
 
 MANAGER PAGE (admin/manager roles only):
 - Select a folder from the sidebar before uploading
+- Add an optional Description to files when uploading
+- Set an optional Expiry (number of days) — the link auto-expires after that many days
 - Upload files — syncs automatically to Supabase Storage and database
-- Delete files from the file list
+- Rename files without re-uploading using the edit (pencil) button on each file card
+- Move files between folders using the move button on each file card
+- Delete files from the file list using the delete button
+- Edit a file's description using the notes button on each file card
+- Bulk select files using checkboxes, then use "Download ZIP" or "Delete All" from the bulk actions bar
 - Sort files by name or date
 - Filter files by folder via the left sidebar
+- Delete an entire folder (hover folder in sidebar → click red delete icon) — deletes all files inside it
 - Sync status dot in the header (green = synced, yellow = warning, red = error)
 - Repair Sync button fixes mismatches between Storage and database
 - Sync panel shows storage count, database count, and overall health
+- Downloads tab — shows a bar chart of download counts for every file
+- File Request Link — generates a shareable URL so anyone can upload a file directly to your vault; choose the target folder first
 
 USER ROLES:
 - admin: full manager page access
-- manager: full manager page access  
+- manager: full manager page access
 - user: browse and download only on the user page
 
 PROFILE PAGE (after login):
@@ -40,6 +54,12 @@ PROFILE PAGE (after login):
 - Link more OAuth accounts
 - Change password button
 - Sign out button
+
+DATABASE: The files_list table needs these columns for full feature support:
+- description (text, nullable)
+- expires_at (timestamptz, nullable)
+- download_count (integer, default 0)
+- You also need an RPC function: increment_download_count(file_id uuid)
 
 Keep answers short and practical. Use the exact names of buttons and sections from the site.`
 };

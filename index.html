@@ -6,6 +6,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%233b82f6'/><stop offset='100%25' stop-color='%237c3aed'/></linearGradient></defs><path d='M50 2 L90 15 L90 55 Q90 88 50 98 Q10 88 10 55 L10 15 Z' fill='url(%23g)'/><circle cx='40' cy='45' r='11' fill='white' opacity='.25'/><circle cx='50' cy='40' r='13' fill='white' opacity='.25'/><circle cx='61' cy='45' r='10' fill='white' opacity='.25'/><rect x='31' y='45' width='38' height='14' rx='2' fill='white' opacity='.25'/><rect x='42' y='51' width='16' height='12' rx='3' fill='white' opacity='.9'/><path d='M45 51 L45 47 Q50 41 55 47 L55 51' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' opacity='.9'/><circle cx='50' cy='56' r='2' fill='%236366f1'/><rect x='49' y='56' width='2' height='4' rx='1' fill='%236366f1'/></svg>">
     <title>FileVault | User Library</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
@@ -71,6 +72,15 @@
 
     <main class="max-w-7xl mx-auto px-4 py-6 pb-32 relative z-10">
 
+        <!-- Recent Downloads -->
+        <div id="recentSection" class="mb-8 hidden">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-bold text-white/50 uppercase tracking-wider">Recently Downloaded</h3>
+                <button onclick="clearRecentDownloads()" class="text-[10px] text-white/30 hover:text-white/60 transition-all">Clear</button>
+            </div>
+            <div id="recentGrid" class="flex flex-wrap gap-2"></div>
+        </div>
+
         <!-- Suggested -->
         <div id="suggestedSection" class="mb-8 hidden">
             <h3 class="text-xs font-bold text-white/50 uppercase tracking-wider mb-3">Suggested For You</h3>
@@ -97,6 +107,16 @@
                     </select>
                     <span id="fileCount" class="text-[10px] text-white/40 font-bold"></span>
                 </div>
+            </div>
+            <!-- Bulk bar -->
+            <div id="bulkBar" class="hidden mb-3 flex items-center gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                <span id="bulkCount" class="text-blue-400 text-xs font-bold flex-1">0 selected</span>
+                <button onclick="bulkDownloadZip()" class="text-xs flex items-center gap-1 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg transition-all font-bold">
+                    <span class="material-symbols-outlined text-sm">download</span> Download ZIP
+                </button>
+                <button onclick="clearSelection()" class="text-xs text-white/40 hover:text-white px-2 py-1.5 rounded-lg transition-all">
+                    <span class="material-symbols-outlined text-sm">close</span>
+                </button>
             </div>
             <div id="fileGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div class="col-span-full flex justify-center py-10">
@@ -232,10 +252,14 @@ let allFiles = [];
             if (dbData && dbData.length > 0) {
                 // Map DB rows into unified format
                 allFiles = dbData.map(row => ({
+                    id: row.id,
                     name: row.file_name,
                     folder: row.folder_name === 'Root' ? null : row.folder_name,
                     url: row.download_url,
                     date: new Date(row.created_at),
+                    description: row.description || '',
+                    expires_at: row.expires_at || null,
+                    download_count: row.download_count || 0,
                     source: 'db'
                 }));
             } else {
@@ -337,6 +361,93 @@ let allFiles = [];
     }
 
     // ─── RENDER FILE LIST ─────────────────────────────────────────
+    let selectedFiles = new Set();
+
+    function toggleFileSelect(url, name, checkbox) {
+        const key = url;
+        if (checkbox.checked) selectedFiles.add({ url, name });
+        else selectedFiles.delete([...selectedFiles].find(f => f.url === url));
+        updateBulkBar();
+    }
+
+    function updateBulkBar() {
+        const bar = document.getElementById('bulkBar');
+        const countEl = document.getElementById('bulkCount');
+        if (selectedFiles.size > 0) {
+            bar.classList.remove('hidden');
+            countEl.innerText = `${selectedFiles.size} file${selectedFiles.size !== 1 ? 's' : ''} selected`;
+        } else {
+            bar.classList.add('hidden');
+        }
+    }
+
+    function clearSelection() {
+        selectedFiles.clear();
+        document.querySelectorAll('.file-checkbox').forEach(cb => cb.checked = false);
+        updateBulkBar();
+    }
+
+    async function bulkDownloadZip() {
+        if (selectedFiles.size === 0) return;
+        const items = [...selectedFiles];
+        if (typeof JSZip !== 'undefined') {
+            const zip = new JSZip();
+            for (const { name, url } of items) {
+                try {
+                    const res = await fetch(url);
+                    const blob = await res.blob();
+                    zip.file(name, blob);
+                } catch (e) { console.warn('Could not fetch', name); }
+            }
+            const content = await zip.generateAsync({ type: 'blob' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(content);
+            a.download = 'FileVault-Download.zip';
+            a.click();
+        } else {
+            items.forEach(({ url }) => window.open(url, '_blank'));
+        }
+    }
+
+    // ─── RECENT DOWNLOADS ─────────────────────────────────────────
+    function getRecentDownloads() {
+        try { return JSON.parse(localStorage.getItem('fv_recent') || '[]'); } catch { return []; }
+    }
+    function addRecentDownload(name, url) {
+        let recent = getRecentDownloads().filter(r => r.url !== url);
+        recent.unshift({ name, url, time: Date.now() });
+        recent = recent.slice(0, 10);
+        localStorage.setItem('fv_recent', JSON.stringify(recent));
+        renderRecentDownloads();
+    }
+    function clearRecentDownloads() {
+        localStorage.removeItem('fv_recent');
+        document.getElementById('recentSection').classList.add('hidden');
+    }
+    function renderRecentDownloads() {
+        const recent = getRecentDownloads();
+        const section = document.getElementById('recentSection');
+        const grid = document.getElementById('recentGrid');
+        if (recent.length === 0) { section.classList.add('hidden'); return; }
+        section.classList.remove('hidden');
+        grid.innerHTML = recent.map(r => `
+            <a href="${r.url}" target="_blank" onclick="addRecentDownload('${r.name.replace(/'/g,"\\'")}','${r.url}')"
+                class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-xl transition-all border border-white/5">
+                <span class="material-symbols-outlined text-sm">history</span>
+                <span class="truncate max-w-[120px]">${r.name}</span>
+            </a>`).join('');
+    }
+
+    async function trackDownload(fileId, fileName, url) {
+        addRecentDownload(fileName, url);
+        if (fileId) {
+            // Increment download_count in DB (gracefully ignore if column missing)
+            try {
+                await _supabase.rpc('increment_download_count', { file_id: fileId });
+            } catch (_) {}
+        }
+    }
+
     function renderFileList(filesToRender) {
         const fileGrid = document.getElementById('fileGrid');
         document.getElementById('fileCount').innerText = `${filesToRender.length} file${filesToRender.length !== 1 ? 's' : ''}`;
@@ -346,30 +457,48 @@ let allFiles = [];
             return;
         }
 
+        const now = new Date();
+
         fileGrid.innerHTML = filesToRender.map(file => {
     const icon = getFileIcon(file.name);
     const [textColor, bgColor] = getFileColor(file.name).split(' ');
+
+    // Expiry check
+    let expiryBadge = '';
+    if (file.expires_at) {
+        const expiresDate = new Date(file.expires_at);
+        const daysLeft = Math.ceil((expiresDate - now) / (1000 * 60 * 60 * 24));
+        const isExpired = daysLeft <= 0;
+        if (isExpired) return ''; // hide expired files from public view
+        expiryBadge = `<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold">${daysLeft}d left</span>`;
+    }
+
+    const safeUrl = file.url.replace(/'/g, "\\'");
+    const safeName = file.name.replace(/'/g, "\\'");
+
     return `
     <div class="file-item glass-card p-3 rounded-xl border border-white/5 hover:border-white/20 transition-all flex items-center gap-3">
+        <input type="checkbox" class="file-checkbox shrink-0 accent-blue-500 cursor-pointer" onchange="toggleFileSelect('${safeUrl}','${safeName}',this)">
         <div class="${bgColor} w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
             <span class="material-symbols-outlined ${textColor} text-xl">${icon}</span>
         </div>
         <div class="min-w-0 flex-1">
             <p class="font-semibold text-white/80 text-sm truncate" title="${file.name}">${file.name}</p>
-            <p class="text-[10px] text-white/30 mt-0.5">${file.folder || 'Root'} ${file.date ? '· ' + formatDate(file.date) : ''}</p>
+            <p class="text-[10px] text-white/30 mt-0.5">${file.folder || 'Root'} ${file.date ? '· ' + formatDate(file.date) : ''} ${expiryBadge}</p>
+            ${file.description ? `<p class="text-[10px] text-white/40 italic truncate mt-0.5">${file.description}</p>` : ''}
         </div>
         <div class="flex gap-1.5 shrink-0">
-            <a href="${file.url}" target="_blank"
+            <a href="${file.url}" target="_blank" onclick="trackDownload('${file.id || ''}','${safeName}','${safeUrl}')"
                 class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-blue-500/20 text-white/50 hover:text-blue-400 text-xs transition-all">
                 <span class="material-symbols-outlined text-sm">visibility</span> View
             </a>
-            <a href="${file.url}" download
+            <a href="${file.url}" download onclick="trackDownload('${file.id || ''}','${safeName}','${safeUrl}')"
                 class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-purple-500/20 text-white/50 hover:text-purple-400 text-xs transition-all">
                 <span class="material-symbols-outlined text-sm">download</span>
             </a>
         </div>
     </div>`;
-}).join('');
+}).filter(Boolean).join('');
     }
 
     // ─── FILTERS ──────────────────────────────────────────────────
@@ -452,6 +581,7 @@ let allFiles = [];
 // Initialize
     (async () => {
         updateOnlineStatus();
+        renderRecentDownloads();
         await checkAuth();
         fetchFiles();
     })();
