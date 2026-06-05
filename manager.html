@@ -33,7 +33,6 @@
         .sync-err { background: #ef4444; box-shadow: 0 0 6px #ef444488; }
         .tab-btn { transition: all 0.2s; }
         .tab-btn.active { background: rgba(59,130,246,0.2); color: #60a5fa; border-color: rgba(59,130,246,0.4); }
-        #folderSidebar { transition: transform 0.3s ease; }
         .folder-item { transition: all 0.3s ease; }
         .folder-item:hover { background: rgba(59,130,246,0.1); }
         .custom-select { -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: none !important; }
@@ -48,45 +47,28 @@
     <header class="glass-card border-b border-white/10 p-4 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div class="flex items-center gap-3">
-                <div onclick="toggleFolderSidebar()" class="site-logo cursor-pointer hover:scale-105 transition-transform" title="Toggle Folders">
+                <div class="site-logo">
                     <img src="filevault%20logo.png" alt="Open folders sidebar" />
                 </div>
                 <div>
-                    <h1 class="font-bold text-xl text-white leading-tight">Admin Manager Portal</h1>
-                    <p class="text-sm text-white/40 mt-1">Quickly manage folders, uploads, and sync status from one dashboard.</p>
+                    <h1 class="font-bold text-base sm:text-xl text-white leading-tight">Manager Portal</h1>
+                    <p class="text-xs sm:text-sm text-white/40 mt-0.5 hidden sm:block">Manage uploads, folders, and sync.</p>
                     <div class="flex items-center gap-1.5 mt-0.5">
                         <span class="sync-dot sync-ok" id="syncDot"></span>
                         <span id="syncLabel" class="text-[10px] text-white/40 font-medium">Checking sync...</span>
                     </div>
                 </div>
             </div>
-            <button onclick="signOut()" class="text-sm font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 px-4 py-2 rounded-lg transition-all flex items-center gap-2">
-                <span class="material-symbols-outlined text-sm">logout</span> Logout
+            <button onclick="signOut()" class="text-sm font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-2 rounded-lg transition-all flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">logout</span><span class="hidden sm:inline">Logout</span>
             </button>
         </div>
     </header>
 
-    <!-- Folder Sidebar -->
-    <div id="folderSidebar" class="fixed left-0 top-[73px] bottom-0 w-64 bg-slate-900/95 backdrop-blur-lg border-r border-white/10 z-40 overflow-y-auto transition-transform -translate-x-full md:translate-x-0">
-        <div class="p-4">
-            <h4 class="text-xs font-bold text-white/40 uppercase tracking-wider mb-4 flex items-center justify-between">
-                <span>Folders</span>
-                <button onclick="createNewFolder()" class="text-blue-400 hover:text-blue-300" title="Create folder">
-                    <span class="material-symbols-outlined text-sm">create_new_folder</span>
-                </button>
-            </h4>
-            <div id="sidebarFolderList" class="space-y-1">
-                <p class="text-white/30 text-sm italic">Loading...</p>
-            </div>
-        </div>
-    </div>
 
-    <!-- Mobile backdrop -->
-    <div id="sidebarBackdrop" onclick="toggleFolderSidebar()" class="hidden fixed inset-0 bg-black/50 z-30 md:hidden"></div>
-
-<main class="max-w-4xl mx-auto p-6 relative z-10 space-y-8 ml-0 md:ml-64" id="mainContent">
+<main class="max-w-4xl mx-auto p-4 sm:p-6 relative z-10 space-y-6 sm:space-y-8" id="mainContent">
         <!-- Folders Section -->
-        <section class="glass-card p-6 rounded-2xl border border-white/10">
+        <section class="glass-card p-4 sm:p-6 rounded-2xl border border-white/10">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-bold text-white flex items-center gap-2">
                     <span class="material-symbols-outlined">folder</span>
@@ -97,13 +79,13 @@
                     <span class="material-symbols-outlined text-sm">create_new_folder</span> New Folder
                 </button>
             </div>
-            <div id="mainFolderGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div id="mainFolderGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 <p class="text-white/40 italic text-center py-8 col-span-full">Loading folders...</p>
             </div>
         </section>
 
         <!-- Upload Section -->
-        <section class="glass-card p-8 rounded-2xl border border-white/10 animate-slide-up">
+        <section class="glass-card p-4 sm:p-8 rounded-2xl border border-white/10 animate-slide-up">
             <div class="text-center mb-6">
                 <div class="site-logo site-logo-lg mx-auto mb-4">
                     <img src="filevault%20logo.png" alt="FileVault logo" />
@@ -153,14 +135,14 @@
         </section>
 
         <!-- Files Section -->
-        <section class="glass-card p-8 rounded-2xl border border-white/10">
-            <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <section class="glass-card p-4 sm:p-8 rounded-2xl border border-white/10">
+            <div class="flex items-center justify-between mb-4 sm:mb-6 flex-wrap gap-3">
                 <h3 class="text-lg font-bold text-white flex items-center gap-2">
                     <span class="material-symbols-outlined">folder_copy</span>
                     Library Files
                     <span id="fileCountBadge" class="text-xs font-bold text-white/40 bg-white/5 px-2 py-0.5 rounded-full ml-1"></span>
                 </h3>
-                <div class="flex items-center gap-2 flex-wrap">
+                <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                     <div class="relative">
                         <select id="sortSelect" onchange="sortFiles(this.value)" class="custom-select text-xs text-white/70 bg-white/5 border border-white/10 rounded-lg px-3 py-2 pr-8 outline-none cursor-pointer hover:bg-white/10 transition-all">
                             <option value="newest" class="text-black">Newest First</option>
@@ -204,14 +186,14 @@
 
             <!-- Tabs -->
             <div class="flex gap-2 mb-6 p-1 bg-white/5 rounded-xl flex-wrap">
-                <button onclick="switchTab('db')" id="tab-db" class="tab-btn active flex-1 py-2 rounded-lg text-sm font-bold border border-transparent text-white/70">
-                    <span class="material-symbols-outlined text-sm mr-1">table_chart</span> Database View
+                <button onclick="switchTab('db')" id="tab-db" class="tab-btn active flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold border border-transparent text-white/70">
+                    <span class="material-symbols-outlined text-sm mr-1">table_chart</span><span class="hidden sm:inline">Database</span><span class="sm:hidden">DB</span>
                 </button>
-                <button onclick="switchTab('storage')" id="tab-storage" class="tab-btn flex-1 py-2 rounded-lg text-sm font-bold border border-transparent text-white/70">
-                    <span class="material-symbols-outlined text-sm mr-1">cloud</span> Storage View
+                <button onclick="switchTab('storage')" id="tab-storage" class="tab-btn flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold border border-transparent text-white/70">
+                    <span class="material-symbols-outlined text-sm mr-1">cloud</span><span class="hidden sm:inline">Storage</span><span class="sm:hidden">Store</span>
                 </button>
-                <button onclick="switchTab('tracker')" id="tab-tracker" class="tab-btn flex-1 py-2 rounded-lg text-sm font-bold border border-transparent text-white/70">
-                    <span class="material-symbols-outlined text-sm mr-1">bar_chart</span> Downloads
+                <button onclick="switchTab('tracker')" id="tab-tracker" class="tab-btn flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold border border-transparent text-white/70">
+                    <span class="material-symbols-outlined text-sm mr-1">bar_chart</span><span class="hidden sm:inline">Downloads</span><span class="sm:hidden">DLs</span>
                 </button>
             </div>
 
@@ -225,7 +207,7 @@
             <h4 class="text-white/60 font-bold mb-4 flex items-center gap-2 text-sm">
                 <span class="material-symbols-outlined">sync_alt</span> Sync Status
             </h4>
-            <div id="syncPanel" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div id="syncPanel" class="grid grid-cols-3 gap-3 sm:gap-4 text-sm">
                 <div class="bg-white/5 rounded-xl p-4">
                     <p class="text-white/40 text-xs mb-1">Database Records</p>
                     <p id="dbCount" class="text-2xl font-bold text-blue-400">—</p>
@@ -323,52 +305,6 @@
         el.className = `mt-4 text-sm font-medium text-center min-h-[20px] text-${type}-400`;
     }
 
-// ─── TOGGLE FOLDER SIDEBAR ───────────────────────────────────
-    let folderSidebarVisible = false; // starts hidden on mobile; desktop CSS handles it
-    function toggleFolderSidebar() {
-        const sidebar = document.getElementById('folderSidebar');
-        const main = document.getElementById('mainContent');
-        const backdrop = document.getElementById('sidebarBackdrop');
-        const isMobile = window.innerWidth < 768;
-
-        folderSidebarVisible = !folderSidebarVisible;
-
-        if (folderSidebarVisible) {
-            sidebar.classList.remove('-translate-x-full');
-            if (isMobile) {
-                // On mobile: overlay mode — show backdrop, don't push main
-                backdrop.classList.remove('hidden');
-            } else {
-                // On desktop: push main content
-                main.classList.add('ml-64');
-            }
-        } else {
-            sidebar.classList.add('-translate-x-full');
-            backdrop.classList.add('hidden');
-            if (!isMobile) {
-                main.classList.remove('ml-64');
-            }
-        }
-    }
-
-    // On desktop, sidebar starts visible — sync state
-    if (window.innerWidth >= 768) {
-        folderSidebarVisible = true;
-    }
-
-    // Handle resize — fix state if user resizes between mobile/desktop
-    window.addEventListener('resize', () => {
-        const isMobile = window.innerWidth < 768;
-        const backdrop = document.getElementById('sidebarBackdrop');
-        const main = document.getElementById('mainContent');
-        if (!isMobile) {
-            backdrop.classList.add('hidden');
-            if (folderSidebarVisible) main.classList.add('ml-64');
-        } else {
-            main.classList.remove('ml-64');
-            if (!folderSidebarVisible) backdrop.classList.add('hidden');
-        }
-    });
 
     // Populate sidebar with folders
     function renderSidebarFolders() {
@@ -1207,10 +1143,7 @@ console.log('dbResult:', JSON.stringify(dbResult));
             e.preventDefault();
             loadManagerFiles();
         }
-        // Escape: Close sidebar
-        if (e.key === 'Escape') {
-            if (folderSidebarVisible) toggleFolderSidebar();
-        }
+
     });
 
     async function signOut() {

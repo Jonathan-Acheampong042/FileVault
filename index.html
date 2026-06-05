@@ -62,16 +62,16 @@
         </div>
     </aside>
     <div class="lg:ml-64 flex flex-col min-h-screen">
-        <header class="sticky top-0 z-50 w-full h-16 glass-card backdrop-blur-2xl border-b flex items-center px-6">
-            <div class="flex-1 max-w-xl relative">
+        <header class="sticky top-0 z-50 w-full glass-card backdrop-blur-2xl border-b flex items-center px-4 sm:px-6 py-3 gap-3">
+            <div class="flex-1 relative">
                 <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 material-symbols-outlined">search</span>
                 <input id="searchInput" oninput="filterFiles(this.value)" placeholder="Search database..." class="w-full pl-10 pr-4 py-2.5 bg-slate-900/50 border border-white/10 rounded-xl text-sm text-white focus:outline-none"/>
             </div>
         </header>
-        <main class="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full">
-            <h2 class="text-3xl font-extrabold text-white mb-6">Security Vault</h2>
-            <div class="grid gap-6 xl:grid-cols-[1.5fr_360px] mb-8">
-                <section id="recentSection" class="glass-card p-6 rounded-3xl">
+        <main class="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full">
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4 sm:mb-6">Security Vault</h2>
+            <div class="grid gap-4 sm:gap-6 xl:grid-cols-[1.5fr_360px] mb-6 sm:mb-8">
+                <section id="recentSection" class="glass-card p-4 sm:p-6 rounded-3xl">
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <p class="text-sm text-slate-400 uppercase tracking-[0.2em]">Recent</p>
@@ -83,7 +83,7 @@
                         <div class="px-4 py-6 rounded-3xl bg-slate-950/50 border border-white/5 text-sm text-slate-400">No recent files yet.</div>
                     </div>
                 </section>
-                <aside class="glass-card p-6 rounded-3xl">
+                <aside class="glass-card p-4 sm:p-6 rounded-3xl">
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <p class="text-sm text-slate-400 uppercase tracking-[0.2em]">Support</p>
@@ -114,8 +114,8 @@
                     <a href="mailto:acheampongjonathan21@gmail.com" class="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold">Contact Support</a>
                 </aside>
             </div>
-            <div id="folderSection" class="flex gap-3 overflow-x-auto pb-4 mb-6 scrollbar-hide"></div>
-            <div class="flex justify-between items-center mb-4 pb-4 border-b">
+            <div id="folderSection" class="flex gap-2 sm:gap-3 overflow-x-auto pb-3 sm:pb-4 mb-4 sm:mb-6 scrollbar-hide"></div>
+            <div class="flex flex-wrap justify-between items-center mb-4 pb-4 border-b gap-3">
                 <div class="flex items-center gap-4">
                     <h3 class="text-lg font-bold text-white">Files</h3>
                     <span id="fileCount" class="px-2.5 py-0.5 rounded-lg bg-white/5 text-[10px] text-slate-400 font-bold">0</span>
@@ -144,7 +144,7 @@
                 </button>
                 <button onclick="clearSelection()" class="material-symbols-outlined text-slate-400 cursor-pointer">close</button>
             </div>
-            <div id="fileGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div id="fileGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                 <div class="col-span-full text-center py-20 text-slate-500">Loading...</div>
             </div>
         </main>
@@ -302,7 +302,7 @@
             document.getElementById('fileCount').innerText = files.length;
             const now = new Date();
             const fileGrid = document.getElementById('fileGrid');
-            fileGrid.className = viewType === 'list' ? 'space-y-4' : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6';
+            fileGrid.className = viewType === 'list' ? 'space-y-3 sm:space-y-4' : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6';
             
             if (!files.length) {
                 fileGrid.innerHTML = '<div class="col-span-full text-center py-20 text-slate-500">No files.</div>';
@@ -416,6 +416,24 @@
             }
         });
     </script>
+    
+    <!-- Mobile Bottom Navigation -->
+    <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-40 glass-card border-t border-white/10 flex items-center justify-around px-2 py-2 pb-safe" style="padding-bottom:max(8px,env(safe-area-inset-bottom))">
+        <a href="#" onclick="filterByFolder(null,this)" class="flex flex-col items-center gap-0.5 px-3 py-1 text-primary">
+            <span class="material-symbols-outlined text-xl">folder_shared</span>
+            <span class="text-[9px] font-bold uppercase">Vault</span>
+        </a>
+        <button onclick="document.getElementById('searchInput').focus();window.scrollTo({top:0,behavior:'smooth'})" class="flex flex-col items-center gap-0.5 px-3 py-1 text-slate-400">
+            <span class="material-symbols-outlined text-xl">search</span>
+            <span class="text-[9px] font-bold uppercase">Search</span>
+        </button>
+        <a href="login.html" class="flex flex-col items-center gap-0.5 px-3 py-1 text-slate-400">
+            <span class="material-symbols-outlined text-xl">login</span>
+            <span class="text-[9px] font-bold uppercase">Admin Login</span>
+        </a>
+    </nav>
+    <!-- Mobile bottom padding so content isn't hidden behind nav -->
+    <div class="lg:hidden h-16"></div>
     <script src="chat-widget.js"></script>
 </body>
 </html>
