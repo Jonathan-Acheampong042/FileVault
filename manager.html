@@ -360,6 +360,9 @@
             <div class="folder-item glass-card px-3 py-2 rounded-lg cursor-pointer border border-white/10 hover:border-white/20 transition-all text-sm text-white/70 flex items-center gap-2 group">
                 <span class="material-symbols-outlined text-sm" onclick="filterByFolder('${folder}')">folder_open</span>
                 <span class="flex-1 truncate" onclick="filterByFolder('${folder}')">${folder}</span>
+                <button onclick="event.stopPropagation();renameFolder('${folder}')" class="opacity-0 group-hover:opacity-100 text-white/60 hover:text-white transition-all" title="Rename folder">
+                    <span class="material-symbols-outlined text-xs">edit</span>
+                </button>
                 <button onclick="event.stopPropagation();deleteFolder('${folder}')" class="opacity-0 group-hover:opacity-100 text-red-400/60 hover:text-red-400 transition-all" title="Delete folder">
                     <span class="material-symbols-outlined text-xs">delete</span>
                 </button>
@@ -437,7 +440,39 @@
         select.innerHTML = '<option value="" class="text-black">No folder (root)</option>';
         availableFolders.forEach(f => { select.innerHTML += `<option value="${f}" class="text-black">${f}</option>`; });
         select.value = folderName;
+        renderSidebarFolders();
         setStatus(`Folder "${folderName}" ready — it will be created on first upload.`, 'green');
+    }
+
+    async function renameFolder(oldName) {
+        if (!oldName) return;
+        const newNameInput = prompt('Rename folder:', oldName);
+        if (!newNameInput || newNameInput.trim() === oldName) return;
+        const newName = newNameInput.trim().replace(/[^a-zA-Z0-9_\- ]/g, '');
+        if (!newName) { alert('Invalid folder name.'); return; }
+        if (availableFolders.includes(newName)) { setStatus('Folder already exists!', 'yellow'); return; }
+
+        setStatus(`Renaming folder "${oldName}" to "${newName}"…`, 'blue');
+        try {
+            const { data: storageData, error: listErr } = await _supabase.storage.from('vault-files').list(oldName, { limit: 200 });
+            if (listErr) { throw listErr; }
+            for (const file of (storageData || [])) {
+                const oldPath = `${oldName}/${file.name}`;
+                const newPath = `${newName}/${file.name}`;
+                const { error: copyErr } = await _supabase.storage.from('vault-files').copy(oldPath, newPath);
+                if (copyErr) { throw copyErr; }
+                await _supabase.storage.from('vault-files').remove([oldPath]);
+            }
+            await _supabase.from('files_list').update({ folder_name: newName }).eq('folder_name', oldName);
+            await loadFolders();
+            availableFolders = availableFolders.map(f => f === oldName ? newName : f).sort();
+            renderSidebarFolders();
+            if (currentFolder === oldName) filterByFolder(newName);
+            setStatus(`✓ Folder renamed to "${newName}".`, 'green');
+        } catch (err) {
+            console.error('renameFolder error:', err);
+            setStatus('Folder rename failed: ' + (err.message || 'unknown error'), 'red');
+        }
     }
 
     // ─── LOAD FILES ─────────────────────────────────────────────
