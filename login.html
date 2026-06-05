@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>FileVault | Sign In</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%233b82f6'/><stop offset='100%25' stop-color='%237c3aed'/></linearGradient></defs><path d='M50 2 L90 15 L90 55 Q90 88 50 98 Q10 88 10 55 L10 15 Z' fill='url(%23g)'/><rect x='42' y='51' width='16' height='12' rx='3' fill='white' opacity='.9'/><path d='M45 51 L45 47 Q50 41 55 47 L55 51' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' opacity='.9'/></svg>">
+    <link rel="icon" href="filevault%20logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
@@ -49,10 +49,8 @@
         <div id="loginCard" class="relative bg-slate-900/80 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl animate-slide-up">
             <!-- Logo -->
             <div class="text-center mb-6">
-                <div class="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mb-3 shadow-lg shadow-blue-500/30">
-                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                    </svg>
+                <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3 overflow-hidden shadow-lg shadow-blue-500/30">
+                    <img src="filevault%20logo.png" alt="FileVault logo" class="w-full h-full object-cover" />
                 </div>
                 <h2 class="text-2xl font-bold text-white mb-1">Admin Login</h2>
                 <p class="text-white/50 text-sm">Sign in to access the manager portal</p>
