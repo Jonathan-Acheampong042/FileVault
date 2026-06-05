@@ -32,6 +32,8 @@
         .suggested-card { transition: all 0.4s ease; }
         .suggested-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px -15px rgba(0,0,0,0.3); }
         .loading-spinner { border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid #3b82f6; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; }
+        .site-logo { width: 40px; height: 40px; border-radius: 1rem; overflow: hidden; box-shadow: 0 18px 45px rgba(59,130,246,0.18); }
+        .site-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
     </style>
 </head>
 <body class="min-h-screen font-sans text-white relative">
@@ -45,8 +47,8 @@
     <header class="glass-card border-b border-white/10 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
             <div class="flex items-center gap-3 cursor-pointer" onclick="toggleFolderSection()" title="Toggle Folders">
-                <div class="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-blue-500/30">
-                    <img src="filevault%20logo.png" alt="FileVault logo" class="w-full h-full object-cover" />
+                <div class="site-logo">
+                    <img src="filevault%20logo.png" alt="FileVault logo" />
                 </div>
                 <h1 class="font-bold text-xl tracking-tight text-white">FileVault</h1>
             </div>
