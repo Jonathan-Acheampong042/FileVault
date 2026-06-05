@@ -69,7 +69,7 @@
             </div>
         </header>
         <main class="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full">
-            <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4 sm:mb-6">File Vault</h2>
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4 sm:mb-6">FileVault</h2>
             <div class="grid gap-4 sm:gap-6 xl:grid-cols-[1.5fr_360px] mb-6 sm:mb-8">
                 <section id="recentSection" class="glass-card p-4 sm:p-6 rounded-3xl">
                     <div class="flex items-center justify-between mb-4">
@@ -261,14 +261,19 @@
                 if (dbError) throw dbError;
 
                 if (dbData && dbData.length > 0) {
-                    allFiles = dbData.map(row => ({
-                        id: row.id,
-                        name: row.file_name,
-                        folder: row.folder_name === 'Root' ? null : row.folder_name,
-                        url: row.download_url,
-                        date: row.created_at,
-                        expires_at: row.expires_at
-                    }));
+                    allFiles = dbData.map(row => {
+                        const folder = row.folder_name && row.folder_name !== 'Root' ? row.folder_name : null;
+                        const storagePath = folder ? `${folder}/${row.file_name}` : row.file_name;
+                        const { data: urlData } = _supabase.storage.from('vault-files').getPublicUrl(storagePath);
+                        return {
+                            id: row.id,
+                            name: row.file_name,
+                            folder: folder,
+                            url: urlData.publicUrl,
+                            date: row.created_at,
+                            expires_at: row.expires_at
+                        };
+                    });
                 } else {
                     const { data: storageData } = await _supabase.storage.from('vault-files').list('', { limit: 200 });
                     allFiles = (storageData || [])
