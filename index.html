@@ -190,13 +190,17 @@
             }
             recentList.innerHTML = recentFiles.map(file => {
                 const safeUrl = file.url.replace(/'/g, "\\'");
-                return '<a href="' + file.url + '" target="_blank" class="block p-4 rounded-3xl bg-slate-950/60 border border-white/5 hover:border-primary/40 transition">' +
+                const safeName = file.name.replace(/'/g, "\\'");
+                return '<a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer" onclick="track(\'' + (file.id || '') + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="block p-4 rounded-3xl bg-slate-950/60 border border-white/5 hover:border-primary/40 transition">' +
                     '<div class="flex items-center justify-between gap-3">' +
-                        '<div class="min-w-0">' +
+                        '<div class="min-w-0 flex-1">' +
                             '<p class="text-sm text-slate-300 font-semibold truncate">' + file.name + '</p>' +
                             '<p class="text-[11px] text-slate-500 uppercase mt-1">' + (file.folder || 'ROOT') + '</p>' +
                         '</div>' +
-                        '<span class="text-slate-400 text-xs">' + formatDate(file.date) + '</span>' +
+                        '<div class="flex items-center gap-2 shrink-0">' +
+                            '<span class="text-slate-400 text-xs">' + formatDate(file.date) + '</span>' +
+                            '<span class="material-symbols-outlined text-slate-500 text-base">open_in_new</span>' +
+                        '</div>' +
                     '</div>' +
                 '</a>';
             }).join('');
@@ -434,9 +438,9 @@
             <span class="text-[9px] font-bold uppercase">Admin Login</span>
         </a>
     </nav>
+    <footer class="text-center text-white/20 text-xs py-4 lg:py-6">Built by <span class="text-white/40 font-semibold">Jonathan Acheampong</span> · FileVault</footer>
     <!-- Mobile bottom padding so content isn't hidden behind nav -->
     <div class="lg:hidden h-16"></div>
-    <footer class="text-center text-white/20 text-xs py-6">Built by <span class="text-white/40 font-semibold">Jonathan Acheampong</span> · FileVault</footer>
     <script src="chat-widget.js"></script>
 </body>
 </html>
