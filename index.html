@@ -1,593 +1,421 @@
 <!DOCTYPE html>
-<html class="light" lang="en">
+<html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <link rel="icon" href="filevault%20logo.png">
-    <title>FileVault | User Library</title>
+    <title>FileVault | Security Vault</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <script>
+        tailwind.config = { darkMode: 'class', theme: { extend: { colors: { primary: '#3b82f6', secondary: '#8b5cf6' }, fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] } } } }
+    </script>
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%); min-height: 100vh; }
-        .floating-shapes { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
-        .shape { position: absolute; border-radius: 50%; opacity: 0.08; animation: float 25s infinite ease-in-out; }
-        .shape-1 { width: 400px; height: 400px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); top: -150px; left: -150px; animation-delay: 0s; }
-        .shape-2 { width: 300px; height: 300px; background: linear-gradient(135deg, #06b6d4, #3b82f6); bottom: -100px; right: -100px; animation-delay: -8s; }
-        .shape-3 { width: 200px; height: 200px; background: linear-gradient(135deg, #8b5cf6, #ec4899); top: 40%; right: 5%; animation-delay: -15s; }
-        @keyframes float { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 25% { transform: translate(30px, -30px) rotate(5deg); } 50% { transform: translate(0, -50px) rotate(0deg); } 75% { transform: translate(-30px, -30px) rotate(-5deg); } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .animate-slide-up { animation: slideUp 0.7s ease-out forwards; }
-        .glass-card { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); }
-        .file-item { transition: all 0.3s ease; }
-        .file-item:hover { background: rgba(255, 255, 255, 0.07); }
-        .folder-item { transition: all 0.3s ease; }
-        .folder-item:hover { transform: scale(1.02); background: rgba(255, 255, 255, 0.1); }
-        .folder-item.active { background: rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.4); }
-        .search-input { transition: all 0.3s ease; }
-        .search-input:focus { box-shadow: 0 0 30px rgba(59, 130, 246, 0.2); }
-        .suggested-card { transition: all 0.4s ease; }
-        .suggested-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px -15px rgba(0,0,0,0.3); }
-        .loading-spinner { border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid #3b82f6; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; }
-        .site-logo { width: 40px; height: 40px; border-radius: 1rem; overflow: hidden; box-shadow: 0 18px 45px rgba(59,130,246,0.18); }
-        .site-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0; }
+        .bg-fixed-image { position: fixed; inset: 0; background-image: url('screen.png'); background-size: cover; background-position: center; z-index: -2; filter: saturate(0.72) brightness(0.5); }
+        .bg-overlay { position: fixed; inset: 0; background: radial-gradient(circle at top left, rgba(59,130,246,0.15), transparent 24%), radial-gradient(circle at bottom right, rgba(139,92,246,0.14), transparent 20%), linear-gradient(180deg, rgba(8, 12, 27, 0.88), rgba(4, 7, 18, 0.96)); z-index: -1; pointer-events: none; }
+        .glass-card { background: rgba(30, 41, 59, 0.3); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); }
+        .sidebar-glass { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(24px); border-right: 1px solid rgba(255, 255, 255, 0.1); }
+        .nav-item { transition: all 0.3s ease; position: relative; }
+        .nav-item:hover { background: rgba(59, 130, 246, 0.08); color: #60a5fa; }
+        .active-nav { background: rgba(59, 130, 246, 0.12); color: #3b82f6; box-shadow: inset 0 0 15px rgba(59, 130, 246, 0.1); }
+        .custom-select { -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: none !important; background-repeat: no-repeat; background-position: right 0.75rem center; }
+        .custom-select::-ms-expand { display: none; }
+        .active-nav::after { content: ''; position: absolute; right: -1px; top: 20%; height: 60%; width: 3px; background: #3b82f6; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        .file-card { transition: all 0.4s ease; }
+        .file-card:hover { transform: translateY(-6px); background: rgba(30, 41, 59, 0.5); }
+        .glow-icon { filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.4)); }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .folder-btn { transition: all 0.3s ease; }
+        .folder-btn.active { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+        .site-logo { width: 40px; height: 40px; border-radius: 1rem; overflow: hidden; }
+        .site-logo img { width: 100%; height: 100%; object-fit: contain; }
     </style>
 </head>
-<body class="min-h-screen font-sans text-white relative">
-
-    <div class="floating-shapes">
-        <div class="shape shape-1"></div>
-        <div class="shape shape-2"></div>
-        <div class="shape shape-3"></div>
-    </div>
-
-    <header class="glass-card border-b border-white/10 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-            <div class="flex items-center gap-3 cursor-pointer" onclick="toggleFolderSection()" title="Toggle Folders">
-                <div class="site-logo">
-                    <img src="filevault%20logo.png" alt="FileVault logo" />
-                </div>
-                <h1 class="font-bold text-xl tracking-tight text-white">FileVault</h1>
+<body class="overflow-x-hidden">
+    <div class="bg-fixed-image"></div>
+    <div class="bg-overlay"></div>
+    <aside class="fixed left-0 top-0 h-screen w-64 z-40 sidebar-glass hidden lg:flex flex-col py-8">
+        <div class="px-6 mb-10 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-primary/40 glow-icon">
+                <img src="filevault%20logo.png" alt="FileVault" class="w-full h-full object-contain" />
             </div>
-            <div class="relative">
-                <a href="login.html" class="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-xl transition-all">
-                    <span class="material-symbols-outlined text-sm">login</span>
-                    Admin Login
-                </a>
+            <div>
+                <h1 class="font-bold text-lg text-white">FileVault</h1>
+                <p class="text-[10px] text-primary/80 uppercase font-extrabold">Vault</p>
             </div>
         </div>
-    </header>
-
-    <div class="glass-card border-b border-white/10 px-4 py-3 sticky top-[57px] z-40">
-        <div class="max-w-7xl mx-auto relative">
-            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <span class="material-symbols-outlined text-white/40">search</span>
-            </div>
-            <input id="searchInput" oninput="filterFiles(this.value)"
-                class="search-input block w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:border-blue-500/50 focus:bg-white/10 outline-none transition-all"
-                placeholder="Search in FileVault..." type="text"/>
+        <nav class="flex-1 px-4 space-y-1.5">
+            <a class="active-nav nav-item flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm" href="#">
+                <span class="material-symbols-outlined">folder_shared</span> My Vault
+            </a>
+        </nav>
+        <div class="px-4 mt-auto pt-8 border-t border-white/5">
+            <a class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-red-400/80 text-sm" href="login.html">
+                <span class="material-symbols-outlined">logout</span> Admin
+            </a>
         </div>
-    </div>
-
-    <main class="max-w-7xl mx-auto px-4 py-6 pb-32 relative z-10">
-
-        <!-- Recent Downloads -->
-        <div id="recentSection" class="mb-8 hidden">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-xs font-bold text-white/50 uppercase tracking-wider">Recently Downloaded</h3>
-                <button onclick="clearRecentDownloads()" class="text-[10px] text-white/30 hover:text-white/60 transition-all">Clear</button>
+    </aside>
+    <div class="lg:ml-64 flex flex-col min-h-screen">
+        <header class="sticky top-0 z-50 w-full h-16 glass-card backdrop-blur-2xl border-b flex items-center px-6">
+            <div class="flex-1 max-w-xl relative">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 material-symbols-outlined">search</span>
+                <input id="searchInput" oninput="filterFiles(this.value)" placeholder="Search database..." class="w-full pl-10 pr-4 py-2.5 bg-slate-900/50 border border-white/10 rounded-xl text-sm text-white focus:outline-none"/>
             </div>
-            <div id="recentGrid" class="flex flex-wrap gap-2"></div>
-        </div>
-
-        <!-- Suggested -->
-        <div id="suggestedSection" class="mb-8 hidden">
-            <h3 class="text-xs font-bold text-white/50 uppercase tracking-wider mb-3">Suggested For You</h3>
-            <div id="suggestedGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
-        </div>
-
-        <!-- Folders -->
-        <div id="folderSection" class="mb-8">
-            <h3 class="text-xs font-bold text-white/50 uppercase tracking-wider mb-3">Folders</h3>
-            <div id="folderGrid" class="flex flex-wrap gap-2">
-                <div class="text-white/40 text-sm italic">Loading folders...</div>
-            </div>
-        </div>
-
-        <!-- File List -->
-        <div id="fileListSection">
-            <div class="flex justify-between items-end mb-3 border-b border-white/10 pb-2">
-                <h3 class="text-xs font-bold text-white/50 uppercase tracking-wider">All Files</h3>
-                <div class="flex items-center gap-2">
-                    <select id="sortSelect" onchange="sortFiles(this.value)" class="text-xs text-white/70 bg-white/5 border border-white/10 rounded-lg px-2 py-1 outline-none cursor-pointer hover:bg-white/10 transition-all">
-                        <option value="newest" class="text-black">Newest</option>
-                        <option value="oldest" class="text-black">Oldest</option>
-                        <option value="name" class="text-black">Name</option>
-                    </select>
-                    <span id="fileCount" class="text-[10px] text-white/40 font-bold"></span>
-                </div>
-            </div>
-            <!-- Bulk bar -->
-            <div id="bulkBar" class="hidden mb-3 flex items-center gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                <span id="bulkCount" class="text-blue-400 text-xs font-bold flex-1">0 selected</span>
-                <button onclick="bulkDownloadZip()" class="text-xs flex items-center gap-1 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg transition-all font-bold">
-                    <span class="material-symbols-outlined text-sm">download</span> Download ZIP
-                </button>
-                <button onclick="clearSelection()" class="text-xs text-white/40 hover:text-white px-2 py-1.5 rounded-lg transition-all">
-                    <span class="material-symbols-outlined text-sm">close</span>
-                </button>
-            </div>
-            <div id="fileGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div class="col-span-full flex justify-center py-10">
-                    <div class="loading-spinner"></div>
-                </div>
-            </div>
-        </div>
-
-    </main>
-
-
-
-<script>
-    const _supabase = supabase.createClient(
-        'https://lvhecpvwpzmstciewziv.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI'
-    );
-    const ADMIN_EMAIL_ALLOWLIST = ['admin@example.com']; // Replace with your actual admin email(s)
-
-let allFiles = [];
-    let currentFolder = null;
-    let isOnline = navigator.onLine;
-    let currentUser = null;
-
-    // ─── AUTH CHECK ───────────────────────────────────────────────
-    async function checkAuth() {
-        const { data: { session } } = await _supabase.auth.getSession();
-
-            if (session) {
-            currentUser = session.user;
-
-            // Get role
-            let role = 'user';
-            try {
-                const { data: profile } = await _supabase
-                    .from('user_profiles')
-                    .select('role')
-                    .eq('id', session.user.id)
-                    .single();
-                if (profile?.role) role = profile.role;
-            } catch (e) {}
-
-            const isPrivileged = role === 'admin' || role === 'manager' || ADMIN_EMAIL_ALLOWLIST.includes(session.user.email || '');
-
-            // Auto-redirect admins/managers to manager page
-            if (isPrivileged) {
-                window.location.href = 'https://jonathan-acheampong042.github.io/Project-One/manager.html';
-                return;
-            }
-
-            currentUser = session.user;
-        } else {
-            currentUser = null;
-        }
-    }
-
-    // Listen for auth changes
-    _supabase.auth.onAuthStateChange((event, session) => {
-        checkAuth();
-    });
-
-    // ─── HELPERS ────────────────────────────────────────────────
-    function getFileIcon(fileName) {
-        const n = (fileName || '').toLowerCase();
-        if (n.endsWith('.pdf')) return 'picture_as_pdf';
-        if (n.endsWith('.pptx') || n.endsWith('.ppt')) return 'slideshow';
-        if (n.endsWith('.docx') || n.endsWith('.doc')) return 'description';
-        if (n.endsWith('.xlsx') || n.endsWith('.csv')) return 'table_chart';
-        if (n.endsWith('.zip') || n.endsWith('.rar')) return 'folder_zip';
-        if (n.endsWith('.jpg') || n.endsWith('.jpeg') || n.endsWith('.png')) return 'image';
-        return 'description';
-    }
-
-    function getFileColor(fileName) {
-        const n = (fileName || '').toLowerCase();
-        if (n.endsWith('.pdf')) return 'text-red-400 bg-red-500/10';
-        if (n.endsWith('.docx') || n.endsWith('.doc')) return 'text-blue-400 bg-blue-500/10';
-        if (n.endsWith('.pptx') || n.endsWith('.ppt')) return 'text-orange-400 bg-orange-500/10';
-        if (n.endsWith('.xlsx') || n.endsWith('.csv')) return 'text-green-400 bg-green-500/10';
-        if (n.endsWith('.jpg') || n.endsWith('.jpeg') || n.endsWith('.png')) return 'text-purple-400 bg-purple-500/10';
-        return 'text-white/60 bg-white/5';
-    }
-
-    function formatDate(str) {
-        if (!str) return '';
-        return new Date(str).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-    }
-
-    // ─── TOGGLE FOLDER SECTION ───────────────────────────────────
-    let folderSectionVisible = true;
-    function toggleFolderSection() {
-        const section = document.getElementById('folderSection');
-        folderSectionVisible = !folderSectionVisible;
-        if (folderSectionVisible) {
-            section.classList.remove('hidden');
-        } else {
-            section.classList.add('hidden');
-        }
-    }
-
-    // Sort files
-    let currentSort = 'newest';
-    function sortFiles(sortType) {
-        currentSort = sortType;
-        renderAll(allFiles);
-    }
-
-    function applyUserSort(files) {
-        switch (currentSort) {
-            case 'oldest':
-                return files.sort((a, b) => new Date(a.date) - new Date(b.date));
-            case 'name':
-                return files.sort((a, b) => a.name.localeCompare(b.name));
-            case 'newest':
-            default:
-                return files.sort((a, b) => new Date(b.date) - new Date(a.date));
-        }
-    }
-
-    // ─── FETCH: DB first, fall back to Storage ───────────────────
-    async function fetchFiles() {
-        const fileGrid = document.getElementById('fileGrid');
-
-        try {
-            // PRIMARY SOURCE: Database table
-            const { data: dbData, error: dbError } = await _supabase
-                .from('files_list')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (dbError) throw dbError;
-
-            if (dbData && dbData.length > 0) {
-                // Map DB rows into unified format
-                allFiles = dbData.map(row => ({
-                    id: row.id,
-                    name: row.file_name,
-                    folder: row.folder_name === 'Root' ? null : row.folder_name,
-                    url: row.download_url,
-                    date: new Date(row.created_at),
-                    description: row.description || '',
-                    expires_at: row.expires_at || null,
-                    download_count: row.download_count || 0,
-                    source: 'db'
-                }));
-            } else {
-                // FALLBACK: Storage bucket (for files uploaded before DB sync)
-                const { data: storageData, error: storageError } = await _supabase.storage
-                    .from('vault-files')
-                    .list('', { limit: 200, sortBy: { column: 'created_at', order: 'desc' }, recursive: true });
-
-                if (storageError) throw storageError;
-
-                const realFiles = (storageData || []).filter(f =>
-                    f.id !== null &&
-                    !f.name.endsWith('.emptyFolderPlaceholder') &&
-                    f.name !== 'uploads'
-                );
-
-                allFiles = realFiles.map(file => {
-                    const { data: urlData } = _supabase.storage.from('vault-files').getPublicUrl(file.name);
-                    const displayName = file.name.split('/').pop();
-                    const folderName = file.name.includes('/') ? file.name.split('/')[0] : null;
-                    return {
-                        name: displayName,
-                        folder: folderName,
-                        url: urlData.publicUrl,
-                        date: new Date(file.created_at),
-                        source: 'storage'
-                    };
-                });
-            }
-
-            if (allFiles.length === 0) {
-                fileGrid.innerHTML = `<div class="text-center py-10 text-white/40 col-span-full">No files available yet. Manager is yet to upload.</div>`;
-                document.getElementById('folderGrid').innerHTML = '';
-                return;
-            }
-
-            renderAll(allFiles);
-
-        } catch (err) {
-            console.error(err);
-            fileGrid.innerHTML = `<div class="text-center py-10 text-red-400 col-span-full">Error loading library: ${err.message}</div>`;
-        }
-    }
-
-    // ─── RENDER ALL ──────────────────────────────────────────────
-    function renderAll(files) {
-        // Apply sorting
-        files = applyUserSort([...files]);
-
-        // Suggested: Top 4 newest
-        const suggestedGrid = document.getElementById('suggestedGrid');
-        const suggested = files.slice(0, 4);
-        if (suggested.length > 0) {
-            document.getElementById('suggestedSection').classList.remove('hidden');
-            suggestedGrid.innerHTML = suggested.map(file => {
-                const icon = getFileIcon(file.name);
-                const [textColor, bgColor] = getFileColor(file.name).split(' ');
-                return `
-                <div class="suggested-card glass-card p-5 rounded-2xl flex flex-col justify-between h-44 relative overflow-hidden group cursor-pointer" onclick="window.open('${file.url}','_blank')">
-                    <div class="${bgColor} w-14 h-14 rounded-xl flex items-center justify-center mb-3 shrink-0">
-                        <span class="material-symbols-outlined ${textColor} text-3xl">${icon}</span>
+        </header>
+        <main class="flex-1 p-6 lg:p-10 max-w-7xl mx-auto w-full">
+            <h2 class="text-3xl font-extrabold text-white mb-6">Security Vault</h2>
+            <div class="grid gap-6 xl:grid-cols-[1.5fr_360px] mb-8">
+                <section id="recentSection" class="glass-card p-6 rounded-3xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <p class="text-sm text-slate-400 uppercase tracking-[0.2em]">Recent</p>
+                            <h3 class="text-xl font-semibold text-white">Recent uploads</h3>
+                        </div>
+                        <span class="material-symbols-outlined text-slate-500 text-4xl">history</span>
                     </div>
-                    <div class="z-10">
-                        <p class="font-bold text-white text-sm truncate mb-1" title="${file.name}">${file.name}</p>
-                        <p class="text-[10px] text-white/40 flex items-center gap-1 mb-1">
-                            <span class="material-symbols-outlined text-[10px]">folder</span> ${file.folder || 'Root'}
-                        </p>
-                        ${file.date ? `<p class="text-[10px] text-white/30 mb-2">${formatDate(file.date)}</p>` : ''}
-                        <a href="${file.url}" target="_blank" onclick="event.stopPropagation()" class="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
-                            <span class="material-symbols-outlined text-sm">download</span> Download
+                    <div id="recentList" class="space-y-3 text-slate-300">
+                        <div class="px-4 py-6 rounded-3xl bg-slate-950/50 border border-white/5 text-sm text-slate-400">No recent files yet.</div>
+                    </div>
+                </section>
+                <aside class="glass-card p-6 rounded-3xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <p class="text-sm text-slate-400 uppercase tracking-[0.2em]">Support</p>
+                            <h3 class="text-xl font-semibold text-white">Need help?</h3>
+                        </div>
+                        <span class="material-symbols-outlined text-slate-500 text-4xl">support_agent</span>
+                    </div>
+                    <p class="text-sm text-slate-300 leading-6">For account, download, or access issues, reach out directly through email, WhatsApp, or phone. We're here to help you locate files and resolve access quickly.</p>
+                    <div class="mt-6 space-y-3 text-sm text-slate-300">
+                        <a href="mailto:acheampongjonathan21@gmail.com" class="flex items-center gap-3 text-slate-300 hover:text-white transition">
+                            <span class="material-symbols-outlined text-primary">email</span>
+                            <span>acheampongjonathan21@gmail.com</span>
+                        </a>
+                        <a href="https://wa.me/0279944388" target="_blank" class="flex items-center gap-3 text-slate-300 hover:text-white transition">
+                            <span class="inline-flex w-6 h-6 items-center justify-center rounded-full bg-emerald-500 text-white">
+                                <svg viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.272-.099-.47-.149-.67.15-.198.297-.767.967-.94 1.166-.173.198-.347.223-.644.075-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.148-.173.198-.297.297-.495.099-.198.05-.372-.025-.521-.075-.149-.67-1.612-.916-2.213-.242-.581-.487-.502-.67-.512l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.262.489 1.693.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414-.074-.124-.272-.198-.57-.347z"/>
+                                    <path d="M12.004 2.003c-5.514 0-9.996 4.482-9.996 9.997 0 1.762.463 3.456 1.342 4.957L2 22l4.08-1.074a9.94 9.94 0 0 0 5.924 1.832c5.514 0 9.996-4.482 9.996-9.997s-4.482-9.996-9.996-9.996zm0 18.22a8.24 8.24 0 0 1-4.342-1.18l-.31-.188-2.422.637.646-2.36-.202-.386a8.255 8.255 0 0 1-1.266-4.617 8.27 8.27 0 0 1 8.254-8.253 8.27 8.27 0 0 1 8.253 8.253c0 4.549-3.703 8.253-8.253 8.253z" opacity=".3"/>
+                                </svg>
+                            </span>
+                            <span>0279944388 (WhatsApp)</span>
+                        </a>
+                        <a href="tel:+233544053398" class="flex items-center gap-3 text-slate-300 hover:text-white transition">
+                            <span class="material-symbols-outlined text-primary">call</span>
+                            <span>0544053398</span>
                         </a>
                     </div>
-                </div>`;
+                    <a href="mailto:acheampongjonathan21@gmail.com" class="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold">Contact Support</a>
+                </aside>
+            </div>
+            <div id="folderSection" class="flex gap-3 overflow-x-auto pb-4 mb-6 scrollbar-hide"></div>
+            <div class="flex justify-between items-center mb-4 pb-4 border-b">
+                <div class="flex items-center gap-4">
+                    <h3 class="text-lg font-bold text-white">Files</h3>
+                    <span id="fileCount" class="px-2.5 py-0.5 rounded-lg bg-white/5 text-[10px] text-slate-400 font-bold">0</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="viewGridBtn" onclick="setView('grid')" class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary/20 text-primary transition" title="Grid view">
+                        <span class="material-symbols-outlined">grid_view</span>
+                    </button>
+                    <button id="viewListBtn" onclick="setView('list')" class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-900/50 text-slate-300 transition" title="List view">
+                        <span class="material-symbols-outlined">view_list</span>
+                    </button>
+                </div>
+                <div class="relative">
+                    <select id="sortSelect" onchange="sortFiles(this.value)" class="custom-select bg-slate-900/50 border rounded-xl px-4 py-2 pr-10 text-xs text-slate-300 cursor-pointer">
+                        <option value="newest">Newest</option>
+                        <option value="oldest">Oldest</option>
+                        <option value="name">Name</option>
+                    </select>
+                    <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400 material-symbols-outlined">expand_more</span>
+                </div>
+            </div>
+            <div id="bulkBar" class="hidden mb-4 p-4 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-between">
+                <span id="bulkCount" class="text-primary font-bold text-sm">0 selected</span>
+                <button onclick="bulkDownloadZip()" class="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-xl text-xs font-bold">
+                    <span class="material-symbols-outlined text-sm">download</span> ZIP
+                </button>
+                <button onclick="clearSelection()" class="material-symbols-outlined text-slate-400 cursor-pointer">close</button>
+            </div>
+            <div id="fileGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div class="col-span-full text-center py-20 text-slate-500">Loading...</div>
+            </div>
+        </main>
+    </div>
+    <script>
+        const _supabase = supabase.createClient('https://lvhecpvwpzmstciewziv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI');
+        const ADMIN_EMAILS = ['admin@nharnharblay21@gmail.com'];
+        let allFiles = [], currentFolder = null, currentSort = 'newest', viewType = 'grid', currentSearchTerm = '', selectedFiles = new Set();
+        
+        function getFilteredFiles() {
+            let filtered = [...allFiles];
+            if (currentFolder) {
+                filtered = filtered.filter(file => file.folder === currentFolder);
+            }
+            if (currentSearchTerm) {
+                filtered = filtered.filter(file => file.name.toLowerCase().includes(currentSearchTerm));
+            }
+            return filtered;
+        }
+
+        function setView(type) {
+            viewType = type;
+            document.getElementById('viewGridBtn').classList.toggle('bg-primary/20', type === 'grid');
+            document.getElementById('viewGridBtn').classList.toggle('bg-slate-900/50', type !== 'grid');
+            document.getElementById('viewGridBtn').classList.toggle('text-primary', type === 'grid');
+            document.getElementById('viewGridBtn').classList.toggle('text-slate-300', type !== 'grid');
+            document.getElementById('viewListBtn').classList.toggle('bg-primary/20', type === 'list');
+            document.getElementById('viewListBtn').classList.toggle('bg-slate-900/50', type !== 'list');
+            document.getElementById('viewListBtn').classList.toggle('text-primary', type === 'list');
+            document.getElementById('viewListBtn').classList.toggle('text-slate-300', type !== 'list');
+            renderFileList(getFilteredFiles());
+        }
+
+        function renderRecent(files) {
+            const recentList = document.getElementById('recentList');
+            const recentFiles = [...files]
+                .filter(file => !file.expires_at || new Date(file.expires_at) > new Date())
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .slice(0, 4);
+            if (!recentFiles.length) {
+                recentList.innerHTML = '<div class="px-4 py-6 rounded-3xl bg-slate-950/50 border border-white/5 text-sm text-slate-400">No recent files yet.</div>';
+                return;
+            }
+            recentList.innerHTML = recentFiles.map(file => {
+                const safeUrl = file.url.replace(/'/g, "\\'");
+                return '<a href="' + file.url + '" target="_blank" class="block p-4 rounded-3xl bg-slate-950/60 border border-white/5 hover:border-primary/40 transition">' +
+                    '<div class="flex items-center justify-between gap-3">' +
+                        '<div class="min-w-0">' +
+                            '<p class="text-sm text-slate-300 font-semibold truncate">' + file.name + '</p>' +
+                            '<p class="text-[11px] text-slate-500 uppercase mt-1">' + (file.folder || 'ROOT') + '</p>' +
+                        '</div>' +
+                        '<span class="text-slate-400 text-xs">' + formatDate(file.date) + '</span>' +
+                    '</div>' +
+                '</a>';
             }).join('');
         }
 
-        // Folders
-        const folders = [...new Set(files.map(f => f.folder).filter(Boolean))].sort();
-        const folderGrid = document.getElementById('folderGrid');
-        if (folders.length > 0) {
-            let html = `
-                <div onclick="filterByFolder(null)" class="folder-item active glass-card px-4 py-2 rounded-xl cursor-pointer border border-white/10 hover:border-white/20 transition-all text-sm text-white/70 flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm">folder</span> All Files
-                </div>`;
+        async function checkAuth() {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (session && ADMIN_EMAILS.includes(session.user.email)) {
+                window.location.href = 'manager.html';
+            }
+        }
+        
+        function getFileIcon(name) {
+            name = (name || '').toLowerCase();
+            if (name.endsWith('.pdf')) return 'picture_as_pdf';
+            if (name.endsWith('.docx')) return 'description';
+            if (name.endsWith('.xlsx')) return 'table_chart';
+            if (name.endsWith('.pptx')) return 'slideshow';
+            if (name.endsWith('.jpg') || name.endsWith('.png')) return 'image';
+            if (name.endsWith('.zip')) return 'folder_zip';
+            return 'description';
+        }
+        
+        function getFileColor(name) {
+            name = (name || '').toLowerCase();
+            if (name.endsWith('.pdf')) return 'text-red-400 bg-red-400/10 border-red-400/20';
+            if (name.endsWith('.docx')) return 'text-blue-400 bg-blue-400/10 border-blue-400/20';
+            if (name.endsWith('.xlsx')) return 'text-green-400 bg-green-400/10 border-green-400/20';
+            if (name.endsWith('.pptx')) return 'text-orange-400 bg-orange-400/10 border-orange-400/20';
+            if (name.endsWith('.jpg') || name.endsWith('.png')) return 'text-purple-400 bg-purple-400/10 border-purple-400/20';
+            return 'text-primary bg-primary/10 border-primary/20';
+        }
+        
+        function formatDate(date) {
+            return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        }
+        
+        function sortFiles(type) {
+            currentSort = type;
+            renderAll(allFiles);
+        }
+        
+        function applySort(files) {
+            switch (currentSort) {
+                case 'oldest':
+                    return files.sort((a, b) => new Date(a.date) - new Date(b.date));
+                case 'name':
+                    return files.sort((a, b) => a.name.localeCompare(b.name));
+                default:
+                    return files.sort((a, b) => new Date(b.date) - new Date(a.date));
+            }
+        }
+        
+        async function fetchFiles() {
+            const fileGrid = document.getElementById('fileGrid');
+            try {
+                const { data: dbData, error: dbError } = await _supabase.from('files_list').select('*').order('created_at', { ascending: false });
+                if (dbError) throw dbError;
+
+                if (dbData && dbData.length > 0) {
+                    allFiles = dbData.map(row => ({
+                        id: row.id,
+                        name: row.file_name,
+                        folder: row.folder_name === 'Root' ? null : row.folder_name,
+                        url: row.download_url,
+                        date: row.created_at,
+                        expires_at: row.expires_at
+                    }));
+                } else {
+                    const { data: storageData } = await _supabase.storage.from('vault-files').list('', { limit: 200 });
+                    allFiles = (storageData || [])
+                        .filter(item => item.id && !item.name.endsWith('.emptyFolderPlaceholder'))
+                        .map(item => {
+                            const { data: pubUrl } = _supabase.storage.from('vault-files').getPublicUrl(item.name);
+                            return {
+                                name: item.name.split('/').pop(),
+                                folder: item.name.includes('/') ? item.name.split('/')[0] : null,
+                                url: pubUrl.publicUrl,
+                                date: item.created_at
+                            };
+                        });
+                }
+                renderAll(allFiles);
+            } catch (error) {
+                fileGrid.innerHTML = '<div class="col-span-full text-red-400">Error: ' + error.message + '</div>';
+            }
+        }
+        
+        function renderAll(files) {
+            files = applySort([...files]);
+            const folders = [...new Set(files.map(f => f.folder).filter(Boolean))].sort();
+            const folderSection = document.getElementById('folderSection');
+            let html = '<button onclick="filterByFolder(null,this)" class="folder-btn active glass-card px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 border-primary/40 bg-primary/20 text-primary whitespace-nowrap"><span class="material-symbols-outlined">apps</span>All</button>';
             folders.forEach(folder => {
-                const count = files.filter(f => f.folder === folder).length;
-                html += `
-                <div onclick="filterByFolder('${folder}')" class="folder-item glass-card px-4 py-2 rounded-xl cursor-pointer border border-white/10 hover:border-white/20 transition-all text-sm text-white/70 flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm">folder</span> ${folder}
-                    <span class="text-[10px] text-white/30 ml-1">${count}</span>
-                </div>`;
+                html += '<button onclick="filterByFolder(\'' + folder + '\',this)" class="folder-btn glass-card px-5 py-2.5 rounded-xl text-sm text-slate-400 whitespace-nowrap"><span class="material-symbols-outlined">folder</span>' + folder + '</button>';
             });
-            folderGrid.innerHTML = html;
-        } else {
-            folderGrid.innerHTML = '';
+            folderSection.innerHTML = html;
+            renderRecent(files);
+            renderFileList(getFilteredFiles());
         }
-
-        renderFileList(files);
-    }
-
-    // ─── RENDER FILE LIST ─────────────────────────────────────────
-    let selectedFiles = new Set();
-
-    function toggleFileSelect(url, name, checkbox) {
-        const key = url;
-        if (checkbox.checked) selectedFiles.add({ url, name });
-        else selectedFiles.delete([...selectedFiles].find(f => f.url === url));
-        updateBulkBar();
-    }
-
-    function updateBulkBar() {
-        const bar = document.getElementById('bulkBar');
-        const countEl = document.getElementById('bulkCount');
-        if (selectedFiles.size > 0) {
-            bar.classList.remove('hidden');
-            countEl.innerText = `${selectedFiles.size} file${selectedFiles.size !== 1 ? 's' : ''} selected`;
-        } else {
-            bar.classList.add('hidden');
+        
+        function renderFileList(files) {
+            document.getElementById('fileCount').innerText = files.length;
+            const now = new Date();
+            const fileGrid = document.getElementById('fileGrid');
+            fileGrid.className = viewType === 'list' ? 'space-y-4' : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6';
+            
+            if (!files.length) {
+                fileGrid.innerHTML = '<div class="col-span-full text-center py-20 text-slate-500">No files.</div>';
+                return;
+            }
+            
+            fileGrid.innerHTML = files.filter(file => {
+                if (file.expires_at && new Date(file.expires_at) <= now) return false;
+                return true;
+            }).map(file => {
+                const isSelected = [...selectedFiles].some(x => x.url === file.url);
+                const safeUrl = file.url.replace(/'/g, "\\'");
+                const safeName = file.name.replace(/'/g, "\\'");
+                const expText = file.expires_at ? '<span class="text-[9px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded ml-auto">Exp: ' + Math.ceil((new Date(file.expires_at) - now) / (1000*60*60*24)) + 'd</span>' : '';
+                
+                return '<div class="file-card glass-card p-4 rounded-2xl flex items-center gap-4 group">' +
+                    '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="toggleSelect(\'' + safeUrl + '\',\'' + safeName + '\',this)" class="w-4 h-4 rounded text-primary cursor-pointer">' +
+                    '<div class="' + getFileColor(file.name) + ' w-12 h-12 rounded-xl flex items-center justify-center border shrink-0"><span class="material-symbols-outlined text-2xl">' + getFileIcon(file.name) + '</span></div>' +
+                    '<div class="flex-1 min-w-0 overflow-hidden">' +
+                        '<p class="font-bold text-white truncate">' + file.name + '</p>' +
+                        '<div class="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-slate-500 uppercase">' +
+                            '<span class="truncate">' + (file.folder || 'ROOT') + '</span>' +
+                            '<span>•</span>' +
+                            '<span>' + formatDate(file.date) + '</span>' +
+                            expText +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="flex gap-1 opacity-40 group-hover:opacity-100"><a href="' + file.url + '" target="_blank" onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined">visibility</a><a href="' + file.url + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined">download</a></div></div>';
+            }).join('');
         }
-    }
-
-    function clearSelection() {
-        selectedFiles.clear();
-        document.querySelectorAll('.file-checkbox').forEach(cb => cb.checked = false);
-        updateBulkBar();
-    }
-
-    async function bulkDownloadZip() {
-        if (selectedFiles.size === 0) return;
-        const items = [...selectedFiles];
-        if (typeof JSZip !== 'undefined') {
+        
+        function toggleSelect(url, name, checkbox) {
+            if (checkbox.checked) {
+                selectedFiles.add({ url, name });
+            } else {
+                selectedFiles.delete([...selectedFiles].find(x => x.url === url));
+            }
+            updateBulk();
+        }
+        
+        function updateBulk() {
+            const bulkBar = document.getElementById('bulkBar');
+            if (selectedFiles.size > 0) {
+                bulkBar.classList.remove('hidden');
+                document.getElementById('bulkCount').innerText = selectedFiles.size + ' selected';
+            } else {
+                bulkBar.classList.add('hidden');
+            }
+        }
+        
+        function clearSelection() {
+            selectedFiles.clear();
+            document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => checkbox.checked = false);
+            updateBulk();
+        }
+        
+        async function bulkDownloadZip() {
+            const items = [...selectedFiles];
+            if (typeof JSZip === 'undefined') {
+                items.forEach(item => window.open(item.url, '_blank'));
+                return;
+            }
+            
             const zip = new JSZip();
             for (const { name, url } of items) {
                 try {
-                    const res = await fetch(url);
-                    const blob = await res.blob();
+                    const response = await fetch(url);
+                    const blob = await response.blob();
                     zip.file(name, blob);
-                } catch (e) { console.warn('Could not fetch', name); }
+                } catch (e) {}
             }
-            const content = await zip.generateAsync({ type: 'blob' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(content);
-            a.download = 'FileVault-Download.zip';
-            a.click();
-        } else {
-            items.forEach(({ url }) => window.open(url, '_blank'));
+            
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(zipBlob);
+            link.download = 'Vault_' + new Date().toISOString().slice(0, 10) + '.zip';
+            link.click();
         }
-    }
-
-    // ─── RECENT DOWNLOADS ─────────────────────────────────────────
-    function getRecentDownloads() {
-        try { return JSON.parse(localStorage.getItem('fv_recent') || '[]'); } catch { return []; }
-    }
-    function addRecentDownload(name, url) {
-        let recent = getRecentDownloads().filter(r => r.url !== url);
-        recent.unshift({ name, url, time: Date.now() });
-        recent = recent.slice(0, 10);
-        localStorage.setItem('fv_recent', JSON.stringify(recent));
-        renderRecentDownloads();
-    }
-    function clearRecentDownloads() {
-        localStorage.removeItem('fv_recent');
-        document.getElementById('recentSection').classList.add('hidden');
-    }
-    function renderRecentDownloads() {
-        const recent = getRecentDownloads();
-        const section = document.getElementById('recentSection');
-        const grid = document.getElementById('recentGrid');
-        if (recent.length === 0) { section.classList.add('hidden'); return; }
-        section.classList.remove('hidden');
-        grid.innerHTML = recent.map(r => `
-            <a href="${r.url}" target="_blank" onclick="addRecentDownload('${r.name.replace(/'/g,"\\'")}','${r.url}')"
-                class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-xl transition-all border border-white/5">
-                <span class="material-symbols-outlined text-sm">history</span>
-                <span class="truncate max-w-[120px]">${r.name}</span>
-            </a>`).join('');
-    }
-
-    async function trackDownload(fileId, fileName, url) {
-        addRecentDownload(fileName, url);
-        if (fileId) {
-            // Increment download_count in DB (gracefully ignore if column missing)
-            try {
-                await _supabase.rpc('increment_download_count', { file_id: fileId });
-            } catch (_) {}
-        }
-    }
-
-    function renderFileList(filesToRender) {
-        const fileGrid = document.getElementById('fileGrid');
-        document.getElementById('fileCount').innerText = `${filesToRender.length} file${filesToRender.length !== 1 ? 's' : ''}`;
-
-        if (filesToRender.length === 0) {
-            fileGrid.innerHTML = `<p class="text-center text-white/40 py-10 text-sm col-span-full">No files found.</p>`;
-            return;
-        }
-
-        const now = new Date();
-
-        fileGrid.innerHTML = filesToRender.map(file => {
-    const icon = getFileIcon(file.name);
-    const [textColor, bgColor] = getFileColor(file.name).split(' ');
-
-    // Expiry check
-    let expiryBadge = '';
-    if (file.expires_at) {
-        const expiresDate = new Date(file.expires_at);
-        const daysLeft = Math.ceil((expiresDate - now) / (1000 * 60 * 60 * 24));
-        const isExpired = daysLeft <= 0;
-        if (isExpired) return ''; // hide expired files from public view
-        expiryBadge = `<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold">${daysLeft}d left</span>`;
-    }
-
-    const safeUrl = file.url.replace(/'/g, "\\'");
-    const safeName = file.name.replace(/'/g, "\\'");
-
-    return `
-    <div class="file-item glass-card p-3 rounded-xl border border-white/5 hover:border-white/20 transition-all flex items-center gap-3">
-        <input type="checkbox" class="file-checkbox shrink-0 accent-blue-500 cursor-pointer" onchange="toggleFileSelect('${safeUrl}','${safeName}',this)">
-        <div class="${bgColor} w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-            <span class="material-symbols-outlined ${textColor} text-xl">${icon}</span>
-        </div>
-        <div class="min-w-0 flex-1">
-            <p class="font-semibold text-white/80 text-sm truncate" title="${file.name}">${file.name}</p>
-            <p class="text-[10px] text-white/30 mt-0.5">${file.folder || 'Root'} ${file.date ? '· ' + formatDate(file.date) : ''} ${expiryBadge}</p>
-            ${file.description ? `<p class="text-[10px] text-white/40 italic truncate mt-0.5">${file.description}</p>` : ''}
-        </div>
-        <div class="flex gap-1.5 shrink-0">
-            <a href="${file.url}" target="_blank" onclick="trackDownload('${file.id || ''}','${safeName}','${safeUrl}')"
-                class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-blue-500/20 text-white/50 hover:text-blue-400 text-xs transition-all">
-                <span class="material-symbols-outlined text-sm">visibility</span> View
-            </a>
-            <a href="${file.url}" download onclick="trackDownload('${file.id || ''}','${safeName}','${safeUrl}')"
-                class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-purple-500/20 text-white/50 hover:text-purple-400 text-xs transition-all">
-                <span class="material-symbols-outlined text-sm">download</span>
-            </a>
-        </div>
-    </div>`;
-}).filter(Boolean).join('');
-    }
-
-    // ─── FILTERS ──────────────────────────────────────────────────
-    function filterByFolder(folder) {
-        currentFolder = folder;
-        // Update active state on folder buttons
-        document.querySelectorAll('.folder-item').forEach(btn => btn.classList.remove('active'));
-        event && event.currentTarget && event.currentTarget.classList.add('active');
-
-        const filtered = folder === null ? allFiles : allFiles.filter(f => f.folder === folder);
-        renderFileList(filtered);
-    }
-
-    function filterFiles(searchTerm) {
-        const term = searchTerm.toLowerCase();
-        let filtered = allFiles.filter(f => f.name.toLowerCase().includes(term));
-        if (currentFolder) filtered = filtered.filter(f => f.folder === currentFolder);
-        renderFileList(filtered);
-    }
-
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-        // Ctrl/Cmd + F: Focus search
-        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-            e.preventDefault();
-            document.getElementById('searchInput').focus();
-        }
-        // Escape: Close folder section
-        if (e.key === 'Escape') {
-            if (folderSectionVisible) toggleFolderSection();
-        }
-    });
-
-    // ─── OFFLINE HANDLING ───────────────────────────────────────
-    function updateOnlineStatus() {
-        isOnline = navigator.onLine;
-        const header = document.querySelector('header');
-        if (!isOnline) {
-            header.classList.add('border-red-500/50');
-            const existingBadge = document.getElementById('offlineBadge');
-            if (!existingBadge) {
-                const badge = document.createElement('div');
-                badge.id = 'offlineBadge';
-                badge.className = 'absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold';
-                badge.innerText = 'Offline';
-                header.style.position = 'relative';
-                header.appendChild(badge);
+        
+        function filterByFolder(folder, button) {
+            currentFolder = folder;
+            document.querySelectorAll('.folder-btn').forEach(btn => {
+                btn.classList.remove('active', 'border-primary/40', 'bg-primary/20', 'text-primary', 'shadow-lg');
+            });
+            if (button) {
+                button.classList.add('active', 'border-primary/40', 'bg-primary/20', 'text-primary', 'shadow-lg');
             }
-        } else {
-            header.classList.remove('border-red-500/50');
-            const badge = document.getElementById('offlineBadge');
-            if (badge) badge.remove();
+            renderFileList(getFilteredFiles());
         }
-    }
-
-    // Listen for online/offline events
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
-
-    // Override fetch function to handle offline
-    const originalFetchFiles = window.fetchFiles;
-    window.fetchFiles = async function() {
-        if (!navigator.onLine) {
-            const fileGrid = document.getElementById('fileGrid');
-            fileGrid.innerHTML = `
-                <div class="col-span-full text-center py-10">
-                    <span class="material-symbols-outlined text-4xl text-white/30 mb-4 block">wifi_off</span>
-                    <p class="text-white/60 font-medium mb-2">You're offline</p>
-                    <p class="text-white/40 text-sm">Please check your internet connection and try again.</p>
-                    <button onclick="fetchFiles()" class="mt-4 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-sm transition-all">
-                        <span class="material-symbols-outlined text-sm mr-1">refresh</span> Retry
-                    </button>
-                </div>`;
-            document.getElementById('folderGrid').innerHTML = '';
-            return;
+        
+        function filterFiles(term) {
+            currentSearchTerm = term.toLowerCase();
+            renderFileList(getFilteredFiles());
         }
-        if (originalFetchFiles) await originalFetchFiles();
-    };
-
-// Initialize
-    (async () => {
-        updateOnlineStatus();
-        renderRecentDownloads();
-        await checkAuth();
-        fetchFiles();
-    })();
-</script>
+        
+        function track(id, name, url) {
+            if (id) {
+                _supabase.rpc('increment_download_count', { file_id: id }).catch(() => {});
+            }
+        }
+        
+        (async () => {
+            await checkAuth();
+            fetchFiles();
+        })();
+        
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                e.preventDefault();
+                document.getElementById('searchInput').focus();
+            }
+        });
+    </script>
     <script src="chat-widget.js"></script>
 </body>
 </html>
