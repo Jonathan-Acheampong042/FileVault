@@ -61,7 +61,7 @@
             </a>
         </div>
     </aside>
-    <div class="lg:ml-64 flex flex-col min-h-screen">
+    <div class="lg:ml-64 flex flex-col min-h-screen overflow-x-hidden">
         <header class="sticky top-0 z-50 w-full glass-card backdrop-blur-2xl border-b flex items-center px-4 sm:px-6 py-3 gap-3">
             <div class="flex-1 relative">
                 <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 material-symbols-outlined">search</span>
@@ -189,7 +189,15 @@
             renderFileList(getFilteredFiles());
         }
 
-        function renderRecent(files) {
+        function formatFileSize(bytes) {
+            if (!bytes) return null;
+            const units = ['B','KB','MB','GB'];
+            let i = 0, size = bytes;
+            while (size >= 1024 && i < units.length - 1) { size /= 1024; i++; }
+            return size.toFixed(1) + ' ' + units[i];
+        }
+
+                function renderRecent(files) {
             const recentList = document.getElementById('recentList');
             const recentFiles = [...files]
                 .filter(file => !file.expires_at || new Date(file.expires_at) > new Date())
@@ -202,14 +210,16 @@
             recentList.innerHTML = recentFiles.map(file => {
                 const safeUrl = file.url.replace(/'/g, "\\'");
                 const safeName = file.name.replace(/'/g, "\\'");
-                return '<a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer" onclick="track(\'' + (file.id || '') + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="block p-4 rounded-3xl bg-slate-950/60 border border-white/5 hover:border-primary/40 transition">' +
-                    '<div class="flex items-center justify-between gap-3">' +
-                        '<div class="min-w-0 flex-1">' +
+                const sizeStr = file.file_size ? formatFileSize(file.file_size) : null;
+                return '<a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer" onclick="track(\'' + (file.id || '') + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="block p-4 rounded-3xl bg-slate-950/60 border border-white/5 hover:border-primary/40 transition overflow-hidden">' +
+                    '<div class="flex items-start gap-3 min-w-0">' +
+                        '<div class="min-w-0 flex-1 overflow-hidden">' +
                             '<p class="text-sm text-slate-300 font-semibold truncate">' + file.name + '</p>' +
-                            '<p class="text-[11px] text-slate-500 uppercase mt-1">' + (file.folder || 'ROOT') + '</p>' +
+                            '<p class="text-[11px] text-slate-500 uppercase mt-1 truncate">' + (file.folder || 'ROOT') + (sizeStr ? ' · ' + sizeStr : '') + '</p>' +
+                            (file.description ? '<p class="text-[11px] text-slate-400 mt-1 italic line-clamp-1">' + file.description + '</p>' : '') +
                         '</div>' +
-                        '<div class="flex items-center gap-2 shrink-0">' +
-                            '<span class="text-slate-400 text-xs">' + formatDate(file.date) + '</span>' +
+                        '<div class="flex items-center gap-1.5 shrink-0 ml-2">' +
+                            '<span class="text-slate-500 text-[10px] whitespace-nowrap">' + formatDate(file.date) + '</span>' +
                             '<span class="material-symbols-outlined text-slate-500 text-base">open_in_new</span>' +
                         '</div>' +
                     '</div>' +
@@ -272,19 +282,16 @@
                 if (dbError) throw dbError;
 
                 if (dbData && dbData.length > 0) {
-                    allFiles = dbData.map(row => {
-                        const folder = row.folder_name && row.folder_name !== 'Root' ? row.folder_name : null;
-                        const storagePath = folder ? `${folder}/${row.file_name}` : row.file_name;
-                        const { data: urlData } = _supabase.storage.from('vault-files').getPublicUrl(storagePath);
-                        return {
-                            id: row.id,
-                            name: row.file_name,
-                            folder: folder,
-                            url: urlData.publicUrl,
-                            date: row.created_at,
-                            expires_at: row.expires_at
-                        };
-                    });
+                    allFiles = dbData.map(row => ({
+                        id: row.id,
+                        name: row.file_name,
+                        folder: row.folder_name && row.folder_name !== 'Root' ? row.folder_name : null,
+                        url: row.download_url,
+                        date: row.created_at,
+                        expires_at: row.expires_at,
+                        description: row.description || null,
+                        file_size: row.file_size || null
+                    }));
                 } else {
                     const { data: storageData } = await _supabase.storage.from('vault-files').list('', { limit: 200 });
                     allFiles = (storageData || [])
@@ -323,7 +330,7 @@
                 folderGrid.innerHTML = '<p class="col-span-full text-slate-500 text-sm italic">No folders yet.</p>';
             } else {
                 folderGrid.innerHTML = folders.map(folder => {
-                    const count = files.filter(f => f.folder === folder).length;
+                    const now2 = new Date(); const count = files.filter(f => f.folder === folder && (!f.expires_at || new Date(f.expires_at) > now2)).length;
                     return '<button onclick="filterByFolder(\'' + folder + '\',null)" class="folder-btn group flex items-center gap-3 p-3 rounded-2xl bg-white/3 border border-white/5 hover:border-primary/40 hover:bg-primary/5 transition-all text-left w-full">' +
                         '<span class="material-symbols-outlined text-primary text-xl shrink-0">folder</span>' +
                         '<div class="min-w-0 flex-1">' +
@@ -358,25 +365,27 @@
                 const safeName = file.name.replace(/'/g, "\\'");
                 const expText = file.expires_at ? '<span class="text-[9px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded ml-auto">Exp: ' + Math.ceil((new Date(file.expires_at) - now) / (1000*60*60*24)) + 'd</span>' : '';
                 
-                return '<div class="file-card glass-card p-4 rounded-2xl flex items-center gap-4 group">' +
-                    '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="toggleSelect(\'' + safeUrl + '\',\'' + safeName + '\',this)" class="w-4 h-4 rounded text-primary cursor-pointer">' +
+                const sizeLabel = file.file_size ? formatFileSize(file.file_size) : null;
+                return '<div class="file-card glass-card p-4 rounded-2xl flex items-center gap-4 group overflow-hidden">' +
+                    '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="toggleSelect(\'' + safeUrl + '\',\'' + safeName + '\',this,' + (file.file_size || 0) + ')" class="w-4 h-4 rounded text-primary cursor-pointer shrink-0">' +
                     '<div class="' + getFileColor(file.name) + ' w-12 h-12 rounded-xl flex items-center justify-center border shrink-0"><span class="material-symbols-outlined text-2xl">' + getFileIcon(file.name) + '</span></div>' +
                     '<div class="flex-1 min-w-0 overflow-hidden">' +
                         '<p class="font-bold text-white truncate">' + file.name + '</p>' +
-                        '<div class="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-slate-500 uppercase">' +
-                            '<span class="truncate">' + (file.folder || 'ROOT') + '</span>' +
-                            '<span>•</span>' +
-                            '<span>' + formatDate(file.date) + '</span>' +
+                        '<div class="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500 uppercase">' +
+                            '<span class="truncate max-w-[120px]">' + (file.folder || 'ROOT') + '</span>' +
+                            (sizeLabel ? '<span>·</span><span class="text-slate-400">' + sizeLabel + '</span>' : '') +
+                            '<span>·</span><span>' + formatDate(file.date) + '</span>' +
                             expText +
                         '</div>' +
+                        (file.description ? '<p class="mt-1 text-[11px] text-slate-400 italic truncate">' + file.description + '</p>' : '') +
                     '</div>' +
-                    '<div class="flex gap-1 opacity-40 group-hover:opacity-100"><a href="' + safeUrl + '" target="_blank" onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined">visibility</a><a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined">download</a></div></div>';
+                    '<div class="flex gap-1 opacity-40 group-hover:opacity-100 shrink-0"><a href="' + safeUrl + '" target="_blank" onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined">visibility</a><a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined">download</a></div></div>';
             }).join('');
         }
         
-        function toggleSelect(url, name, checkbox) {
+        function toggleSelect(url, name, checkbox, size) {
             if (checkbox.checked) {
-                selectedFiles.add({ url, name });
+                selectedFiles.add({ url, name, size: size || 0 });
             } else {
                 selectedFiles.delete([...selectedFiles].find(x => x.url === url));
             }
@@ -387,7 +396,9 @@
             const bulkBar = document.getElementById('bulkBar');
             if (selectedFiles.size > 0) {
                 bulkBar.classList.remove('hidden');
-                document.getElementById('bulkCount').innerText = selectedFiles.size + ' selected';
+                const totalBytes = [...selectedFiles].reduce((sum, f) => sum + (f.size || 0), 0);
+                const sizeStr = totalBytes > 0 ? ' · ' + formatFileSize(totalBytes) : '';
+                document.getElementById('bulkCount').innerText = selectedFiles.size + ' selected' + sizeStr;
             } else {
                 bulkBar.classList.add('hidden');
             }
