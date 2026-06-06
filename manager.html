@@ -429,38 +429,52 @@
 
         setStatus(`Renaming folder "${oldName}" to "${newName}"…`, 'blue');
         try {
-            // List all files inside old folder (recursive to catch subfolders)
+            // 1. List all files in old folder
             const { data: storageData, error: listErr } = await _supabase.storage
                 .from('vault-files').list(oldName, { limit: 500 });
-            if (listErr) throw listErr;
+            if (listErr) throw new Error('Could not list folder: ' + listErr.message);
 
             const realFiles = (storageData || []).filter(f => f.id && !f.name.endsWith('.emptyFolderPlaceholder'));
 
-            // Copy each file to new folder path, then delete old
+            // 2. Move each file: try copy, skip if dest already exists, then delete old
+            let moveErrors = [];
             for (const file of realFiles) {
                 const oldPath = `${oldName}/${file.name}`;
                 const newPath = `${newName}/${file.name}`;
+
+                // Delete destination first in case it exists (makes copy idempotent)
+                await _supabase.storage.from('vault-files').remove([newPath]);
+
                 const { error: copyErr } = await _supabase.storage.from('vault-files').copy(oldPath, newPath);
-                if (copyErr) throw copyErr;
+                if (copyErr) {
+                    moveErrors.push(file.name);
+                    console.error('Copy failed for', oldPath, copyErr.message);
+                    continue; // skip delete of old — don't lose the file
+                }
                 await _supabase.storage.from('vault-files').remove([oldPath]);
             }
 
-            // Update download_url for all moved files in DB
-            const { data: dbFiles } = await _supabase.from('files_list')
-                .select('id, file_name').eq('folder_name', oldName);
+            if (moveErrors.length > 0 && moveErrors.length === realFiles.length) {
+                // Every file failed — abort, nothing was moved
+                throw new Error(`All file moves failed. Check storage permissions. Files: ${moveErrors.join(', ')}`);
+            }
+
+            // 3. Update DB: set folder_name and new download_url for all files in old folder
+            const { data: dbFiles, error: dbListErr } = await _supabase
+                .from('files_list').select('id, file_name').eq('folder_name', oldName);
+            if (dbListErr) throw new Error('DB list failed: ' + dbListErr.message);
+
             for (const dbFile of (dbFiles || [])) {
                 const { data: urlData } = _supabase.storage.from('vault-files')
                     .getPublicUrl(`${newName}/${dbFile.file_name}`);
-                await _supabase.from('files_list')
+                const { error: updateErr } = await _supabase.from('files_list')
                     .update({ folder_name: newName, download_url: urlData.publicUrl })
                     .eq('id', dbFile.id);
+                if (updateErr) console.error('DB update failed for', dbFile.file_name, updateErr.message);
             }
 
-            // Update availableFolders in memory — do NOT call loadFolders() before this
-            // or the old name can reappear from the DB before cleanup completes
+            // 4. Update in-memory folder list and all dropdowns
             availableFolders = availableFolders.map(f => f === oldName ? newName : f).sort();
-
-            // Update folder select dropdowns
             const folderSelect = document.getElementById('folderSelect');
             folderSelect.innerHTML = '<option value="" class="text-black">No folder (root)</option>';
             availableFolders.forEach(f => {
@@ -470,7 +484,12 @@
             renderMainFolders();
             populateRequestFolderSelect();
             if (currentFolder === oldName) currentFolder = newName;
-            setStatus(`✓ Folder renamed to "${newName}".`, 'green');
+
+            if (moveErrors.length > 0) {
+                setStatus(`⚠ Renamed but ${moveErrors.length} file(s) could not be moved: ${moveErrors.join(', ')}`, 'yellow');
+            } else {
+                setStatus(`✓ Folder renamed to "${newName}".`, 'green');
+            }
             loadManagerFiles();
         } catch (err) {
             console.error('renameFolder error:', err);
@@ -1180,8 +1199,10 @@
             // Table might not exist yet - allow access for now
             console.warn('Could not check user role:', err.message);
         }
-        
-        // Auth confirmed — reveal the chat widget now
+
+        // Auth confirmed — reveal the chat widget now.
+        // This is OUTSIDE the try/catch so it always runs even if user_profiles
+        // table doesn't exist yet and the role check threw an error.
         if (typeof showChatWidget === 'function') showChatWidget();
 
         await loadFolders();
