@@ -39,6 +39,7 @@
         .custom-select::-ms-expand { display: none; }
         .upload-zone.dragover { border-color: #3b82f6 !important; background: rgba(59, 130, 246, 0.15) !important; transform: scale(1.02); }
     </style>
+    <script src="chat-widget.js" defer></script>
 </head>
 <body class="min-h-screen font-sans text-white relative overflow-x-hidden">
     <div class="bg-fixed-image"></div>
@@ -1142,7 +1143,12 @@
 // ─── AUTH ────────────────────────────────────────────────────
     async function checkAccess() {
         const { data: { session } } = await _supabase.auth.getSession();
-        if (!session) { window.location.href = 'https://jonathan-acheampong042.github.io/Project-One/login.html'; return; }
+        if (!session) {
+            const w = document.getElementById('aiChatWidget');
+            if (w) w.style.display = 'none';
+            window.location.href = 'https://jonathan-acheampong042.github.io/Project-One/login.html';
+            return;
+        }
         
         // Check user role from user_profiles table
         try {
@@ -1155,6 +1161,8 @@
             const isAdmin = profile?.role === 'admin' || profile?.role === 'manager' || ADMIN_EMAIL_ALLOWLIST.includes(session.user.email || '');
             if (!isAdmin) {
                 // Not privileged — redirect to user page
+                const w = document.getElementById('aiChatWidget');
+                if (w) w.style.display = 'none';
                 window.location.href = 'https://jonathan-acheampong042.github.io/Project-One/index.html';
                 return;
             }
@@ -1172,6 +1180,9 @@
             console.warn('Could not check user role:', err.message);
         }
         
+        // Auth confirmed — reveal the chat widget now
+        if (typeof showChatWidget === 'function') showChatWidget();
+
         await loadFolders();
         renderMainFolders();
         populateRequestFolderSelect();
@@ -1225,6 +1236,5 @@
     checkAccess();
     </script>
     <footer class="text-center text-white/20 text-xs py-6">Built by <span class="text-white/40 font-semibold">Jonathan Acheampong</span> · FileVault</footer>
-    <script src="chat-widget.js"></script>
 </body>
 </html>
