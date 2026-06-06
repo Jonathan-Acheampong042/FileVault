@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8"/>
-    <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>FileVault | Manager Portal</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -11,8 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0; overflow-x: hidden; }
-        * { box-sizing: border-box; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0; }
         .bg-fixed-image { position: fixed; inset: 0; background-image: url('screen.png'); background-size: cover; background-position: center; background-repeat: no-repeat; filter: saturate(0.72) brightness(0.5); z-index: -2; }
         .bg-overlay { position: fixed; inset: 0; background: radial-gradient(circle at top left, rgba(59,130,246,0.15), transparent 24%), radial-gradient(circle at bottom right, rgba(139,92,246,0.14), transparent 20%), linear-gradient(180deg, rgba(8, 12, 27, 0.88), rgba(4, 7, 18, 0.96)); z-index: -1; pointer-events: none; }
         @keyframes float { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 25% { transform: translate(30px, -30px) rotate(5deg); } 50% { transform: translate(0, -50px) rotate(0deg); } 75% { transform: translate(-30px, -30px) rotate(-5deg); } }
@@ -40,7 +39,6 @@
         .custom-select::-ms-expand { display: none; }
         .upload-zone.dragover { border-color: #3b82f6 !important; background: rgba(59, 130, 246, 0.15) !important; transform: scale(1.02); }
     </style>
-    <!-- chat-widget loaded at bottom of body -->
 </head>
 <body class="min-h-screen font-sans text-white relative overflow-x-hidden">
     <div class="bg-fixed-image"></div>
@@ -403,7 +401,7 @@
     function createNewFolder() {
         let folderName = prompt('Enter new folder name:');
         if (!folderName || !folderName.trim()) return;
-        folderName = folderName.trim().replace(/[^a-zA-Z0-9_ -]/g, '');
+        folderName = folderName.trim().replace(/[^a-zA-Z0-9_\- ]/g, '');
         if (!folderName) { alert('Invalid folder name.'); return; }
         if (availableFolders.includes(folderName)) {
             setStatus('Folder already exists!', 'yellow'); return;
@@ -423,49 +421,60 @@
         if (!oldName) return;
         const newNameInput = prompt('Rename folder:', oldName);
         if (!newNameInput || newNameInput.trim() === oldName) return;
-        const newName = newNameInput.trim().replace(/[^a-zA-Z0-9_ -]/g, '');
+        const newName = newNameInput.trim().replace(/[^a-zA-Z0-9_\- ]/g, '');
         if (!newName) { alert('Invalid folder name.'); return; }
         if (availableFolders.includes(newName)) { setStatus('Folder already exists!', 'yellow'); return; }
 
-        setStatus(`Renaming folder "${oldName}" to "${newName}"…`, 'blue');
+        setStatus(`Renaming "${oldName}" → "${newName}"…`, 'blue');
+        const marker = '/object/public/vault-files/';
+
         try {
-            const { data: storageData, error: listErr } = await _supabase.storage
-                .from('vault-files').list(oldName, { limit: 500 });
-            if (listErr) throw new Error('Could not list folder: ' + listErr.message);
+            // ── Step 1: Get all DB records for this folder ──
+            const { data: dbFiles, error: dbErr } = await _supabase
+                .from('files_list').select('id, file_name, download_url').eq('folder_name', oldName);
+            if (dbErr) throw new Error('DB read failed: ' + dbErr.message);
 
-            const realFiles = (storageData || []).filter(f => f.id && !f.name.endsWith('.emptyFolderPlaceholder'));
+            // ── Step 2: For each file, copy to new path using exact URL, delete old ──
+            for (const row of (dbFiles || [])) {
+                // Get exact old storage path from download_url
+                let oldStoragePath = `${oldName}/${row.file_name}`; // fallback
+                if (row.download_url) {
+                    const idx = row.download_url.indexOf(marker);
+                    if (idx !== -1) oldStoragePath = decodeURIComponent(row.download_url.substring(idx + marker.length));
+                }
+                const newStoragePath = `${newName}/${row.file_name}`;
 
-            for (const file of realFiles) {
-                const oldPath = `${oldName}/${file.name}`;
-                const newPath = `${newName}/${file.name}`;
-                // Delete destination first — Supabase copy silently fails if dest exists
-                await _supabase.storage.from('vault-files').remove([newPath]);
-                const { error: copyErr } = await _supabase.storage.from('vault-files').copy(oldPath, newPath);
-                if (copyErr) throw new Error(`Copy failed for "${file.name}": ${copyErr.message}`);
-                await _supabase.storage.from('vault-files').remove([oldPath]);
-            }
+                // Delete destination first so copy doesn't silently fail
+                await _supabase.storage.from('vault-files').remove([newStoragePath]);
 
-            // Update DB records
-            const { data: dbFiles, error: dbListErr } = await _supabase
-                .from('files_list').select('id, file_name').eq('folder_name', oldName);
-            if (dbListErr) throw new Error('DB list failed: ' + dbListErr.message);
+                const { error: copyErr } = await _supabase.storage.from('vault-files').copy(oldStoragePath, newStoragePath);
+                if (copyErr) throw new Error(`Copy failed for "${row.file_name}": ${copyErr.message}`);
 
-            for (const dbFile of (dbFiles || [])) {
-                const { data: urlData } = _supabase.storage.from('vault-files')
-                    .getPublicUrl(`${newName}/${dbFile.file_name}`);
-                const { error: updateErr } = await _supabase.from('files_list')
+                await _supabase.storage.from('vault-files').remove([oldStoragePath]);
+
+                // Update DB record: folder_name + download_url
+                const { data: urlData } = _supabase.storage.from('vault-files').getPublicUrl(newStoragePath);
+                await _supabase.from('files_list')
                     .update({ folder_name: newName, download_url: urlData.publicUrl })
-                    .eq('id', dbFile.id);
-                if (updateErr) throw new Error('DB update failed: ' + updateErr.message);
+                    .eq('id', row.id);
             }
 
+            // ── Step 3: Clean up any leftover storage items (placeholders etc.) ──
+            const { data: leftover } = await _supabase.storage
+                .from('vault-files').list(oldName, { limit: 500 });
+            if (leftover && leftover.length > 0) {
+                await _supabase.storage.from('vault-files')
+                    .remove(leftover.map(f => `${oldName}/${f.name}`));
+            }
+
+            // ── Step 4: Update local state — do NOT call loadFolders() because
+            //    storage still shows old folder briefly; drive from DB only ──
             availableFolders = availableFolders.map(f => f === oldName ? newName : f).sort();
             const folderSelect = document.getElementById('folderSelect');
             folderSelect.innerHTML = '<option value="" class="text-black">No folder (root)</option>';
             availableFolders.forEach(f => {
                 folderSelect.innerHTML += `<option value="${f}" class="text-black">${f}</option>`;
             });
-
             renderMainFolders();
             populateRequestFolderSelect();
             if (currentFolder === oldName) currentFolder = newName;
@@ -473,7 +482,7 @@
             loadManagerFiles();
         } catch (err) {
             console.error('renameFolder error:', err);
-            setStatus('Folder rename failed: ' + (err.message || 'unknown error'), 'red');
+            setStatus('Rename failed: ' + (err.message || 'unknown error'), 'red');
         }
     }
 
@@ -733,28 +742,52 @@
     async function renameFile(storagePath, dbId, oldName) {
         const newName = prompt('Rename file to:', oldName);
         if (!newName || newName.trim() === oldName) return;
-        const trimmed = newName.trim();
+        let trimmed = newName.trim();
+        // Preserve original extension if user didn't include one
+        const oldExt = oldName.includes('.') ? oldName.substring(oldName.lastIndexOf('.')) : '';
+        const newExt = trimmed.includes('.') ? trimmed.substring(trimmed.lastIndexOf('.')) : '';
+        if (oldExt && newExt.toLowerCase() !== oldExt.toLowerCase()) trimmed = trimmed + oldExt;
         setStatus('Renaming…', 'blue');
 
-        const folder = storagePath.includes('/') ? storagePath.split('/').slice(0, -1).join('/') : '';
-        const newPath = folder ? `${folder}/${trimmed}` : trimmed;
+        const marker = '/object/public/vault-files/';
+        const realId = (dbId && dbId !== 'null' && dbId !== null) ? dbId : null;
 
-        // Delete destination first — Supabase copy silently fails if dest exists
+        // ── Get exact old storage path from DB download_url ──
+        let exactOldPath = storagePath; // fallback
+        let folderPrefix = '';
+        if (realId) {
+            const { data: row } = await _supabase
+                .from('files_list').select('download_url, folder_name').eq('id', realId).single();
+            if (row?.download_url) {
+                const idx = row.download_url.indexOf(marker);
+                if (idx !== -1) exactOldPath = decodeURIComponent(row.download_url.substring(idx + marker.length));
+            }
+            if (row?.folder_name && row.folder_name !== 'Root') folderPrefix = row.folder_name;
+        }
+
+        const newPath = folderPrefix ? `${folderPrefix}/${trimmed}` : trimmed;
+
+        // Delete destination first so copy doesn't fail silently
         await _supabase.storage.from('vault-files').remove([newPath]);
 
-        const { error: copyErr } = await _supabase.storage.from('vault-files').copy(storagePath, newPath);
+        const { error: copyErr } = await _supabase.storage.from('vault-files').copy(exactOldPath, newPath);
         if (copyErr) { setStatus('Storage rename failed: ' + copyErr.message, 'red'); return; }
-        await _supabase.storage.from('vault-files').remove([storagePath]);
+        await _supabase.storage.from('vault-files').remove([exactOldPath]);
 
-        // Update DB — treat string 'null' same as real null
         const { data: urlData } = _supabase.storage.from('vault-files').getPublicUrl(newPath);
-        const realId = (dbId && dbId !== 'null') ? dbId : null;
-        const { error: dbErr } = realId
-            ? await _supabase.from('files_list').update({ file_name: trimmed, download_url: urlData.publicUrl }).eq('id', realId)
-            : await _supabase.from('files_list').update({ file_name: trimmed, download_url: urlData.publicUrl }).eq('file_name', oldName);
+        let dbError = null;
+        if (realId) {
+            const { error } = await _supabase.from('files_list')
+                .update({ file_name: trimmed, download_url: urlData.publicUrl }).eq('id', realId);
+            dbError = error;
+        } else {
+            const { error } = await _supabase.from('files_list')
+                .update({ file_name: trimmed, download_url: urlData.publicUrl }).eq('file_name', oldName);
+            dbError = error;
+        }
 
-        if (dbErr) {
-            setStatus('File moved in storage but DB update failed: ' + dbErr.message, 'yellow');
+        if (dbError) {
+            setStatus('Renamed in storage but DB update failed: ' + dbError.message, 'yellow');
         } else {
             setStatus(`✓ Renamed to "${trimmed}".`, 'green');
         }
@@ -765,24 +798,55 @@
         const targetFolder = prompt('Move to folder (leave blank for Root):', '');
         if (targetFolder === null) return;
         const target = targetFolder.trim();
-        const newPath = target ? `${target}/${fileName}` : fileName;
-        if (newPath === storagePath) return;
-
-        setStatus('Moving file…', 'blue');
-        const { error: copyErr } = await _supabase.storage.from('vault-files').copy(storagePath, newPath);
-        if (copyErr) { setStatus('Move failed: ' + copyErr.message, 'red'); return; }
-        await _supabase.storage.from('vault-files').remove([storagePath]);
-
-        const { data: urlData } = _supabase.storage.from('vault-files').getPublicUrl(newPath);
         const newFolder = target || 'Root';
-        if (dbId) {
-            await _supabase.from('files_list').update({ folder_name: newFolder, download_url: urlData.publicUrl }).eq('id', dbId);
-        } else {
-            await _supabase.from('files_list').update({ folder_name: newFolder, download_url: urlData.publicUrl }).eq('file_name', fileName);
+        const newPath = target ? `${target}/${fileName}` : fileName;
+
+        const marker = '/object/public/vault-files/';
+        const realId = (dbId && dbId !== 'null' && dbId !== null) ? dbId : null;
+
+        // ── Get exact old storage path from DB download_url ──
+        let exactOldPath = storagePath; // fallback
+        if (realId) {
+            const { data: row } = await _supabase
+                .from('files_list').select('download_url').eq('id', realId).single();
+            if (row?.download_url) {
+                const idx = row.download_url.indexOf(marker);
+                if (idx !== -1) exactOldPath = decodeURIComponent(row.download_url.substring(idx + marker.length));
+            }
         }
 
-        setStatus(`✓ Moved to "${newFolder}".`, 'green');
-        loadFolders();
+        if (newPath === exactOldPath) return;
+        setStatus('Moving file…', 'blue');
+
+        // Delete destination first
+        await _supabase.storage.from('vault-files').remove([newPath]);
+        const { error: copyErr } = await _supabase.storage.from('vault-files').copy(exactOldPath, newPath);
+        if (copyErr) { setStatus('Move failed: ' + copyErr.message, 'red'); return; }
+        await _supabase.storage.from('vault-files').remove([exactOldPath]);
+
+        const { data: urlData } = _supabase.storage.from('vault-files').getPublicUrl(newPath);
+        let dbError = null;
+        if (realId) {
+            const { error } = await _supabase.from('files_list')
+                .update({ folder_name: newFolder, download_url: urlData.publicUrl }).eq('id', realId);
+            dbError = error;
+        } else {
+            const { error } = await _supabase.from('files_list')
+                .update({ folder_name: newFolder, download_url: urlData.publicUrl }).eq('file_name', fileName);
+            dbError = error;
+        }
+
+        if (dbError) { setStatus('Moved in storage but DB update failed: ' + dbError.message, 'yellow'); }
+        else { setStatus(`✓ Moved to "${newFolder}".`, 'green'); }
+
+        // Reload folders from DB only — not storage (avoids ghost folder reappearing)
+        const { data: dbFolders } = await _supabase.from('files_list').select('folder_name');
+        const folders = new Set();
+        (dbFolders || []).forEach(r => { if (r.folder_name && r.folder_name !== 'Root') folders.add(r.folder_name); });
+        availableFolders = [...folders].sort();
+        const sel = document.getElementById('folderSelect');
+        sel.innerHTML = '<option value="" class="text-black">No folder (root)</option>';
+        availableFolders.forEach(f => { sel.innerHTML += `<option value="${f}" class="text-black">${f}</option>`; });
         renderMainFolders();
         populateRequestFolderSelect();
         loadManagerFiles();
@@ -946,10 +1010,9 @@
             const insertData = {
                 file_name: file.name,
                 download_url: urlData.publicUrl,
-                folder_name: folder || 'Root'
+                folder_name: folder || 'Root',
+                file_size: file.size || null
             };
-            // Only add file_size if it's available (requires the column to exist in Supabase)
-            if (file.size) insertData.file_size = file.size;
             if (description) insertData.description = description;
             if (!isNaN(expiryDays) && expiryDays > 0) {
                 const expiresAt = new Date();
@@ -1010,6 +1073,8 @@
     // ─── DELETE (synced) ────────────────────────────────────────
    async function deleteFile(storagePath, dbId) {
     const displayName = storagePath.split('/').pop();
+    console.log('storagePath:', storagePath);
+    console.log('displayName:', displayName);
     if (!confirm(`Delete "${displayName}"?`)) return;
 
     setStatus('Deleting...', 'blue');
@@ -1019,6 +1084,8 @@
     _supabase.from('files_list').delete().eq('file_name', displayName)
 ]);
 
+console.log('storageResult:', JSON.stringify(storageResult));
+console.log('dbResult:', JSON.stringify(dbResult));
 
     if (!storageResult.error && !dbResult.error) {
         setStatus('✓ Deleted successfully.', 'green');
@@ -1148,12 +1215,7 @@
 // ─── AUTH ────────────────────────────────────────────────────
     async function checkAccess() {
         const { data: { session } } = await _supabase.auth.getSession();
-        if (!session) {
-            const w = document.getElementById('aiChatWidget');
-            if (w) w.style.display = 'none';
-            window.location.href = 'https://jonathan-acheampong042.github.io/Project-One/login.html';
-            return;
-        }
+        if (!session) { window.location.href = 'https://jonathan-acheampong042.github.io/Project-One/login.html'; return; }
         
         // Check user role from user_profiles table
         try {
@@ -1166,8 +1228,6 @@
             const isAdmin = profile?.role === 'admin' || profile?.role === 'manager' || ADMIN_EMAIL_ALLOWLIST.includes(session.user.email || '');
             if (!isAdmin) {
                 // Not privileged — redirect to user page
-                const w = document.getElementById('aiChatWidget');
-                if (w) w.style.display = 'none';
                 window.location.href = 'https://jonathan-acheampong042.github.io/Project-One/index.html';
                 return;
             }
@@ -1185,9 +1245,6 @@
             console.warn('Could not check user role:', err.message);
         }
         
-        // Auth confirmed — reveal the chat widget now
-        if (typeof showChatWidget === 'function') showChatWidget();
-
         await loadFolders();
         renderMainFolders();
         populateRequestFolderSelect();
