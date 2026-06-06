@@ -12,11 +12,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0; overflow-x: hidden; }
-        *, *::before, *::after { box-sizing: border-box; }
-        @media (max-width: 767px) {
-            body, main, header, section, div { max-width: 100%; }
-            .glass-card { overflow: hidden; }
-        }
         * { box-sizing: border-box; }
         .bg-fixed-image { position: fixed; inset: 0; background-image: url('screen.png'); background-size: cover; background-position: center; background-repeat: no-repeat; filter: saturate(0.72) brightness(0.5); z-index: -2; }
         .bg-overlay { position: fixed; inset: 0; background: radial-gradient(circle at top left, rgba(59,130,246,0.15), transparent 24%), radial-gradient(circle at bottom right, rgba(139,92,246,0.14), transparent 20%), linear-gradient(180deg, rgba(8, 12, 27, 0.88), rgba(4, 7, 18, 0.96)); z-index: -1; pointer-events: none; }
@@ -52,7 +47,7 @@
     <div class="bg-overlay"></div>
 
     <header class="glass-card border-b border-white/10 p-4 sticky top-0 z-50">
-        <div class="max-w-4xl mx-auto w-full flex justify-between items-center">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div class="flex items-center gap-3">
                 <div class="site-logo">
                     <img src="filevault%20logo.png" alt="Open folders sidebar" />
@@ -86,7 +81,7 @@
                     <span class="material-symbols-outlined text-sm">create_new_folder</span> New Folder
                 </button>
             </div>
-            <div id="mainFolderGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div id="mainFolderGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 <p class="text-white/40 italic text-center py-8 col-span-full">Loading folders...</p>
             </div>
         </section>
@@ -149,7 +144,7 @@
                     Library Files
                     <span id="fileCountBadge" class="text-xs font-bold text-white/40 bg-white/5 px-2 py-0.5 rounded-full ml-1"></span>
                 </h3>
-                <div class="flex items-center gap-1 sm:gap-2 flex-wrap w-full sm:w-auto">
+                <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                     <div class="relative">
                         <select id="sortSelect" onchange="sortFiles(this.value)" class="custom-select text-xs text-white/70 bg-white/5 border border-white/10 rounded-lg px-3 py-2 pr-8 outline-none cursor-pointer hover:bg-white/10 transition-all">
                             <option value="newest" class="text-black">Newest First</option>
@@ -204,7 +199,7 @@
                 </button>
             </div>
 
-            <div id="managerFileGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div id="managerFileGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <p class="text-white/40 italic text-center py-4 col-span-full">Checking the vault...</p>
             </div>
         </section>
@@ -386,15 +381,18 @@
     // ─── FOLDERS ────────────────────────────────────────────────
     async function loadFolders() {
         try {
-            // Pull folder names from both DB and storage
-            const [{ data: dbData }, { data: storageData }] = await Promise.all([
-                _supabase.from('files_list').select('folder_name'),
-                _supabase.storage.from('vault-files').list('', { limit: 200, recursive: true })
-            ]);
+            // Use DB as the single source of truth for folder names.
+            // Storage paths are unreliable — old folder names linger in storage
+            // after rename until all files are moved, causing the old name to
+            // reappear on refresh.
+            const { data: dbData, error } = await _supabase
+                .from('files_list').select('folder_name');
+            if (error) throw error;
 
             const folders = new Set();
-            (dbData || []).forEach(r => { if (r.folder_name && r.folder_name !== 'Root') folders.add(r.folder_name); });
-            (storageData || []).forEach(f => { if (f.name.includes('/')) folders.add(f.name.split('/')[0]); });
+            (dbData || []).forEach(r => {
+                if (r.folder_name && r.folder_name !== 'Root') folders.add(r.folder_name);
+            });
 
             availableFolders = [...folders].sort();
             const select = document.getElementById('folderSelect');
@@ -464,6 +462,25 @@
                 if (updateErr) throw new Error('DB update failed: ' + updateErr.message);
             }
 
+            // Clean up any leftover items in old folder (placeholders etc.)
+            // so it doesn't reappear on next loadFolders() call
+            const { data: leftover } = await _supabase.storage
+                .from('vault-files').list(oldName, { limit: 100 });
+            if (leftover && leftover.length > 0) {
+                const leftovers = leftover.map(f => `${oldName}/${f.name}`);
+                await _supabase.storage.from('vault-files').remove(leftovers);
+            }
+
+            // Verify the DB update took effect
+            const { data: verify } = await _supabase
+                .from('files_list').select('folder_name').eq('folder_name', newName).limit(1);
+            if (!verify || verify.length === 0) {
+                // DB update may have failed silently — try a bulk update as fallback
+                await _supabase.from('files_list')
+                    .update({ folder_name: newName })
+                    .eq('folder_name', oldName);
+            }
+
             availableFolders = availableFolders.map(f => f === oldName ? newName : f).sort();
             const folderSelect = document.getElementById('folderSelect');
             folderSelect.innerHTML = '<option value="" class="text-black">No folder (root)</option>';
@@ -494,7 +511,7 @@
         document.getElementById('viewListBtn').classList.toggle('text-blue-400', type === 'list');
         document.getElementById('viewListBtn').classList.toggle('text-white/40', type !== 'list');
         const container = document.getElementById('managerFileGrid');
-        container.className = managerViewType === 'list' ? 'space-y-3' : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4';
+        container.className = managerViewType === 'list' ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
         loadManagerFiles();
     }
 
@@ -738,14 +755,7 @@
     async function renameFile(storagePath, dbId, oldName) {
         const newName = prompt('Rename file to:', oldName);
         if (!newName || newName.trim() === oldName) return;
-        let trimmed = newName.trim();
-
-        // Always preserve the original file extension
-        const oldExt = oldName.includes('.') ? oldName.substring(oldName.lastIndexOf('.')) : '';
-        const newExt = trimmed.includes('.') ? trimmed.substring(trimmed.lastIndexOf('.')) : '';
-        if (oldExt && newExt.toLowerCase() !== oldExt.toLowerCase()) {
-            trimmed = trimmed + oldExt;
-        }
+        const trimmed = newName.trim();
         setStatus('Renaming…', 'blue');
 
         const folder = storagePath.includes('/') ? storagePath.split('/').slice(0, -1).join('/') : '';
@@ -888,7 +898,7 @@
                     ${row.description ? `<p class="text-[10px] text-white/50 mt-1 italic line-clamp-2">${row.description}</p>` : ''}
                 </div>
             </div>
-            <div class="flex gap-1.5 flex-wrap overflow-x-auto">
+            <div class="flex gap-1.5 flex-wrap">
                 <a href="${row.download_url}" target="_blank" class="flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg bg-white/5 hover:bg-blue-500/20 text-white/60 hover:text-blue-400 text-xs font-bold transition-all">
                     <span class="material-symbols-outlined text-sm">visibility</span>
                 </a>
