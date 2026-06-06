@@ -268,6 +268,13 @@ function initChatWidget() {
 
     document.body.insertAdjacentHTML('beforeend', html);
 
+    // Restore chat open state after page load/auth redirect
+    if (sessionStorage.getItem('fvChatOpen') === '1') {
+        const _win = document.getElementById('chatWindow');
+        const _ico = document.getElementById('chatBtnIcon');
+        if (_win && _ico) { _win.style.display = 'flex'; _ico.textContent = 'close'; }
+    }
+
     // Inject animation styles
     if (!document.getElementById('chatWidgetStyles')) {
         const s = document.createElement('style');
@@ -289,6 +296,7 @@ function toggleChat() {
     const isOpen = win.style.display === 'flex';
     win.style.display = isOpen ? 'none' : 'flex';
     icon.textContent  = isOpen ? 'smart_toy' : 'close';
+    sessionStorage.setItem('fvChatOpen', isOpen ? '0' : '1');
     if (!isOpen) setTimeout(() => document.getElementById('chatInput')?.focus(), 120);
 }
 
