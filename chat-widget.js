@@ -403,4 +403,8 @@ async function sendChatMessage() {
     document.getElementById('chatInput')?.focus();
 }
 
-document.addEventListener('DOMContentLoaded', initChatWidget);
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initChatWidget);
+} else {
+    initChatWidget(); // DOM already ready — run immediately
+}
