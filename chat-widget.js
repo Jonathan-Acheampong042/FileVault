@@ -429,17 +429,6 @@ async function sendChatMessage() {
     btn.style.opacity = '1';
     document.getElementById('chatInput')?.focus();
 }
-
-function initAndMaybeHide() {
-    initChatWidget();
-    // On manager page, hide the widget immediately after mounting.
-    // manager.html will call showChatWidget() once auth is confirmed.
-    if (CURRENT_PAGE === 'manager') {
-        const widget = document.getElementById('aiChatWidget');
-        if (widget) widget.style.display = 'none';
-    }
-}
-
 // Exported so manager.html can call it after auth passes
 function showChatWidget() {
     const widget = document.getElementById('aiChatWidget');
