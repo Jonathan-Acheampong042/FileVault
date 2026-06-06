@@ -114,8 +114,8 @@
                     <p class="col-span-full text-slate-500 text-sm italic">No folders yet.</p>
                 </div>
             </section>
-            <div class="grid gap-4 sm:gap-6 xl:grid-cols-[1fr_320px] mb-6 sm:mb-8">
-                <section id="recentSection" class="glass-card p-4 sm:p-6 rounded-3xl">
+            <div class="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4 sm:gap-6 mb-6 sm:mb-8">
+                <section id="recentSection" class="glass-card p-4 sm:p-6 rounded-3xl overflow-hidden min-w-0">
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <p class="text-sm text-slate-400 uppercase tracking-[0.2em]">Recent</p>
@@ -127,7 +127,7 @@
                         <div class="px-4 py-6 rounded-3xl bg-slate-950/50 border border-white/5 text-sm text-slate-400">No recent files yet.</div>
                     </div>
                 </section>
-                <aside class="glass-card p-4 sm:p-6 rounded-3xl">
+                <aside class="glass-card p-4 sm:p-6 rounded-3xl overflow-hidden min-w-0">
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <p class="text-sm text-slate-400 uppercase tracking-[0.2em]">Support</p>
@@ -242,6 +242,12 @@
             document.body.style.overflow = 'hidden';
         }
 
+        function previewByIdx(idx) {
+            var f = _fileRegistry[idx];
+            if (!f) return;
+            openPreview(f.url, f.name, f.folder, f.file_size);
+        }
+
         function closePreview() {
             document.getElementById('previewModal').classList.remove('open');
             document.getElementById('previewBody').innerHTML = '<div style="color:#64748b;font-size:14px">Loading preview…</div>';
@@ -258,6 +264,7 @@
         const _supabase = supabase.createClient('https://lvhecpvwpzmstciewziv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI');
         const ADMIN_EMAILS = ['admin@nharnharblay21@gmail.com'];
         let allFiles = [], currentFolder = null, currentSort = 'newest', viewType = 'grid', currentSearchTerm = '', selectedFiles = new Set();
+        let _fileRegistry = []; // stores file objects for preview lookup
         
         function getFilteredFiles() {
             let filtered = [...allFiles];
@@ -476,10 +483,13 @@
                 return;
             }
             
+            _fileRegistry = files.filter(file => !(file.expires_at && new Date(file.expires_at) <= now));
+            var _ri = -1;
             fileGrid.innerHTML = files.filter(file => {
                 if (file.expires_at && new Date(file.expires_at) <= now) return false;
                 return true;
             }).map(file => {
+                _ri++;
                 const isSelected = [...selectedFiles].some(x => x.url === file.url);
                 const safeUrl = file.url.replace(/'/g, "\'");
                 const safeName = file.name.replace(/'/g, "\'");
@@ -498,8 +508,8 @@
                         '</div>' +
                         (file.description ? '<p class="mt-0.5 text-[11px] text-slate-400 italic truncate">' + file.description + '</p>' : '') +
                     '</div>' +
-                    '<div class="flex gap-0.5 opacity-60 group-hover:opacity-100 shrink-0">' +
-                    '<button onclick="openPreview(' + JSON.stringify(file.url) + ',' + JSON.stringify(file.name) + ',\'' + (file.folder||'').replace(/\'/g,\'\\\'\')+'\',' + (file.file_size||0) + ')" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview">visibility</button>' +
+                    '<div class="flex gap-0.5 opacity-100 shrink-0">' +
+                    '<button onclick="previewByIdx(' + _ri + ')" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview">visibility</button>' +
                     '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download">download</a>' +
                     '</div></div>';
             }).join('');
