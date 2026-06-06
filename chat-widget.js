@@ -209,9 +209,9 @@ let chatMessages = [];
 // ─── INIT ────────────────────────────────────────────────────
 function initChatWidget() {
     const html = `
-    <div id="aiChatWidget" style="position:fixed;bottom:24px;right:16px;z-index:9999;font-family:'Plus Jakarta Sans',sans-serif;max-width:calc(100vw - 32px);box-sizing:border-box;">
+    <div id="aiChatWidget" style="position:fixed;bottom:24px;right:24px;z-index:9999;font-family:'Plus Jakarta Sans',sans-serif">
         <!-- Chat Window -->
-        <div id="chatWindow" style="display:none;margin-bottom:16px;width:340px;max-width:calc(100vw - 32px);height:480px;max-height:calc(100vh - 120px);background:rgba(10,15,30,0.95);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.1);border-radius:20px;overflow:hidden;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.6);box-sizing:border-box;">
+        <div id="chatWindow" style="display:none;margin-bottom:16px;width:340px;height:480px;background:rgba(10,15,30,0.95);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.1);border-radius:20px;overflow:hidden;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.6)">
             <!-- Header -->
             <div style="padding:13px 16px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
                 <div style="display:flex;align-items:center;gap:10px">
@@ -277,32 +277,15 @@ function initChatWidget() {
             #chatMessages::-webkit-scrollbar { width: 4px; }
             #chatMessages::-webkit-scrollbar-track { background: transparent; }
             #chatMessages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
-
-            /* Give the widget its own GPU layer — stops Chrome mobile discarding it */
-            #aiChatWidget {
-                -webkit-transform: translateZ(0);
-                transform: translateZ(0);
-                will-change: transform;
-            }
-
-            /* Mobile: keep widget fully inside the viewport, never wider than the screen */
-            @media (max-width: 1023px) {
-                #aiChatWidget {
-                    right: 12px !important;
-                    bottom: max(16px, env(safe-area-inset-bottom, 16px)) !important;
-                    max-width: calc(100vw - 24px) !important;
-                }
+            /* Contain the widget — never let it push the page wider */
+            #aiChatWidget { box-sizing: border-box; }
+            #chatWindow { box-sizing: border-box; }
+            /* On mobile: shrink to fit inside the viewport */
+            @media (max-width: 600px) {
                 #chatWindow {
-                    width: calc(100vw - 24px) !important;
-                    max-width: calc(100vw - 24px) !important;
-                    max-height: calc(100vh - 100px) !important;
-                    height: min(480px, calc(100vh - 100px)) !important;
+                    width: calc(100vw - 32px);
+                    right: 0;
                 }
-            }
-
-            /* User page only: lift above the 64px fixed mobile bottom nav */
-            body.has-bottom-nav #aiChatWidget {
-                bottom: max(80px, calc(64px + env(safe-area-inset-bottom, 8px))) !important;
             }
         `;
         document.head.appendChild(s);
@@ -429,6 +412,17 @@ async function sendChatMessage() {
     btn.style.opacity = '1';
     document.getElementById('chatInput')?.focus();
 }
+
+function initAndMaybeHide() {
+    initChatWidget();
+    // On manager page, hide the widget immediately after mounting.
+    // manager.html will call showChatWidget() once auth is confirmed.
+    if (CURRENT_PAGE === 'manager') {
+        const widget = document.getElementById('aiChatWidget');
+        if (widget) widget.style.display = 'none';
+    }
+}
+
 // Exported so manager.html can call it after auth passes
 function showChatWidget() {
     const widget = document.getElementById('aiChatWidget');
