@@ -381,18 +381,15 @@
     // ─── FOLDERS ────────────────────────────────────────────────
     async function loadFolders() {
         try {
-            // Use DB as the single source of truth for folder names.
-            // Storage paths are unreliable — old folder names linger in storage
-            // after rename until all files are moved, causing the old name to
-            // reappear on refresh.
-            const { data: dbData, error } = await _supabase
-                .from('files_list').select('folder_name');
-            if (error) throw error;
+            // Pull folder names from both DB and storage
+            const [{ data: dbData }, { data: storageData }] = await Promise.all([
+                _supabase.from('files_list').select('folder_name'),
+                _supabase.storage.from('vault-files').list('', { limit: 200, recursive: true })
+            ]);
 
             const folders = new Set();
-            (dbData || []).forEach(r => {
-                if (r.folder_name && r.folder_name !== 'Root') folders.add(r.folder_name);
-            });
+            (dbData || []).forEach(r => { if (r.folder_name && r.folder_name !== 'Root') folders.add(r.folder_name); });
+            (storageData || []).forEach(f => { if (f.name.includes('/')) folders.add(f.name.split('/')[0]); });
 
             availableFolders = [...folders].sort();
             const select = document.getElementById('folderSelect');
@@ -406,7 +403,7 @@
     function createNewFolder() {
         let folderName = prompt('Enter new folder name:');
         if (!folderName || !folderName.trim()) return;
-        folderName = folderName.trim().replace(/[^a-zA-Z0-9_\- ]/g, '');
+        folderName = folderName.trim().replace(/[^a-zA-Z0-9_ -]/g, '');
         if (!folderName) { alert('Invalid folder name.'); return; }
         if (availableFolders.includes(folderName)) {
             setStatus('Folder already exists!', 'yellow'); return;
@@ -426,7 +423,7 @@
         if (!oldName) return;
         const newNameInput = prompt('Rename folder:', oldName);
         if (!newNameInput || newNameInput.trim() === oldName) return;
-        const newName = newNameInput.trim().replace(/[^a-zA-Z0-9_\- ]/g, '');
+        const newName = newNameInput.trim().replace(/[^a-zA-Z0-9_ -]/g, '');
         if (!newName) { alert('Invalid folder name.'); return; }
         if (availableFolders.includes(newName)) { setStatus('Folder already exists!', 'yellow'); return; }
 
@@ -460,25 +457,6 @@
                     .update({ folder_name: newName, download_url: urlData.publicUrl })
                     .eq('id', dbFile.id);
                 if (updateErr) throw new Error('DB update failed: ' + updateErr.message);
-            }
-
-            // Clean up any leftover items in old folder (placeholders etc.)
-            // so it doesn't reappear on next loadFolders() call
-            const { data: leftover } = await _supabase.storage
-                .from('vault-files').list(oldName, { limit: 100 });
-            if (leftover && leftover.length > 0) {
-                const leftovers = leftover.map(f => `${oldName}/${f.name}`);
-                await _supabase.storage.from('vault-files').remove(leftovers);
-            }
-
-            // Verify the DB update took effect
-            const { data: verify } = await _supabase
-                .from('files_list').select('folder_name').eq('folder_name', newName).limit(1);
-            if (!verify || verify.length === 0) {
-                // DB update may have failed silently — try a bulk update as fallback
-                await _supabase.from('files_list')
-                    .update({ folder_name: newName })
-                    .eq('folder_name', oldName);
             }
 
             availableFolders = availableFolders.map(f => f === oldName ? newName : f).sort();
