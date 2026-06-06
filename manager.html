@@ -322,6 +322,7 @@
         }
         let html = '';
         availableFolders.forEach(folder => {
+            const count = allFiles.filter(f => (f.folder_name || 'Root') === folder).length;
             html += `
             <div class="folder-item glass-card p-4 rounded-xl border border-white/10 hover:border-blue-500/40 cursor-pointer group transition-all">
                 <div class="flex items-start justify-between mb-3">
@@ -336,7 +337,7 @@
                     </div>
                 </div>
                 <p class="text-white/80 text-sm font-semibold truncate" onclick="filterByFolder('${folder}')">${folder}</p>
-                <p class="text-white/40 text-xs mt-2">Click to view files</p>
+                <p class="text-white/40 text-xs mt-1">${count} file${count !== 1 ? 's' : ''} · click to filter</p>
             </div>`;
         });
         container.innerHTML = html;
@@ -892,7 +893,8 @@
             const insertData = {
                 file_name: file.name,
                 download_url: urlData.publicUrl,
-                folder_name: folder || 'Root'
+                folder_name: folder || 'Root',
+                file_size: file.size || null
             };
             if (description) insertData.description = description;
             if (!isNaN(expiryDays) && expiryDays > 0) {

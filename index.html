@@ -70,6 +70,17 @@
         </header>
         <main class="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full">
             <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4 sm:mb-6">FileVault</h2>
+
+            <!-- Folders Section — always visible, hidden only when truly empty -->
+            <section id="foldersSection" class="mb-6 glass-card p-4 sm:p-5 rounded-3xl">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="material-symbols-outlined text-primary text-xl">folder</span>
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wide">Folders</h3>
+                </div>
+                <div id="folderGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
+                    <p class="col-span-full text-slate-500 text-sm italic">No folders yet.</p>
+                </div>
+            </section>
             <div class="grid gap-4 sm:gap-6 xl:grid-cols-[1.5fr_360px] mb-6 sm:mb-8">
                 <section id="recentSection" class="glass-card p-4 sm:p-6 rounded-3xl">
                     <div class="flex items-center justify-between mb-4">
@@ -297,12 +308,32 @@
         function renderAll(files) {
             files = applySort([...files]);
             const folders = [...new Set(files.map(f => f.folder).filter(Boolean))].sort();
+
+            // ── Folder filter pills ──
             const folderSection = document.getElementById('folderSection');
-            let html = '<button onclick="filterByFolder(null,this)" class="folder-btn active glass-card px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 border-primary/40 bg-primary/20 text-primary whitespace-nowrap"><span class="material-symbols-outlined">apps</span>All</button>';
+            let pillHtml = '<button onclick="filterByFolder(null,this)" class="folder-btn active glass-card px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 border-primary/40 bg-primary/20 text-primary whitespace-nowrap"><span class="material-symbols-outlined">apps</span>All</button>';
             folders.forEach(folder => {
-                html += '<button onclick="filterByFolder(\'' + folder + '\',this)" class="folder-btn glass-card px-5 py-2.5 rounded-xl text-sm text-slate-400 whitespace-nowrap"><span class="material-symbols-outlined">folder</span>' + folder + '</button>';
+                pillHtml += '<button onclick="filterByFolder(\'' + folder + '\',this)" class="folder-btn glass-card px-5 py-2.5 rounded-xl text-sm text-slate-400 whitespace-nowrap"><span class="material-symbols-outlined">folder</span>' + folder + '</button>';
             });
-            folderSection.innerHTML = html;
+            folderSection.innerHTML = pillHtml;
+
+            // ── Folder grid cards — always visible ──
+            const folderGrid = document.getElementById('folderGrid');
+            if (folders.length === 0) {
+                folderGrid.innerHTML = '<p class="col-span-full text-slate-500 text-sm italic">No folders yet.</p>';
+            } else {
+                folderGrid.innerHTML = folders.map(folder => {
+                    const count = files.filter(f => f.folder === folder).length;
+                    return '<button onclick="filterByFolder(\'' + folder + '\',null)" class="folder-btn group flex items-center gap-3 p-3 rounded-2xl bg-white/3 border border-white/5 hover:border-primary/40 hover:bg-primary/5 transition-all text-left w-full">' +
+                        '<span class="material-symbols-outlined text-primary text-xl shrink-0">folder</span>' +
+                        '<div class="min-w-0 flex-1">' +
+                            '<p class="text-sm font-semibold text-white truncate">' + folder + '</p>' +
+                            '<p class="text-[11px] text-slate-500 mt-0.5">' + count + ' file' + (count !== 1 ? 's' : '') + '</p>' +
+                        '</div>' +
+                    '</button>';
+                }).join('');
+            }
+
             renderRecent(files);
             renderFileList(getFilteredFiles());
         }
