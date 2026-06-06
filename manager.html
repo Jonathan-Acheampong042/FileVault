@@ -913,9 +913,10 @@
             const insertData = {
                 file_name: file.name,
                 download_url: urlData.publicUrl,
-                folder_name: folder || 'Root',
-                file_size: file.size || null
+                folder_name: folder || 'Root'
             };
+            // Only add file_size if it's available (requires the column to exist in Supabase)
+            if (file.size) insertData.file_size = file.size;
             if (description) insertData.description = description;
             if (!isNaN(expiryDays) && expiryDays > 0) {
                 const expiresAt = new Date();

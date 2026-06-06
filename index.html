@@ -50,10 +50,13 @@
                 <p class="text-[10px] text-primary/80 uppercase font-extrabold">Access to Lecture Materials</p>
             </div>
         </div>
-        <nav class="flex-1 px-4 space-y-1.5">
+        <nav class="flex-1 px-4 space-y-1 overflow-y-auto">
             <a class="active-nav nav-item flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm" href="#">
                 <span class="material-symbols-outlined">folder_shared</span> My Vault
             </a>
+            <div id="sidebarFolderList" class="mt-1 space-y-0.5 pl-2">
+                <!-- Folder links injected here by renderAll -->
+            </div>
         </nav>
         <div class="px-4 mt-auto pt-8 border-t border-white/5">
             <a class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-red-400/80 text-sm" href="login.html">
@@ -81,7 +84,7 @@
                     <p class="col-span-full text-slate-500 text-sm italic">No folders yet.</p>
                 </div>
             </section>
-            <div class="grid gap-4 sm:gap-6 xl:grid-cols-[1.5fr_360px] mb-6 sm:mb-8">
+            <div class="grid gap-4 sm:gap-6 xl:grid-cols-[1fr_320px] mb-6 sm:mb-8">
                 <section id="recentSection" class="glass-card p-4 sm:p-6 rounded-3xl">
                     <div class="flex items-center justify-between mb-4">
                         <div>
@@ -208,20 +211,18 @@
                 return;
             }
             recentList.innerHTML = recentFiles.map(file => {
-                const safeUrl = file.url.replace(/'/g, "\\'");
-                const safeName = file.name.replace(/'/g, "\\'");
-                const sizeStr = file.file_size ? formatFileSize(file.file_size) : null;
-                return '<a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer" onclick="track(\'' + (file.id || '') + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="block p-4 rounded-3xl bg-slate-950/60 border border-white/5 hover:border-primary/40 transition overflow-hidden">' +
-                    '<div class="flex items-start gap-3 min-w-0">' +
+                const safeUrl = file.url.replace(/'/g, "\'");
+                const safeName = file.name.replace(/'/g, "\'");
+                const sizeStr2 = file.file_size ? ' · ' + formatFileSize(file.file_size) : '';
+                const descStr = file.description ? '<p class="text-[10px] text-slate-400 italic mt-0.5 line-clamp-1">' + file.description + '</p>' : '';
+                return '<a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer" onclick="track(\'' + (file.id || '') + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="block p-3 rounded-2xl bg-slate-950/60 border border-white/5 hover:border-primary/40 transition overflow-hidden w-full">' +
+                    '<div class="flex items-start gap-2 w-full min-w-0">' +
                         '<div class="min-w-0 flex-1 overflow-hidden">' +
-                            '<p class="text-sm text-slate-300 font-semibold truncate">' + file.name + '</p>' +
-                            '<p class="text-[11px] text-slate-500 uppercase mt-1 truncate">' + (file.folder || 'ROOT') + (sizeStr ? ' · ' + sizeStr : '') + '</p>' +
-                            (file.description ? '<p class="text-[11px] text-slate-400 mt-1 italic line-clamp-1">' + file.description + '</p>' : '') +
+                            '<p class="text-sm text-slate-300 font-semibold truncate leading-snug">' + file.name + '</p>' +
+                            '<p class="text-[10px] text-slate-500 uppercase mt-0.5 truncate">' + (file.folder || 'ROOT') + sizeStr2 + '</p>' +
+                            descStr +
                         '</div>' +
-                        '<div class="flex items-center gap-1.5 shrink-0 ml-2">' +
-                            '<span class="text-slate-500 text-[10px] whitespace-nowrap">' + formatDate(file.date) + '</span>' +
-                            '<span class="material-symbols-outlined text-slate-500 text-base">open_in_new</span>' +
-                        '</div>' +
+                        '<span class="material-symbols-outlined text-slate-500 text-base shrink-0 mt-0.5">open_in_new</span>' +
                     '</div>' +
                 '</a>';
             }).join('');
@@ -341,6 +342,22 @@
                 }).join('');
             }
 
+            // ── Sidebar folder list (desktop) ──
+            const sidebarFolderList = document.getElementById('sidebarFolderList');
+            if (sidebarFolderList) {
+                if (folders.length === 0) {
+                    sidebarFolderList.innerHTML = '';
+                } else {
+                    sidebarFolderList.innerHTML = folders.map(folder => {
+                        const isActive = currentFolder === folder;
+                        return '<button onclick="filterByFolder(\'' + folder + '\',this)" class="folder-btn w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-all' + (isActive ? ' text-primary bg-primary/10' : '') + '">' +
+                            '<span class="material-symbols-outlined text-sm shrink-0">folder</span>' +
+                            '<span class="truncate">' + folder + '</span>' +
+                        '</button>';
+                    }).join('');
+                }
+            }
+
             renderRecent(files);
             renderFileList(getFilteredFiles());
         }
@@ -361,25 +378,24 @@
                 return true;
             }).map(file => {
                 const isSelected = [...selectedFiles].some(x => x.url === file.url);
-                const safeUrl = file.url.replace(/'/g, "\\'");
-                const safeName = file.name.replace(/'/g, "\\'");
+                const safeUrl = file.url.replace(/'/g, "\'");
+                const safeName = file.name.replace(/'/g, "\'");
                 const expText = file.expires_at ? '<span class="text-[9px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded ml-auto">Exp: ' + Math.ceil((new Date(file.expires_at) - now) / (1000*60*60*24)) + 'd</span>' : '';
-                
                 const sizeLabel = file.file_size ? formatFileSize(file.file_size) : null;
-                return '<div class="file-card glass-card p-4 rounded-2xl flex items-center gap-4 group overflow-hidden">' +
-                    '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="toggleSelect(\'' + safeUrl + '\',\'' + safeName + '\',this,' + (file.file_size || 0) + ')" class="w-4 h-4 rounded text-primary cursor-pointer shrink-0">' +
-                    '<div class="' + getFileColor(file.name) + ' w-12 h-12 rounded-xl flex items-center justify-center border shrink-0"><span class="material-symbols-outlined text-2xl">' + getFileIcon(file.name) + '</span></div>' +
+                return '<div class="file-card glass-card p-4 rounded-2xl flex items-center gap-3 group overflow-hidden">' +
+                    '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="toggleSelect(\'' + safeUrl + '\',\'' + safeName + '\',this,' + (file.file_size||0) + ')" class="w-4 h-4 rounded text-primary cursor-pointer shrink-0">' +
+                    '<div class="' + getFileColor(file.name) + ' w-10 h-10 rounded-xl flex items-center justify-center border shrink-0"><span class="material-symbols-outlined text-xl">' + getFileIcon(file.name) + '</span></div>' +
                     '<div class="flex-1 min-w-0 overflow-hidden">' +
-                        '<p class="font-bold text-white truncate">' + file.name + '</p>' +
-                        '<div class="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500 uppercase">' +
-                            '<span class="truncate max-w-[120px]">' + (file.folder || 'ROOT') + '</span>' +
-                            (sizeLabel ? '<span>·</span><span class="text-slate-400">' + sizeLabel + '</span>' : '') +
+                        '<p class="font-semibold text-white truncate text-sm leading-snug">' + file.name + '</p>' +
+                        '<div class="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-slate-500">' +
+                            '<span class="uppercase truncate max-w-[100px]">' + (file.folder || 'ROOT') + '</span>' +
+                            (sizeLabel ? '<span>·</span><span class="text-slate-400 font-medium">' + sizeLabel + '</span>' : '') +
                             '<span>·</span><span>' + formatDate(file.date) + '</span>' +
                             expText +
                         '</div>' +
-                        (file.description ? '<p class="mt-1 text-[11px] text-slate-400 italic truncate">' + file.description + '</p>' : '') +
+                        (file.description ? '<p class="mt-0.5 text-[11px] text-slate-400 italic truncate">' + file.description + '</p>' : '') +
                     '</div>' +
-                    '<div class="flex gap-1 opacity-40 group-hover:opacity-100 shrink-0"><a href="' + safeUrl + '" target="_blank" onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined">visibility</a><a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined">download</a></div></div>';
+                    '<div class="flex gap-0.5 opacity-40 group-hover:opacity-100 shrink-0"><a href="' + safeUrl + '" target="_blank" onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl">visibility</a><a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl">download</a></div></div>';
             }).join('');
         }
         
