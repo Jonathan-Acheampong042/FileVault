@@ -2,7 +2,7 @@
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/>
-    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
     <link rel="icon" href="filevault%20logo.png">
     <title>FileVault | User Library</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -35,6 +35,16 @@
         .folder-btn.active { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
         .site-logo { width: 40px; height: 40px; border-radius: 1rem; overflow: hidden; }
         .site-logo img { width: 100%; height: 100%; object-fit: contain; }
+        /* Mobile layout fixes */
+        @media (max-width: 1023px) {
+            .lg\:ml-64 { margin-left: 0 !important; }
+            body { -webkit-text-size-adjust: 100%; }
+        }
+        /* Prevent horizontal overflow on small screens */
+        * { box-sizing: border-box; }
+        .file-card { word-break: break-word; }
+        /* Bottom nav safe area */
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 8px); }
     </style>
 </head>
 <body class="overflow-x-hidden">
@@ -294,18 +304,29 @@
                         file_size: row.file_size || null
                     }));
                 } else {
-                    const { data: storageData } = await _supabase.storage.from('vault-files').list('', { limit: 200 });
-                    allFiles = (storageData || [])
-                        .filter(item => item.id && !item.name.endsWith('.emptyFolderPlaceholder'))
-                        .map(item => {
-                            const { data: pubUrl } = _supabase.storage.from('vault-files').getPublicUrl(item.name);
-                            return {
-                                name: item.name.split('/').pop(),
-                                folder: item.name.includes('/') ? item.name.split('/')[0] : null,
-                                url: pubUrl.publicUrl,
-                                date: item.created_at
-                            };
-                        });
+                    // List root-level items first
+                    const { data: rootItems } = await _supabase.storage.from('vault-files').list('', { limit: 200 });
+                    const allStorageFiles = [];
+                    for (const item of (rootItems || [])) {
+                        if (!item.id) {
+                            // It's a folder — list its contents
+                            const { data: subItems } = await _supabase.storage.from('vault-files').list(item.name, { limit: 200 });
+                            (subItems || [])
+                                .filter(sub => sub.id && !sub.name.endsWith('.emptyFolderPlaceholder'))
+                                .forEach(sub => allStorageFiles.push({ ...sub, _folder: item.name, _path: item.name + '/' + sub.name }));
+                        } else if (!item.name.endsWith('.emptyFolderPlaceholder')) {
+                            allStorageFiles.push({ ...item, _folder: null, _path: item.name });
+                        }
+                    }
+                    allFiles = allStorageFiles.map(item => {
+                        const { data: pubUrl } = _supabase.storage.from('vault-files').getPublicUrl(item._path);
+                        return {
+                            name: item.name,
+                            folder: item._folder,
+                            url: pubUrl.publicUrl,
+                            date: item.created_at
+                        };
+                    });
                 }
                 renderAll(allFiles);
             } catch (error) {
@@ -395,7 +416,7 @@
                         '</div>' +
                         (file.description ? '<p class="mt-0.5 text-[11px] text-slate-400 italic truncate">' + file.description + '</p>' : '') +
                     '</div>' +
-                    '<div class="flex gap-0.5 opacity-40 group-hover:opacity-100 shrink-0"><a href="' + safeUrl + '" target="_blank" onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl">visibility</a><a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl">download</a></div></div>';
+                    '<div class="flex gap-0.5 opacity-60 group-hover:opacity-100 shrink-0"><a href="' + safeUrl + '" target="_blank" onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl">visibility</a><a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl">download</a></div></div>';
             }).join('');
         }
         

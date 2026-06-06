@@ -977,8 +977,6 @@
     // ─── DELETE (synced) ────────────────────────────────────────
    async function deleteFile(storagePath, dbId) {
     const displayName = storagePath.split('/').pop();
-    console.log('storagePath:', storagePath);
-    console.log('displayName:', displayName);
     if (!confirm(`Delete "${displayName}"?`)) return;
 
     setStatus('Deleting...', 'blue');
@@ -988,8 +986,6 @@
     _supabase.from('files_list').delete().eq('file_name', displayName)
 ]);
 
-console.log('storageResult:', JSON.stringify(storageResult));
-console.log('dbResult:', JSON.stringify(dbResult));
 
     if (!storageResult.error && !dbResult.error) {
         setStatus('✓ Deleted successfully.', 'green');
