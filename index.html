@@ -74,14 +74,14 @@
             </a>
         </div>
     </aside>
-    <div class="lg:ml-64 flex flex-col min-h-screen overflow-x-hidden">
+    <div class="lg:ml-64 flex flex-col min-h-screen overflow-x-hidden w-full max-w-full">
         <header class="sticky top-0 z-50 w-full glass-card backdrop-blur-2xl border-b flex items-center px-4 sm:px-6 py-3 gap-3">
             <div class="flex-1 relative">
                 <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 material-symbols-outlined">search</span>
                 <input id="searchInput" oninput="filterFiles(this.value)" placeholder="Search database..." class="w-full pl-10 pr-4 py-2.5 bg-slate-900/50 border border-white/10 rounded-xl text-sm text-white focus:outline-none"/>
             </div>
         </header>
-        <main class="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full">
+        <main class="flex-1 p-3 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full overflow-x-hidden">
             <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4 sm:mb-6">FileVault</h2>
 
             <!-- Folders Section — always visible, hidden only when truly empty -->
@@ -94,8 +94,8 @@
                     <p class="col-span-full text-slate-500 text-sm italic">No folders yet.</p>
                 </div>
             </section>
-            <div class="grid gap-4 sm:gap-6 xl:grid-cols-[1fr_320px] mb-6 sm:mb-8">
-                <section id="recentSection" class="glass-card p-4 sm:p-6 rounded-3xl">
+            <div class="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4 sm:gap-6 mb-6 sm:mb-8">
+                <section id="recentSection" class="glass-card p-4 sm:p-6 rounded-3xl overflow-hidden min-w-0">
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <p class="text-sm text-slate-400 uppercase tracking-[0.2em]">Recent</p>
@@ -107,7 +107,7 @@
                         <div class="px-4 py-6 rounded-3xl bg-slate-950/50 border border-white/5 text-sm text-slate-400">No recent files yet.</div>
                     </div>
                 </section>
-                <aside class="glass-card p-4 sm:p-6 rounded-3xl">
+                <aside class="glass-card p-4 sm:p-6 rounded-3xl overflow-hidden min-w-0">
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <p class="text-sm text-slate-400 uppercase tracking-[0.2em]">Support</p>
