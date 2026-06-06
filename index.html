@@ -499,7 +499,7 @@
                         (file.description ? '<p class="mt-0.5 text-[11px] text-slate-400 italic truncate">' + file.description + '</p>' : '') +
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-60 group-hover:opacity-100 shrink-0">' +
-                    '<button onclick="openPreview(' + JSON.stringify(safeUrl) + ',' + JSON.stringify(safeName) + ',\'' + (file.folder||'') + '\',' + (file.file_size||0) + ')" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview">visibility</button>' +
+                    '<button onclick="openPreview(' + JSON.stringify(file.url) + ',' + JSON.stringify(file.name) + ',\'' + (file.folder||'').replace(/\'/g,\'\\\'\')+'\',' + (file.file_size||0) + ')" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview">visibility</button>' +
                     '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download">download</a>' +
                     '</div></div>';
             }).join('');
@@ -520,7 +520,7 @@
                 bulkBar.classList.remove('hidden');
                 const totalBytes = [...selectedFiles].reduce((sum, f) => sum + (f.size || 0), 0);
                 const sizeStr = totalBytes > 0 ? ' · ' + formatFileSize(totalBytes) : '';
-                document.getElementById('bulkCount').innerText = selectedFiles.size + ' selected' + sizeStr;
+                document.getElementById('bulkCount').innerText = selectedFiles.size + ' file' + (selectedFiles.size !== 1 ? 's' : '') + ' selected' + sizeStr;
             } else {
                 bulkBar.classList.add('hidden');
             }
@@ -602,12 +602,12 @@
                 <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1">
                     <span id="previewIcon" class="material-symbols-outlined text-primary" style="font-size:28px;flex-shrink:0">description</span>
                     <div style="min-width:0">
-                        <p id="previewName" style="color:white;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></p>
+                        <p id="previewName" style="color:white;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px"></p>
                         <p id="previewMeta" style="color:#94a3b8;font-size:11px;margin-top:2px"></p>
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-                    <a id="previewDownload" href="#" download style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(59,130,246,0.2);color:#93c5fd;border-radius:12px;font-size:12px;font-weight:700;text-decoration:none;transition:background 0.2s">
+                    <a id="previewDownload" href="#" download style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(59,130,246,0.2);color:#93c5fd;border-radius:12px;font-size:12px;font-weight:700;text-decoration:none">
                         <span class="material-symbols-outlined" style="font-size:16px">download</span>Download
                     </a>
                     <button onclick="closePreview()" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:none;border-radius:10px;cursor:pointer;color:#94a3b8">
