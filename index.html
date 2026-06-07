@@ -683,12 +683,11 @@
         }
         
         // Sidebar "My Vault" — show all files, clear folder filter
+        // ── Clear all folder highlights (pills + sidebar) ──
         function _clearAllFolderHighlights() {
-            // Clear pills row
             document.querySelectorAll('#folderSection .folder-btn').forEach(btn => {
                 btn.classList.remove('active', 'border-primary/40', 'bg-primary/20', 'text-primary', 'shadow-lg');
             });
-            // Clear sidebar folder buttons — remove every highlight class
             document.querySelectorAll('#sidebarFolderList .folder-btn').forEach(btn => {
                 btn.classList.remove('active', 'text-primary', 'bg-primary/10', 'border-primary/40', 'bg-primary/20', 'shadow-lg');
             });
@@ -697,7 +696,6 @@
         function sidebarFilterAll(el) {
             currentFolder = null;
             _clearAllFolderHighlights();
-            // Restore My Vault as active
             document.getElementById('sidebarMyVault').classList.add('active-nav');
             // Highlight the "All" pill
             const allPill = document.querySelector('#folderSection .folder-btn');
@@ -716,22 +714,28 @@
                 // Remove active-nav from My Vault
                 document.getElementById('sidebarMyVault').classList.remove('active-nav');
 
-                // Highlight the matching sidebar folder button by name
+                // Highlight the matching sidebar button by folder name + scroll it into view
                 document.querySelectorAll('#sidebarFolderList .folder-btn').forEach(btn => {
-                    if (btn.querySelector('span.truncate') && btn.querySelector('span.truncate').textContent.trim() === folder) {
+                    const label = btn.querySelector('span.truncate');
+                    if (label && label.textContent.trim() === folder) {
                         btn.classList.add('active', 'text-primary', 'bg-primary/10');
+                        // Scroll sidebar so the active folder is visible
+                        btn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     }
                 });
 
-                // Highlight the matching pill button by name
+                // Highlight the matching pill in the pills row + scroll it into view
                 document.querySelectorAll('#folderSection .folder-btn').forEach(btn => {
-                    if (btn.textContent.trim() === folder) {
+                    // pill text is icon + folder name; check innerText contains folder
+                    if (btn.innerText && btn.innerText.trim().includes(folder)) {
                         btn.classList.add('active', 'border-primary/40', 'bg-primary/20', 'text-primary', 'shadow-lg');
+                        btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                     }
                 });
 
-                // Also highlight whichever button was directly clicked (grid card or pill)
+                // Also highlight the directly clicked button if it isn't already matched above
                 if (button) button.classList.add('active', 'border-primary/40', 'bg-primary/20', 'text-primary', 'shadow-lg');
+
             } else {
                 // Clicking "All" — restore My Vault and All pill
                 document.getElementById('sidebarMyVault').classList.add('active-nav');
@@ -739,7 +743,7 @@
                 if (allPill) allPill.classList.add('active', 'border-primary/40', 'bg-primary/20', 'text-primary');
             }
 
-            // Update folder label badge
+            // Update the folder label badge above file grid
             const folderLabel = document.getElementById('activeFolderLabel');
             if (folderLabel) {
                 if (folder) {
@@ -751,7 +755,7 @@
             }
 
             renderFileList(getFilteredFiles());
-            // Scroll down to the file grid automatically on all screen sizes
+            // Scroll the main content down to the file grid on all screen sizes
             setTimeout(function() {
                 var target = document.getElementById('fileGridSection');
                 if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
