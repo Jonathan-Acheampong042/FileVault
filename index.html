@@ -81,7 +81,7 @@
             </div>
         </div>
         <nav class="flex-1 px-4 space-y-1 overflow-y-auto">
-            <a class="active-nav nav-item flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm" href="#">
+            <a id="sidebarMyVault" onclick="sidebarFilterAll(this)" class="active-nav nav-item flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm cursor-pointer">
                 <span class="material-symbols-outlined">folder_shared</span> My Vault
             </a>
             <div id="sidebarFolderList" class="mt-1 space-y-0.5 pl-2">
@@ -468,7 +468,7 @@
                 } else {
                     sidebarFolderList.innerHTML = folders.map(folder => {
                         const isActive = currentFolder === folder;
-                        return '<button onclick="filterByFolder(\'' + folder + '\',this)" class="folder-btn w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-all' + (isActive ? ' text-primary bg-primary/10' : '') + '">' +
+                        return '<button onclick="filterByFolder(\'' + folder + '\',this)" class="folder-btn w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-all' + (isActive ? ' text-primary bg-primary/10 active' : '') + '">' +
                             '<span class="material-symbols-outlined text-sm shrink-0">folder</span>' +
                             '<span class="truncate">' + folder + '</span>' +
                         '</button>';
@@ -599,6 +599,23 @@
             showToast('Downloaded ' + (items.length - _failed) + ' file' + ((items.length - _failed) !== 1 ? 's' : '') + ' as ZIP' + (_failed ? ' (' + _failed + ' failed)' : '') + '.', _failed ? 'warning' : 'success');
         }
         
+        // Sidebar "My Vault" — show all files, clear folder filter
+        function sidebarFilterAll(el) {
+            currentFolder = null;
+            // Highlight My Vault, deactivate all folder buttons
+            document.querySelectorAll('.folder-btn').forEach(btn => {
+                btn.classList.remove('active', 'text-primary', 'bg-primary/10');
+            });
+            document.getElementById('sidebarMyVault').classList.add('active-nav');
+            // Also reset the pills row to "All"
+            document.querySelectorAll('#folderSection .folder-btn').forEach(btn => {
+                btn.classList.remove('active', 'border-primary/40', 'bg-primary/20', 'text-primary', 'shadow-lg');
+            });
+            const allPill = document.querySelector('#folderSection .folder-btn');
+            if (allPill) allPill.classList.add('active', 'border-primary/40', 'bg-primary/20', 'text-primary');
+            renderFileList(getFilteredFiles());
+        }
+
         function filterByFolder(folder, button) {
             currentFolder = folder;
             document.querySelectorAll('.folder-btn').forEach(btn => {
@@ -606,6 +623,16 @@
             });
             if (button) {
                 button.classList.add('active', 'border-primary/40', 'bg-primary/20', 'text-primary', 'shadow-lg');
+            }
+            // If filtering to a specific folder, remove active-nav from My Vault
+            // so the sidebar reflects the current selection correctly
+            const myVault = document.getElementById('sidebarMyVault');
+            if (myVault) {
+                if (folder) {
+                    myVault.classList.remove('active-nav');
+                } else {
+                    myVault.classList.add('active-nav');
+                }
             }
             renderFileList(getFilteredFiles());
         }
