@@ -3,7 +3,7 @@
 
 const CHAT_API_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:3000/api/chat'
-    : 'https://project-one-187u.onrender.com/api/chat';
+    : 'https://filevault.works/api/chat';
 
 // ─── PAGE DETECTION ──────────────────────────────────────────
 function detectPage() {

@@ -8,16 +8,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Jonathan-Acheampong042/Project-One.git"
+    "url": "git+https://filevault.works"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/Jonathan-Acheampong042/Project-One/issues"
+    "url": "https://filevault.works"
   },
-  "homepage": "https://github.com/Jonathan-Acheampong042/Project-One#readme",
+  "homepage": "https://filevault.works",
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
