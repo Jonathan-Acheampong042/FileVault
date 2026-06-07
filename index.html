@@ -723,13 +723,11 @@
                 }
             }
             renderFileList(getFilteredFiles());
-            // On mobile, scroll down to the file grid automatically
-            if (window.innerWidth < 1024) {
-                setTimeout(function() {
-                    var target = document.getElementById('fileGridSection');
-                    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 80);
-            }
+            // Scroll down to the file grid automatically on all screen sizes
+            setTimeout(function() {
+                var target = document.getElementById('fileGridSection');
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 80);
         }
         
         function filterFiles(term) {
