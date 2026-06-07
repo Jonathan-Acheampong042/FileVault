@@ -4,6 +4,12 @@
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
     <link rel="icon" href="filevault%20logo.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#020617">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FileVault">
+    <link rel="apple-touch-icon" href="filevault%20logo.png">
     <title>FileVault | User Library</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -133,6 +139,14 @@
         .sc-row:last-child { border-bottom:none; }
         .sc-key { display:inline-flex;align-items:center;gap:4px; }
         kbd { background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:2px 7px;font-size:11px;font-family:monospace;color:#e2e8f0; }
+
+        /* ── Announcement banner ── */
+        #announcementBanner { display:none; }
+        #announcementBanner.visible { display:flex; align-items:flex-start; gap:12px; margin:0 0 20px; padding:14px 18px; background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(139,92,246,0.10)); border:1px solid rgba(59,130,246,0.25); border-radius:16px; animation:fadeIn 0.4s ease; }
+
+        /* ── PWA install button ── */
+        #pwaInstallBtn { display:none; }
+        #pwaInstallBtn.visible { display:flex; }
     </style>
 </head>
 <body class="overflow-x-hidden">
@@ -178,9 +192,22 @@
             <button id="dateFilterBtn" onclick="toggleDateRange()" title="Filter by date" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
                 <span class="material-symbols-outlined" style="font-size:18px">date_range</span>
             </button>
+            <button id="pwaInstallBtn" onclick="installPWA()" title="Install FileVault app" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition items-center justify-center">
+                <span class="material-symbols-outlined text-lg">install_mobile</span>
+            </button>
             <button onclick="openShortcuts()" title="Keyboard shortcuts" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center font-bold text-sm">?</button>
         </header>
         <main class="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full">
+            <!-- Announcement Banner (populated from Supabase) -->
+            <div id="announcementBanner">
+                <span class="material-symbols-outlined text-primary shrink-0" style="font-size:22px;margin-top:1px">campaign</span>
+                <div style="flex:1;min-width:0">
+                    <p id="announcementText" style="color:rgba(255,255,255,0.9);font-size:14px;font-weight:600;line-height:1.5;margin:0"></p>
+                    <p id="announcementMeta" style="color:rgba(255,255,255,0.35);font-size:10px;margin-top:4px"></p>
+                </div>
+                <button onclick="dismissAnnouncement()" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.3);font-size:20px;line-height:1;padding:0;flex-shrink:0" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.3)'">×</button>
+            </div>
+
             <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4 sm:mb-6">FileVault</h2>
 
             <!-- Folders Section — always visible, hidden only when truly empty -->
@@ -1226,6 +1253,7 @@
         (async () => {
             await checkAuth();
             fetchFiles();
+        loadAnnouncement();
         })();
         
         function _restoreInitialFolder() {
@@ -1262,6 +1290,57 @@
             if (!btn) return;
             btn.classList.toggle('visible', window.scrollY > 400);
         }, { passive: true });
+
+        // ── ANNOUNCEMENT BANNER ─────────────────────────────────
+        const ANNOUNCE_KEY = 'fvDismissedAnnouncement';
+
+        async function loadAnnouncement() {
+            try {
+                const { data } = await _supabase
+                    .from('announcements')
+                    .select('*')
+                    .eq('active', true)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+                if (!data || data.length === 0) return;
+                const ann = data[0];
+                // Don't show if user already dismissed this exact message
+                if (localStorage.getItem(ANNOUNCE_KEY) === ann.message) return;
+                document.getElementById('announcementText').textContent = ann.message;
+                document.getElementById('announcementMeta').textContent = ann.created_at
+                    ? 'Posted ' + new Date(ann.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short' })
+                    : '';
+                document.getElementById('announcementBanner').classList.add('visible');
+            } catch(e) { /* announcements table may not exist yet — silent fail */ }
+        }
+
+        function dismissAnnouncement() {
+            document.getElementById('announcementBanner').classList.remove('visible');
+            const text = document.getElementById('announcementText').textContent;
+            if (text) localStorage.setItem(ANNOUNCE_KEY, text);
+        }
+
+        // ── PWA ──────────────────────────────────────────────────
+        let _pwaPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            _pwaPrompt = e;
+            document.getElementById('pwaInstallBtn').classList.add('visible');
+        });
+        window.addEventListener('appinstalled', () => {
+            document.getElementById('pwaInstallBtn').classList.remove('visible');
+            _pwaPrompt = null;
+        });
+        function installPWA() {
+            if (!_pwaPrompt) return;
+            _pwaPrompt.prompt();
+            _pwaPrompt.userChoice.then(() => { _pwaPrompt = null; });
+        }
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(() => {});
+            });
+        }
 
         document.addEventListener('keydown', e => {
             const active = document.activeElement;
