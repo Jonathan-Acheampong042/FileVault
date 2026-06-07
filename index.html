@@ -65,6 +65,30 @@
         .file-card { word-break: break-word; }
         /* Bottom nav safe area */
         .pb-safe { padding-bottom: env(safe-area-inset-bottom, 8px); }
+
+        /* ── NEW badge ── */
+        .badge-new { display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:800;letter-spacing:.06em;background:rgba(16,185,129,0.18);color:#34d399;border:1px solid rgba(52,211,153,0.3);padding:1px 6px;border-radius:99px;vertical-align:middle;animation:badgePulse 2.4s ease-in-out infinite; }
+        @keyframes badgePulse { 0%,100%{opacity:1} 50%{opacity:.65} }
+
+        /* ── Copy-link button ── */
+        .btn-copy { background:none;border:none;cursor:pointer;color:#64748b;padding:8px;border-radius:8px;font-size:0;line-height:0;transition:color .2s,background .2s; }
+        .btn-copy:hover { color:#3b82f6;background:rgba(59,130,246,.1); }
+
+        /* ── File-type filter pills ── */
+        #typeSection { display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px; }
+        #typeSection::-webkit-scrollbar { display:none; }
+        .type-btn { flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.1);background:rgba(30,41,59,.4);color:#94a3b8;transition:all .25s; }
+        .type-btn.active, .type-btn:hover { background:rgba(59,130,246,.2);border-color:rgba(59,130,246,.4);color:#60a5fa; }
+        .type-btn.active { box-shadow:0 0 0 1px rgba(59,130,246,.25); }
+
+        /* ── Keyboard shortcut modal ── */
+        #shortcutModal { display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px; }
+        #shortcutModal.open { display:flex; }
+        #shortcutBox { background:rgba(15,23,42,.97);border:1px solid rgba(255,255,255,.1);border-radius:20px;width:100%;max-width:420px;padding:28px;box-shadow:0 32px 80px rgba(0,0,0,.6); }
+        .sc-row { display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05); }
+        .sc-row:last-child { border-bottom:none; }
+        .sc-key { display:inline-flex;align-items:center;gap:4px; }
+        kbd { background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:2px 7px;font-size:11px;font-family:monospace;color:#e2e8f0; }
     </style>
 </head>
 <body class="overflow-x-hidden">
@@ -100,6 +124,7 @@
                 <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 material-symbols-outlined">search</span>
                 <input id="searchInput" oninput="filterFiles(this.value)" placeholder="Search files, folders, descriptions…" class="w-full pl-10 pr-4 py-2.5 bg-slate-900/50 border border-white/10 rounded-xl text-sm text-white focus:outline-none"/>
             </div>
+            <button onclick="openShortcuts()" title="Keyboard shortcuts" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center font-bold text-sm">?</button>
         </header>
         <main class="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full">
             <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4 sm:mb-6">FileVault</h2>
@@ -158,7 +183,28 @@
                     <a href="mailto:acheampongjonathan21@gmail.com" class="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold">Contact Support</a>
                 </aside>
             </div>
-            <div id="folderSection" class="flex gap-2 sm:gap-3 overflow-x-auto pb-3 sm:pb-4 mb-4 sm:mb-6 scrollbar-hide"></div>
+            <div id="folderSection" class="flex gap-2 sm:gap-3 overflow-x-auto pb-3 sm:pb-4 mb-3 scrollbar-hide"></div>
+            <!-- File-type filter pills -->
+            <div id="typeSection" class="mb-4 sm:mb-5">
+                <button class="type-btn active" onclick="filterByType(null,this)" data-type="all">
+                    <span class="material-symbols-outlined" style="font-size:15px">filter_list</span> All types
+                </button>
+                <button class="type-btn" onclick="filterByType('pdf',this)" data-type="pdf">
+                    <span class="material-symbols-outlined" style="font-size:15px;color:#f87171">picture_as_pdf</span> PDF
+                </button>
+                <button class="type-btn" onclick="filterByType('pptx',this)" data-type="pptx">
+                    <span class="material-symbols-outlined" style="font-size:15px;color:#fb923c">slideshow</span> PPTX
+                </button>
+                <button class="type-btn" onclick="filterByType('docx',this)" data-type="docx">
+                    <span class="material-symbols-outlined" style="font-size:15px;color:#60a5fa">description</span> DOCX
+                </button>
+                <button class="type-btn" onclick="filterByType('xlsx',this)" data-type="xlsx">
+                    <span class="material-symbols-outlined" style="font-size:15px;color:#4ade80">table_chart</span> XLSX
+                </button>
+                <button class="type-btn" onclick="filterByType('img',this)" data-type="img">
+                    <span class="material-symbols-outlined" style="font-size:15px;color:#c084fc">image</span> Images
+                </button>
+            </div>
             <div class="flex flex-wrap justify-between items-center mb-4 pb-4 border-b gap-3">
                 <div class="flex items-center gap-4">
                     <h3 class="text-lg font-bold text-white">Files</h3>
@@ -269,6 +315,35 @@
         const ADMIN_EMAILS = ['admin@nharnharblay21@gmail.com'];
         let allFiles = [], currentFolder = null, currentSort = 'newest', viewType = 'grid', currentSearchTerm = '', selectedFiles = new Set();
         let _fileRegistry = []; // stores file objects for preview lookup
+        let currentTypeFilter = null; // file-type filter state
+
+        // ── Is file "new" (uploaded within 7 days)? ──
+        function isNewFile(dateStr) {
+            if (!dateStr) return false;
+            return (Date.now() - new Date(dateStr).getTime()) < 7 * 24 * 60 * 60 * 1000;
+        }
+
+        // ── Copy file link to clipboard ──
+        function copyFileLink(url, e) {
+            if (e) e.preventDefault();
+            navigator.clipboard.writeText(url).then(function() {
+                showToast('Link copied to clipboard!', 'success', 2200);
+            }).catch(function() {
+                showToast('Could not copy link.', 'error');
+            });
+        }
+
+        // ── File-type filter ──
+        function filterByType(type, btn) {
+            currentTypeFilter = type;
+            document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            renderFileList(getFilteredFiles());
+        }
+
+        // ── Shortcut modal ──
+        function openShortcuts() { document.getElementById('shortcutModal').classList.add('open'); }
+        function closeShortcuts() { document.getElementById('shortcutModal').classList.remove('open'); }
         
         function getFilteredFiles() {
             let filtered = [...allFiles];
@@ -281,6 +356,13 @@
                     (file.folder && file.folder.toLowerCase().includes(currentSearchTerm)) ||
                     (file.description && file.description.toLowerCase().includes(currentSearchTerm))
                 );
+            }
+            if (currentTypeFilter) {
+                filtered = filtered.filter(file => {
+                    const n = (file.name || '').toLowerCase();
+                    if (currentTypeFilter === 'img') return /\.(jpg|jpeg|png|gif|webp|svg)$/.test(n);
+                    return n.endsWith('.' + currentTypeFilter);
+                });
             }
             return filtered;
         }
@@ -507,7 +589,7 @@
                     '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="toggleSelect(\'' + safeUrl + '\',\'' + safeName + '\',this,' + (file.file_size||0) + ')" class="w-4 h-4 rounded text-primary cursor-pointer shrink-0">' +
                     '<div class="' + getFileColor(file.name) + ' w-10 h-10 rounded-xl flex items-center justify-center border shrink-0"><span class="material-symbols-outlined text-xl">' + getFileIcon(file.name) + '</span></div>' +
                     '<div class="flex-1 min-w-0 overflow-hidden">' +
-                        '<p class="font-semibold text-white truncate text-sm leading-snug">' + highlightText(file.name, currentSearchTerm) + '</p>' +
+                        '<p class="font-semibold text-white truncate text-sm leading-snug">' + highlightText(file.name, currentSearchTerm) + (isNewFile(file.date) ? ' <span class="badge-new">NEW</span>' : '') + '</p>' +
                         '<div class="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-slate-500">' +
                             '<span class="uppercase truncate max-w-[100px]">' + highlightText(file.folder || 'ROOT', currentSearchTerm) + '</span>' +
                             (sizeLabel ? '<span>·</span><span class="text-slate-400 font-medium">' + sizeLabel + '</span>' : '') +
@@ -518,6 +600,7 @@
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
                     '<button onclick="previewByIdx(' + _ri + ')" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview">visibility</button>' +
+                    '<button onclick="copyFileLink(\'' + safeUrl + '\',event)" class="btn-copy" title="Copy link"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block">link</span></button>' +
                     '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download">download</a>' +
                     '</div></div>';
             }).join('');
@@ -657,7 +740,13 @@
                 e.preventDefault();
                 document.getElementById('searchInput').focus();
             }
-            if (e.key === 'Escape') closePreview();
+            if (e.key === '?') {
+                // Only open if not focused on an input
+                if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                    openShortcuts();
+                }
+            }
+            if (e.key === 'Escape') { closePreview(); closeShortcuts(); }
         });
     </script>
     
@@ -684,6 +773,46 @@
             <div id="previewBody">
                 <div style="color:#64748b;font-size:14px">Loading preview…</div>
             </div>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcut Modal -->
+    <div id="shortcutModal" onclick="if(event.target===this)closeShortcuts()">
+        <div id="shortcutBox">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+                <div>
+                    <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px">Quick Reference</p>
+                    <h3 style="color:white;font-weight:700;font-size:17px;margin:0">Keyboard Shortcuts</h3>
+                </div>
+                <button onclick="closeShortcuts()" style="width:32px;height:32px;background:rgba(255,255,255,.05);border:none;border-radius:10px;cursor:pointer;color:#64748b;display:flex;align-items:center;justify-content:center">
+                    <span class="material-symbols-outlined" style="font-size:18px">close</span>
+                </button>
+            </div>
+            <div class="sc-row">
+                <span style="color:#cbd5e1;font-size:13px">Search files</span>
+                <span class="sc-key"><kbd>Ctrl</kbd><kbd>F</kbd></span>
+            </div>
+            <div class="sc-row">
+                <span style="color:#cbd5e1;font-size:13px">Close preview / modal</span>
+                <span class="sc-key"><kbd>Esc</kbd></span>
+            </div>
+            <div class="sc-row">
+                <span style="color:#cbd5e1;font-size:13px">Open this shortcuts panel</span>
+                <span class="sc-key"><kbd>?</kbd></span>
+            </div>
+            <div class="sc-row">
+                <span style="color:#cbd5e1;font-size:13px">Preview a file</span>
+                <span style="color:#64748b;font-size:12px">Click <span style="color:#3b82f6">👁</span> icon</span>
+            </div>
+            <div class="sc-row">
+                <span style="color:#cbd5e1;font-size:13px">Copy file link</span>
+                <span style="color:#64748b;font-size:12px">Click <span style="color:#3b82f6">🔗</span> icon</span>
+            </div>
+            <div class="sc-row">
+                <span style="color:#cbd5e1;font-size:13px">Bulk download as ZIP</span>
+                <span style="color:#64748b;font-size:12px">Tick files → ZIP</span>
+            </div>
+            <p style="color:rgba(255,255,255,.15);font-size:10px;text-align:center;margin-top:18px">Press <kbd style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:4px;padding:1px 5px;font-size:10px;color:#94a3b8">Esc</kbd> to close</p>
         </div>
     </div>
 
