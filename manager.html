@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="dark" lang="en">
+<html lang="en">
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
@@ -42,12 +42,13 @@
     </style>
     <!-- chat-widget loaded at bottom of body -->
 </head>
-<body class="min-h-screen font-sans text-white relative overflow-x-hidden">
+<body class="overflow-x-hidden">
     <div class="bg-fixed-image"></div>
     <div class="bg-overlay"></div>
+    <div class="flex flex-col min-h-screen overflow-x-hidden">
 
-    <header class="glass-card border-b border-white/10 p-4 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
+    <header class="glass-card border-b border-white/10 p-4 sticky top-0 z-50 w-full">
+        <div class="max-w-4xl mx-auto flex justify-between items-center w-full">
             <div class="flex items-center gap-3">
                 <div class="site-logo">
                     <img src="filevault%20logo.png" alt="Open folders sidebar" />
@@ -1274,6 +1275,7 @@
     checkAccess();
     </script>
     <footer class="text-center text-white/20 text-xs py-6">Built by <span class="text-white/40 font-semibold">Jonathan Acheampong</span> · FileVault</footer>
+    </div><!-- end flex col overflow-x-hidden wrapper -->
     <script src="chat-widget.js"></script>
 </body>
 </html>
