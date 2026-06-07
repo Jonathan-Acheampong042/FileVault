@@ -43,6 +43,20 @@
         .custom-select { -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: none !important; }
         .custom-select::-ms-expand { display: none; }
         .upload-zone.dragover { border-color: #3b82f6 !important; background: rgba(59, 130, 246, 0.15) !important; transform: scale(1.02); }
+
+        /* ── Upload progress bar ── */
+        #uploadProgressWrap { display:none; margin-top:16px; }
+        #uploadProgressWrap.visible { display:block; }
+        .prog-file-name { font-size:11px; color:rgba(255,255,255,0.5); margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .prog-track { height:6px; background:rgba(255,255,255,0.08); border-radius:99px; overflow:hidden; }
+        .prog-bar { height:100%; background:linear-gradient(90deg,#3b82f6,#8b5cf6); border-radius:99px; transition:width 0.15s ease; width:0%; }
+        .prog-label { font-size:10px; color:rgba(255,255,255,0.35); text-align:right; margin-top:3px; }
+        .prog-overall { font-size:11px; color:rgba(255,255,255,0.3); margin-top:6px; }
+
+        /* ── Bulk-move modal ── */
+        #bulkMoveModal { display:none; position:fixed; inset:0; z-index:99998; background:rgba(0,0,0,0.75); backdrop-filter:blur(8px); align-items:center; justify-content:center; padding:16px; }
+        #bulkMoveModal.open { display:flex; }
+        #bulkMoveBox { background:rgba(15,23,42,0.97); border:1px solid rgba(255,255,255,0.1); border-radius:20px; width:100%; max-width:400px; padding:28px; box-shadow:0 32px 80px rgba(0,0,0,0.6); }
     </style>
     <!-- chat-widget loaded at bottom of body -->
 </head>
@@ -139,6 +153,14 @@
                 <span id="btnIcon" class="material-symbols-outlined">upload</span>
             </button>
             <div id="status" class="mt-4 text-sm font-medium text-center min-h-[20px]"></div>
+
+            <!-- Per-file upload progress -->
+            <div id="uploadProgressWrap">
+                <div class="prog-file-name" id="progFileName">Uploading…</div>
+                <div class="prog-track"><div class="prog-bar" id="progBar"></div></div>
+                <div class="prog-label" id="progLabel">0%</div>
+                <div class="prog-overall" id="progOverall"></div>
+            </div>
         </section>
 
         <!-- Files Section -->
@@ -182,6 +204,9 @@
                 <button onclick="bulkDownloadZip()" class="text-xs flex items-center gap-1 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg transition-all font-bold">
                     <span class="material-symbols-outlined text-sm">download</span> Download ZIP
                 </button>
+                <button onclick="openBulkMove()" class="text-xs flex items-center gap-1 px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded-lg transition-all font-bold">
+                    <span class="material-symbols-outlined text-sm">drive_file_move</span> Move All
+                </button>
                 <button onclick="bulkDelete()" class="text-xs flex items-center gap-1 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-all font-bold">
                     <span class="material-symbols-outlined text-sm">delete_sweep</span> Delete All
                 </button>
@@ -190,6 +215,32 @@
                 </button>
             </div>
             </div>
+
+    <!-- Bulk Move Modal -->
+    <div id="bulkMoveModal" onclick="if(event.target===this)closeBulkMove()">
+        <div id="bulkMoveBox">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+                <div>
+                    <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px">Bulk Action</p>
+                    <h3 style="color:white;font-weight:700;font-size:17px;margin:0">Move Files</h3>
+                </div>
+                <button onclick="closeBulkMove()" style="width:32px;height:32px;background:rgba(255,255,255,.05);border:none;border-radius:10px;cursor:pointer;color:#64748b;display:flex;align-items:center;justify-content:center">
+                    <span class="material-symbols-outlined" style="font-size:18px">close</span>
+                </button>
+            </div>
+            <p id="bulkMoveCount" style="color:rgba(255,255,255,0.5);font-size:13px;margin-bottom:16px">Moving 0 files</p>
+            <label style="color:rgba(255,255,255,0.4);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:8px">Destination Folder</label>
+            <select id="bulkMoveTarget" style="width:100%;padding:12px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:white;font-size:14px;outline:none;margin-bottom:20px">
+                <option value="" class="text-black">Root (no folder)</option>
+            </select>
+            <div style="display:flex;gap:10px">
+                <button onclick="closeBulkMove()" style="flex:1;padding:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:rgba(255,255,255,0.6);font-weight:700;font-size:13px;cursor:pointer">Cancel</button>
+                <button onclick="executeBulkMove()" style="flex:2;padding:12px;background:linear-gradient(135deg,#0891b2,#0e7490);border:none;border-radius:12px;color:white;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+                    <span class="material-symbols-outlined" style="font-size:16px">drive_file_move</span> Move Files
+                </button>
+            </div>
+        </div>
+    </div>
 
             <!-- Tabs -->
             <div class="flex gap-2 mb-6 p-1 bg-white/5 rounded-xl flex-wrap">
@@ -926,6 +977,63 @@
         </div>`;
     }
 
+    // ─── PROGRESS HELPERS ────────────────────────────────────────
+    function showProgress(fileName, pct, overall) {
+        document.getElementById('uploadProgressWrap').classList.add('visible');
+        document.getElementById('progFileName').textContent = fileName;
+        document.getElementById('progBar').style.width = Math.round(pct) + '%';
+        document.getElementById('progLabel').textContent = Math.round(pct) + '%';
+        if (overall) document.getElementById('progOverall').textContent = overall;
+    }
+    function hideProgress() {
+        document.getElementById('uploadProgressWrap').classList.remove('visible');
+        document.getElementById('progBar').style.width = '0%';
+        document.getElementById('progOverall').textContent = '';
+    }
+
+    // XHR-based upload so we get real progress events
+    function uploadWithProgress(path, file) {
+        return new Promise((resolve) => {
+            const SUPABASE_URL = 'https://lvhecpvwpzmstciewziv.supabase.co';
+            const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI';
+            const xhr = new XMLHttpRequest();
+            const encodedPath = path.split('/').map(encodeURIComponent).join('/');
+            xhr.open('POST', `${SUPABASE_URL}/storage/v1/object/vault-files/${encodedPath}`);
+            xhr.setRequestHeader('Authorization', `Bearer ${ANON_KEY}`);
+            xhr.setRequestHeader('apikey', ANON_KEY);
+            xhr.setRequestHeader('x-upsert', 'true');
+            xhr.setRequestHeader('Cache-Control', '3600');
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) showProgress(file.name, (e.loaded / e.total) * 100);
+            };
+            xhr.onload = () => {
+                showProgress(file.name, 100);
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    resolve({ error: null });
+                } else {
+                    try { resolve({ error: JSON.parse(xhr.responseText) }); }
+                    catch { resolve({ error: { message: `HTTP ${xhr.status}` } }); }
+                }
+            };
+            xhr.onerror = () => resolve({ error: { message: 'Network error during upload' } });
+            xhr.send(file);
+        });
+    }
+
+    // ─── DUPLICATE CHECK ─────────────────────────────────────────
+    async function checkDuplicate(fileName, folder) {
+        const folderName = folder || 'Root';
+        const { data } = await _supabase
+            .from('files_list').select('id')
+            .eq('file_name', fileName).eq('folder_name', folderName).limit(1);
+        if (!data || data.length === 0) return 'new';
+        // File exists — ask
+        const replace = confirm(
+            `"${fileName}" already exists in ${folderName}.\n\nOK → Replace it\nCancel → Keep both (saves a copy)`
+        );
+        return replace ? 'replace' : 'keep';
+    }
+
     // ─── UPLOAD ─────────────────────────────────────────────────
     async function uploadFile() {
         if (!navigator.onLine) { setStatus('✗ Cannot upload while offline.', 'red'); return; }
@@ -947,8 +1055,9 @@
 
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
+            const overallLabel = `File ${i + 1} of ${totalFiles}`;
 
-            // Skip files over 50 MB — notify and continue with the rest
+            // Size check
             if (file.size > MAX_BYTES) {
                 skippedCount++;
                 setStatus(`Skipping ${file.name} (${(file.size/1024/1024).toFixed(1)} MB — exceeds 50 MB limit). Continuing…`, 'yellow');
@@ -956,36 +1065,51 @@
                 continue;
             }
 
-            document.getElementById('btnText').innerText = `Uploading ${i + 1}/${totalFiles}...`;
-            setStatus(`Uploading ${i + 1}/${totalFiles}: ${file.name}...`, 'blue');
+            document.getElementById('btnText').innerText = `Uploading ${i + 1}/${totalFiles}…`;
+            setStatus(`Uploading ${i + 1}/${totalFiles}: ${file.name}…`, 'blue');
 
             const folder = folderSelect.value;
-            const path = folder ? `${folder}/${file.name}` : file.name;
+            let finalName = file.name;
 
-            // STEP 1: Upload to Supabase Storage
-            const { error: uploadError } = await _supabase.storage
-                .from('vault-files')
-                .upload(path, file, {
-                    upsert: true,
-                    contentType: file.type || 'application/octet-stream',
-                    cacheControl: '3600'
-                });
+            // ── Duplicate check ──
+            const dupChoice = await checkDuplicate(file.name, folder);
+            if (dupChoice === 'keep') {
+                const ext = file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')) : '';
+                const base = file.name.includes('.') ? file.name.substring(0, file.name.lastIndexOf('.')) : file.name;
+                finalName = `${base}_${Date.now()}${ext}`;
+            }
+            // 'replace' → upsert overwrites existing; 'new' → normal fresh upload
+
+            const path = folder ? `${folder}/${finalName}` : finalName;
+
+            // STEP 1: Upload with real progress bar
+            showProgress(finalName, 0, overallLabel);
+            const { error: uploadError } = await uploadWithProgress(path, file);
 
             if (uploadError) {
+                hideProgress();
                 setStatus(`Storage Error for ${file.name}: ${uploadError.message}`, 'red');
                 errorCount++;
                 continue;
             }
+            hideProgress();
 
             // STEP 2: Get public URL + save to DB
             const { data: urlData } = _supabase.storage.from('vault-files').getPublicUrl(path);
 
+            // If replacing, remove old DB record first to avoid ghost duplicates
+            if (dupChoice === 'replace') {
+                await _supabase.from('files_list')
+                    .delete()
+                    .eq('file_name', file.name)
+                    .eq('folder_name', folder || 'Root');
+            }
+
             const insertData = {
-                file_name: file.name,
+                file_name: finalName,
                 download_url: urlData.publicUrl,
                 folder_name: folder || 'Root'
             };
-            // Only add file_size if it's available (requires the column to exist in Supabase)
             if (file.size) insertData.file_size = file.size;
             if (description) insertData.description = description;
             if (!isNaN(expiryDays) && expiryDays > 0) {
@@ -997,7 +1121,7 @@
             const { error: dbError } = await _supabase.from('files_list').insert(insertData);
 
             if (dbError) {
-                setStatus(`⚠ ${file.name} uploaded but DB failed: ${dbError.message}`, 'yellow');
+                setStatus(`⚠ ${finalName} uploaded but DB failed: ${dbError.message}`, 'yellow');
                 errorCount++;
             } else {
                 successCount++;
@@ -1006,6 +1130,7 @@
 
         btn.disabled = false;
         document.getElementById('btnText').innerText = 'Upload & Share';
+        hideProgress();
 
         const skippedNote = skippedCount > 0 ? ` (${skippedCount} skipped — over 50 MB)` : '';
         if (successCount > 0 && errorCount === skippedCount) {
@@ -1181,6 +1306,63 @@
         availableFolders.forEach(f => {
             sel.innerHTML += `<option value="${f}" class="text-black">${f}</option>`;
         });
+    }
+
+// ─── BULK MOVE ───────────────────────────────────────────────
+    function openBulkMove() {
+        if (selectedFiles.size === 0) return;
+        const sel = document.getElementById('bulkMoveTarget');
+        sel.innerHTML = '<option value="" class="text-black">Root (no folder)</option>';
+        availableFolders.forEach(f => {
+            sel.innerHTML += `<option value="${f}" class="text-black">${f}</option>`;
+        });
+        document.getElementById('bulkMoveCount').textContent =
+            `Moving ${selectedFiles.size} file${selectedFiles.size !== 1 ? 's' : ''} to:`;
+        document.getElementById('bulkMoveModal').classList.add('open');
+    }
+
+    function closeBulkMove() {
+        document.getElementById('bulkMoveModal').classList.remove('open');
+    }
+
+    async function executeBulkMove() {
+        const targetFolder = document.getElementById('bulkMoveTarget').value.trim();
+        const targetLabel = targetFolder || 'Root';
+        if (selectedFiles.size === 0) { closeBulkMove(); return; }
+        closeBulkMove();
+        setStatus(`Moving ${selectedFiles.size} file(s) to "${targetLabel}"…`, 'blue');
+
+        const paths = [...selectedFiles];
+        let done = 0, failed = 0;
+
+        for (const storagePath of paths) {
+            const fileName = storagePath.split('/').pop();
+            const newPath = targetFolder ? `${targetFolder}/${fileName}` : fileName;
+            if (newPath === storagePath) { done++; continue; }
+
+            const { error: copyErr } = await _supabase.storage.from('vault-files').copy(storagePath, newPath);
+            if (copyErr) { failed++; continue; }
+
+            await _supabase.storage.from('vault-files').remove([storagePath]);
+
+            const { data: urlData } = _supabase.storage.from('vault-files').getPublicUrl(newPath);
+            await _supabase.from('files_list')
+                .update({ folder_name: targetLabel, download_url: urlData.publicUrl })
+                .eq('file_name', fileName);
+
+            done++;
+        }
+
+        clearSelection();
+        if (failed === 0) {
+            setStatus(`✓ Moved ${done} file(s) to "${targetLabel}".`, 'green');
+        } else {
+            setStatus(`⚠ Moved ${done}, ${failed} failed. Run Repair Sync if needed.`, 'yellow');
+        }
+        loadFolders();
+        renderMainFolders();
+        populateRequestFolderSelect();
+        loadManagerFiles();
     }
 
 // ─── AUTH ────────────────────────────────────────────────────

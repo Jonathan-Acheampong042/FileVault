@@ -89,6 +89,37 @@
         .sc-row:last-child { border-bottom:none; }
         .sc-key { display:inline-flex;align-items:center;gap:4px; }
         kbd { background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:2px 7px;font-size:11px;font-family:monospace;color:#e2e8f0; }
+
+        /* ── Dark/light mode toggle ── */
+        #themeToggle { transition:all .25s; }
+        html.light body { background-color:#f1f5f9; color:#1e293b; }
+        html.light .glass-card { background:rgba(255,255,255,0.75); border-color:rgba(0,0,0,0.08); box-shadow:0 4px 24px rgba(0,0,0,0.06); }
+        html.light .sidebar-glass { background:rgba(248,250,252,0.95); border-color:rgba(0,0,0,0.08); }
+        html.light .bg-overlay { background: radial-gradient(circle at top left,rgba(59,130,246,0.06),transparent 30%), radial-gradient(circle at bottom right,rgba(139,92,246,0.06),transparent 30%), linear-gradient(180deg,rgba(241,245,249,0.97),rgba(241,245,249,0.99)); }
+        html.light .bg-fixed-image { opacity:0.08; }
+        html.light .text-white { color:#1e293b !important; }
+        html.light .text-slate-300, html.light .text-slate-400 { color:#475569 !important; }
+        html.light .text-slate-500 { color:#64748b !important; }
+        html.light .text-white\/40, html.light .text-white\/50 { color:#64748b !important; }
+        html.light .bg-slate-900\/50 { background:rgba(241,245,249,0.8) !important; }
+        html.light .border-white\/10 { border-color:rgba(0,0,0,0.08) !important; }
+        html.light #previewBox { background:rgba(248,250,252,0.98); border-color:rgba(0,0,0,0.1); }
+        html.light #shortcutBox { background:rgba(248,250,252,0.98); border-color:rgba(0,0,0,0.1); }
+        html.light #shortcutBox h3, html.light #previewBox p { color:#1e293b; }
+        html.light .sc-row { border-color:rgba(0,0,0,0.06); }
+        html.light kbd { background:rgba(0,0,0,0.06); border-color:rgba(0,0,0,0.12); color:#1e293b; }
+
+        /* ── Offline banner ── */
+        #offlineBanner { display:none; position:sticky; top:57px; z-index:49; width:100%; background:rgba(234,179,8,0.15); border-bottom:1px solid rgba(234,179,8,0.3); padding:10px 20px; }
+        #offlineBanner.visible { display:flex; align-items:center; gap:10px; }
+
+        /* ── Recently viewed section ── */
+        #recentlyViewedSection { display:none; }
+        #recentlyViewedSection.visible { display:block; }
+        .rv-chip { display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .2s;text-decoration:none;max-width:200px; }
+        .rv-chip:hover { background:rgba(59,130,246,0.15);border-color:rgba(59,130,246,0.35);color:#93c5fd; }
+        html.light .rv-chip { background:rgba(0,0,0,0.04);border-color:rgba(0,0,0,0.1);color:#475569; }
+        html.light .rv-chip:hover { background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.3);color:#2563eb; }
     </style>
 </head>
 <body class="overflow-x-hidden">
@@ -124,10 +155,31 @@
                 <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 material-symbols-outlined">search</span>
                 <input id="searchInput" oninput="filterFiles(this.value)" placeholder="Search files, folders, descriptions…" class="w-full pl-10 pr-4 py-2.5 bg-slate-900/50 border border-white/10 rounded-xl text-sm text-white focus:outline-none"/>
             </div>
+            <button id="themeToggle" onclick="toggleTheme()" title="Toggle dark/light mode" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
+                <span class="material-symbols-outlined text-lg" id="themeIcon">light_mode</span>
+            </button>
             <button onclick="openShortcuts()" title="Keyboard shortcuts" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center font-bold text-sm">?</button>
         </header>
+        <!-- Offline banner -->
+        <div id="offlineBanner">
+            <span class="material-symbols-outlined text-yellow-400 shrink-0" style="font-size:20px">wifi_off</span>
+            <span style="flex:1;font-size:13px;font-weight:600;color:#fbbf24">You're offline — showing cached files. Some actions are unavailable.</span>
+            <button onclick="document.getElementById('offlineBanner').classList.remove('visible')" style="background:none;border:none;cursor:pointer;color:#f59e0b;font-size:18px;line-height:1">×</button>
+        </div>
         <main class="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full">
             <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4 sm:mb-6">FileVault</h2>
+
+            <!-- Recently Viewed Section -->
+            <section id="recentlyViewedSection" class="mb-5 glass-card p-4 rounded-2xl">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary text-xl">history</span>
+                        <h3 class="text-sm font-bold text-white uppercase tracking-wide">Recently Viewed</h3>
+                    </div>
+                    <button onclick="clearRecentlyViewed()" style="font-size:10px;color:#64748b;background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px" onmouseover="this.style.color='#94a3b8'" onmouseout="this.style.color='#64748b'">Clear</button>
+                </div>
+                <div id="recentlyViewedList" class="flex gap-2 flex-wrap"></div>
+            </section>
 
             <!-- Folders Section — always visible, hidden only when truly empty -->
             <section id="foldersSection" class="mb-6 glass-card p-4 sm:p-5 rounded-3xl">
@@ -735,6 +787,94 @@
             fetchFiles();
         })();
         
+        // ── THEME TOGGLE ────────────────────────────────────────
+        function toggleTheme() {
+            const isLight = document.documentElement.classList.toggle('light');
+            document.documentElement.classList.toggle('dark', !isLight);
+            document.getElementById('themeIcon').textContent = isLight ? 'dark_mode' : 'light_mode';
+            localStorage.setItem('fvTheme', isLight ? 'light' : 'dark');
+        }
+        // Apply saved theme on load
+        (function() {
+            const saved = localStorage.getItem('fvTheme');
+            if (saved === 'light') {
+                document.documentElement.classList.add('light');
+                document.documentElement.classList.remove('dark');
+                const icon = document.getElementById('themeIcon');
+                if (icon) icon.textContent = 'dark_mode';
+            }
+        })();
+
+        // ── OFFLINE BANNER ───────────────────────────────────────
+        function updateOfflineBanner() {
+            const banner = document.getElementById('offlineBanner');
+            if (!banner) return;
+            if (!navigator.onLine) {
+                banner.classList.add('visible');
+            } else {
+                banner.classList.remove('visible');
+            }
+        }
+        window.addEventListener('online',  updateOfflineBanner);
+        window.addEventListener('offline', updateOfflineBanner);
+        updateOfflineBanner();
+
+        // ── RECENTLY VIEWED ──────────────────────────────────────
+        const RV_KEY = 'fvRecentlyViewed';
+        const RV_MAX = 5;
+
+        function getRecentlyViewed() {
+            try { return JSON.parse(localStorage.getItem(RV_KEY) || '[]'); }
+            catch { return []; }
+        }
+
+        function addRecentlyViewed(file) {
+            let items = getRecentlyViewed().filter(x => x.url !== file.url);
+            items.unshift({ name: file.name, url: file.url, folder: file.folder || 'ROOT', icon: getFileIcon(file.name) });
+            if (items.length > RV_MAX) items = items.slice(0, RV_MAX);
+            localStorage.setItem(RV_KEY, JSON.stringify(items));
+            renderRecentlyViewed();
+        }
+
+        function clearRecentlyViewed() {
+            localStorage.removeItem(RV_KEY);
+            renderRecentlyViewed();
+        }
+
+        function renderRecentlyViewed() {
+            const section = document.getElementById('recentlyViewedSection');
+            const list    = document.getElementById('recentlyViewedList');
+            const items   = getRecentlyViewed();
+            if (!items.length) {
+                section.classList.remove('visible');
+                return;
+            }
+            section.classList.add('visible');
+            list.innerHTML = items.map(item =>
+                '<a href="' + item.url + '" target="_blank" rel="noopener" class="rv-chip" title="' + item.name + '" onclick="track(\'\',\'' + item.name.replace(/'/g,"\'") + '\',\'' + item.url.replace(/'/g,"\'") + '\')">' +
+                '<span class="material-symbols-outlined" style="font-size:14px;flex-shrink:0">' + item.icon + '</span>' +
+                '<span class="truncate">' + item.name + '</span>' +
+                '</a>'
+            ).join('');
+        }
+
+        // Hook into openPreview to track recently viewed
+        const _origOpenPreview = openPreview;
+        openPreview = function(url, name, folder, size) {
+            _origOpenPreview(url, name, folder, size);
+            addRecentlyViewed({ url, name, folder });
+        };
+
+        // Also track direct downloads
+        const _origTrack = track;
+        track = function(id, name, url) {
+            _origTrack(id, name, url);
+            addRecentlyViewed({ url, name, folder: '' });
+        };
+
+        // Render on page load
+        renderRecentlyViewed();
+
         document.addEventListener('keydown', e => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
                 e.preventDefault();
@@ -811,6 +951,10 @@
             <div class="sc-row">
                 <span style="color:#cbd5e1;font-size:13px">Bulk download as ZIP</span>
                 <span style="color:#64748b;font-size:12px">Tick files → ZIP</span>
+            </div>
+            <div class="sc-row">
+                <span style="color:#cbd5e1;font-size:13px">Toggle dark / light mode</span>
+                <span style="color:#64748b;font-size:12px">☀️ button in header</span>
             </div>
             <p style="color:rgba(255,255,255,.15);font-size:10px;text-align:center;margin-top:18px">Press <kbd style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:4px;padding:1px 5px;font-size:10px;color:#94a3b8">Esc</kbd> to close</p>
         </div>
