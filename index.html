@@ -107,6 +107,24 @@
             #toastContainer { top:auto !important;bottom:90px;right:50%;transform:translateX(50%);align-items:center; }
         }
 
+        /* ── Search suggestions dropdown ── */
+        #searchSuggestions { position:absolute;top:calc(100% + 6px);left:0;right:0;background:rgba(15,23,42,0.98);border:1px solid rgba(255,255,255,0.1);border-radius:14px;z-index:9999;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,0.5);display:none; }
+        #searchSuggestions.open { display:block; }
+        .sugg-item { display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;font-size:12px;color:#cbd5e1;transition:background .15s; }
+        .sugg-item:hover,.sugg-item.focused { background:rgba(59,130,246,0.12);color:#93c5fd; }
+        .sugg-section { font-size:9px;font-weight:800;letter-spacing:.1em;color:#475569;padding:8px 14px 3px;text-transform:uppercase; }
+
+        /* ── Date range filter ── */
+        #dateRangeBar { display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.18);border-radius:14px;margin-bottom:12px; }
+        #dateRangeBar.open { display:flex; }
+        .date-input { background:rgba(15,23,42,0.8);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 10px;color:#e2e8f0;font-size:11px;font-family:inherit;color-scheme:dark; }
+
+        /* ── Drag-select ── */
+        #dragSelectBox { position:fixed;border:1px solid rgba(59,130,246,0.7);background:rgba(59,130,246,0.08);border-radius:4px;pointer-events:none;z-index:8000;display:none; }
+
+        /* ── Keyboard-focused card ── */
+        .file-card.kb-focus { outline:2px solid #3b82f6;outline-offset:2px;transform:translateY(-3px); }
+
         /* ── Keyboard shortcut modal ── */
         #shortcutModal { display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px; }
         #shortcutModal.open { display:flex; }
@@ -146,10 +164,20 @@
     </aside>
     <div class="lg:ml-64 flex flex-col min-h-screen overflow-x-hidden">
         <header class="sticky top-0 z-50 w-full glass-card backdrop-blur-2xl border-b flex items-center px-4 sm:px-6 py-3 gap-3">
-            <div class="flex-1 relative">
-                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 material-symbols-outlined">search</span>
-                <input id="searchInput" oninput="filterFiles(this.value)" placeholder="Search files, folders, descriptions…" class="w-full pl-10 pr-4 py-2.5 bg-slate-900/50 border border-white/10 rounded-xl text-sm text-white focus:outline-none"/>
+            <div class="flex-1 relative" id="searchWrapper">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 material-symbols-outlined" style="z-index:1;pointer-events:none">search</span>
+                <input id="searchInput" oninput="filterFiles(this.value)" onfocus="openSuggestions()" onblur="closeSuggestionsDelayed()" onkeydown="handleSearchKey(event)" placeholder="Search files, folders, descriptions…" class="w-full pl-10 pr-10 py-2.5 bg-slate-900/50 border border-white/10 rounded-xl text-sm text-white focus:outline-none" autocomplete="off"/>
+                <button id="clearSearchBtn" onclick="clearSearch()" title="Clear search" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;padding:4px;border-radius:6px;line-height:0">
+                    <span class="material-symbols-outlined" style="font-size:16px">close</span>
+                </button>
+                <div id="searchSuggestions">
+                    <!-- injected by JS -->
+                </div>
             </div>
+            <!-- Date range toggle -->
+            <button id="dateFilterBtn" onclick="toggleDateRange()" title="Filter by date" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
+                <span class="material-symbols-outlined" style="font-size:18px">date_range</span>
+            </button>
             <button onclick="openShortcuts()" title="Keyboard shortcuts" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center font-bold text-sm">?</button>
         </header>
         <main class="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full">
@@ -264,7 +292,20 @@
                 </button>
                 <button onclick="clearSelection()" class="material-symbols-outlined text-slate-400 cursor-pointer">close</button>
             </div>
-            <div id="fileGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+            <!-- Date range filter bar -->
+            <div id="dateRangeBar">
+                <span class="material-symbols-outlined text-primary" style="font-size:16px;flex-shrink:0">event</span>
+                <span style="font-size:11px;color:#94a3b8;font-weight:600">From</span>
+                <input type="date" id="dateFrom" class="date-input" onchange="renderFileList(getFilteredFiles())">
+                <span style="font-size:11px;color:#94a3b8;font-weight:600">To</span>
+                <input type="date" id="dateTo" class="date-input" onchange="renderFileList(getFilteredFiles())">
+                <button onclick="clearDateRange()" style="margin-left:auto;font-size:11px;color:#64748b;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:3px">
+                    <span class="material-symbols-outlined" style="font-size:14px">close</span>Clear
+                </button>
+            </div>
+            <!-- Drag-select box -->
+            <div id="dragSelectBox"></div>
+            <div id="fileGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6" id="fileGrid">
                 <!-- skeleton placeholders -->
                 <div class="skeleton-card glass-card p-4 rounded-2xl flex items-center gap-3"><div class="skeleton w-10 h-10 rounded-xl shrink-0"></div><div class="flex-1 space-y-2"><div class="skeleton h-3.5 rounded w-3/4"></div><div class="skeleton h-2.5 rounded w-1/2"></div></div></div>
                 <div class="skeleton-card glass-card p-4 rounded-2xl flex items-center gap-3"><div class="skeleton w-10 h-10 rounded-xl shrink-0"></div><div class="flex-1 space-y-2"><div class="skeleton h-3.5 rounded w-2/3"></div><div class="skeleton h-2.5 rounded w-2/5"></div></div></div>
@@ -373,6 +414,34 @@
             renderFileList(getFilteredFiles());
         }
 
+        function updateTypeCounts() {
+            const now = new Date();
+            const active = allFiles.filter(f => !f.expires_at || new Date(f.expires_at) > now);
+            const counts = {
+                all: active.length,
+                pdf:  active.filter(f => f.name.toLowerCase().endsWith('.pdf')).length,
+                pptx: active.filter(f => f.name.toLowerCase().endsWith('.pptx')).length,
+                docx: active.filter(f => f.name.toLowerCase().endsWith('.docx')).length,
+                xlsx: active.filter(f => f.name.toLowerCase().endsWith('.xlsx')).length,
+                img:  active.filter(f => /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f.name)).length
+            };
+            document.querySelectorAll('.type-btn').forEach(btn => {
+                const t = btn.dataset.type;
+                if (t && counts[t] !== undefined) {
+                    // Remove old count badge if present
+                    const old = btn.querySelector('.type-count');
+                    if (old) old.remove();
+                    if (counts[t] > 0) {
+                        const badge = document.createElement('span');
+                        badge.className = 'type-count';
+                        badge.style.cssText = 'font-size:9px;background:rgba(255,255,255,0.07);border-radius:99px;padding:1px 6px;font-weight:700;color:#64748b';
+                        badge.textContent = counts[t];
+                        btn.appendChild(badge);
+                    }
+                }
+            });
+        }
+
         // ── Shortcut modal ──
         function openShortcuts() { document.getElementById('shortcutModal').classList.add('open'); }
         function closeShortcuts() { document.getElementById('shortcutModal').classList.remove('open'); }
@@ -383,9 +452,10 @@
                 filtered = filtered.filter(file => file.folder === currentFolder);
             }
             if (currentSearchTerm) {
+                // When in a folder, search within that folder only (26 - search within folder)
                 filtered = filtered.filter(file =>
                     file.name.toLowerCase().includes(currentSearchTerm) ||
-                    (file.folder && file.folder.toLowerCase().includes(currentSearchTerm)) ||
+                    (!currentFolder && file.folder && file.folder.toLowerCase().includes(currentSearchTerm)) ||
                     (file.description && file.description.toLowerCase().includes(currentSearchTerm))
                 );
             }
@@ -396,6 +466,11 @@
                     return n.endsWith('.' + currentTypeFilter);
                 });
             }
+            // Date range filter
+            const fromVal = document.getElementById('dateFrom') && document.getElementById('dateFrom').value;
+            const toVal = document.getElementById('dateTo') && document.getElementById('dateTo').value;
+            if (fromVal) { const d = new Date(fromVal); filtered = filtered.filter(f => new Date(f.date) >= d); }
+            if (toVal) { const d = new Date(toVal); d.setHours(23,59,59,999); filtered = filtered.filter(f => new Date(f.date) <= d); }
             return applySort(filtered);
         }
 
@@ -499,6 +574,15 @@
         async function fetchFiles() {
             const fileGrid = document.getElementById('fileGrid');
             try {
+                // Check session cache first
+                const cached = getCachedFiles();
+                if (cached) {
+                    allFiles = cached;
+                    renderAll(allFiles);
+                    _restoreInitialFolder();
+                    return;
+                }
+
                 const { data: dbData, error: dbError } = await _supabase.from('files_list').select('*').order('created_at', { ascending: false });
                 if (dbError) throw dbError;
 
@@ -540,6 +624,7 @@
                     });
                 }
                 renderAll(allFiles);
+                setCachedFiles(allFiles);
                 // Restore last folder from sessionStorage
                 const _savedFolder = sessionStorage.getItem('fvLastFolder');
                 if (_savedFolder && allFiles.some(f => f.folder === _savedFolder)) {
@@ -606,6 +691,7 @@
 
             renderRecent(files);
             renderFileList(getFilteredFiles());
+            updateTypeCounts();
         }
         
         function renderFileList(files) {
@@ -625,7 +711,7 @@
             _fileRegistry = files.filter(file => !(file.expires_at && new Date(file.expires_at) <= now));
             var _ri = -1;
             var _ci = -1; // card index for animation stagger
-            fileGrid.innerHTML = files.filter(file => {
+            const cardHtmlArray = files.filter(file => {
                 if (file.expires_at && new Date(file.expires_at) <= now) return false;
                 return true;
             }).map(file => {
@@ -640,11 +726,10 @@
                     ? '<span title="' + file.download_count + ' download' + (file.download_count !== 1 ? 's' : '') + '" style="display:inline-flex;align-items:center;gap:2px;font-size:9px;background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.2);border-radius:99px;padding:1px 6px;font-weight:700;vertical-align:middle"><span class="material-symbols-outlined" style="font-size:10px">download</span>' + file.download_count + '</span>' : '';
                 const descTooltip = (file.description && !isListView())
                     ? '<div class="desc-tooltip" id="tt-'+_ri+'">' + file.description.replace(/</g,'&lt;') + '</div>' : '';
-                const safeDesc = file.description ? file.description.replace(/'/g,"\\'").replace(/"/g,'&quot;') : '';
                 const hoverAttrs = (file.description && !isListView())
                     ? 'onmouseenter="showTip('+_ri+')" onmouseleave="hideTip('+_ri+')"' : '';
                 const staggerStyle = 'animation-delay:' + Math.min(_ci * 40, 400) + 'ms';
-                return '<div class="file-card file-card-animate glass-card p-4 rounded-2xl flex items-center gap-3 group overflow-hidden" style="' + staggerStyle + '" ' + hoverAttrs + '>' +
+                return '<div class="file-card file-card-animate glass-card p-4 rounded-2xl flex items-center gap-3 group overflow-hidden" data-idx="'+_ri+'" style="' + staggerStyle + '" ' + hoverAttrs + ' onclick="handleCardClick(event,'+_ri+')">' +
                     descTooltip +
                     '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="toggleSelect(\'' + safeUrl + '\',\'' + safeName + '\',this,' + (file.file_size||0) + ')" class="w-4 h-4 rounded text-primary cursor-pointer shrink-0">' +
                     '<div class="' + getFileColor(file.name) + ' w-10 h-10 rounded-xl flex items-center justify-center border shrink-0"><span class="material-symbols-outlined text-xl">' + getFileIcon(file.name) + '</span></div>' +
@@ -653,17 +738,19 @@
                         '<div class="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-slate-500">' +
                             '<span class="uppercase truncate max-w-[100px]">' + highlightText(file.folder || 'ROOT', currentSearchTerm) + '</span>' +
                             (sizeLabel ? '<span>·</span><span class="text-slate-400 font-medium">' + sizeLabel + '</span>' : '') +
-                            '<span>·</span><span>' + formatDate(file.date) + '</span>' +
+                            '<span>·</span><span title="' + formatDate(file.date) + '">' + timeAgo(file.date) + '</span>' +
                             expText +
                         '</div>' +
                         (file.description ? '<p class="mt-0.5 text-[11px] text-slate-400 italic truncate">' + highlightText(file.description, currentSearchTerm) + '</p>' : '') +
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
-                    '<button onclick="previewByIdx(' + _ri + ')" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview">visibility</button>' +
-                    '<button onclick="copyFileLink(\'' + safeUrl + '\',event)" class="btn-copy" title="Copy link"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block">link</span></button>' +
-                    '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\')" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download">download</a>' +
+                    '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview">visibility</button>' +
+                    '<button onclick="copyFileLink(\'' + safeUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block">link</span></button>' +
+                    '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\');event.stopPropagation()" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download">download</a>' +
                     '</div></div>';
-            }).join('');
+            });
+            renderVirtualScroll(cardHtmlArray);
+            clearKbFocus();
         }
         
         function toggleSelect(url, name, checkbox, size) {
@@ -756,6 +843,7 @@
         function sidebarFilterAll(el) {
             currentFolder = null;
             sessionStorage.removeItem('fvLastFolder');
+            pushFolderToURL(null);
             _clearAllFolderHighlights();
             document.getElementById('sidebarMyVault').classList.add('active-nav');
             // Highlight the "All" pill
@@ -770,6 +858,7 @@
         function filterByFolder(folder, button) {
             currentFolder = folder;
             sessionStorage.setItem('fvLastFolder', folder || '');
+            pushFolderToURL(folder);
             _clearAllFolderHighlights();
 
             if (folder) {
@@ -824,8 +913,308 @@
             }, 80);
         }
         
+        // ── SEARCH: history + suggestions + clear btn ──────────
+        const SEARCH_HISTORY_KEY = 'fvSearchHistory';
+        let suggFocusIdx = -1;
+
+        function getSearchHistory() {
+            try { return JSON.parse(sessionStorage.getItem(SEARCH_HISTORY_KEY) || '[]'); } catch(e) { return []; }
+        }
+        function addSearchHistory(term) {
+            if (!term || term.length < 2) return;
+            let h = getSearchHistory().filter(x => x !== term);
+            h.unshift(term);
+            sessionStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(h.slice(0, 5)));
+        }
+        function clearSearch() {
+            const inp = document.getElementById('searchInput');
+            inp.value = '';
+            document.getElementById('clearSearchBtn').style.display = 'none';
+            currentSearchTerm = '';
+            closeSuggestions();
+            renderFileList(getFilteredFiles());
+        }
+        function closeSuggestions() {
+            document.getElementById('searchSuggestions').classList.remove('open');
+            suggFocusIdx = -1;
+        }
+        function closeSuggestionsDelayed() {
+            setTimeout(closeSuggestions, 180);
+        }
+        function openSuggestions() {
+            const inp = document.getElementById('searchInput');
+            buildSuggestions(inp.value);
+        }
+        function buildSuggestions(term) {
+            const box = document.getElementById('searchSuggestions');
+            const folders = [...new Set(allFiles.map(f => f.folder).filter(Boolean))].sort();
+            const history = getSearchHistory();
+            let html = '';
+
+            if (!term) {
+                // Show history + folder chips
+                if (history.length) {
+                    html += '<div class="sugg-section">Recent searches</div>';
+                    history.forEach((h, i) => {
+                        html += '<div class="sugg-item" data-val="' + h.replace(/"/g,'&quot;') + '" onmousedown="pickSuggestion(this)">' +
+                            '<span class="material-symbols-outlined" style="font-size:14px;color:#475569">history</span>' + h +
+                            '<button onmousedown="removeHistory(event,'+i+')" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#475569;font-size:11px;padding:2px 4px">✕</button>' +
+                        '</div>';
+                    });
+                }
+                if (folders.length) {
+                    html += '<div class="sugg-section">Folders</div>';
+                    folders.forEach(f => {
+                        html += '<div class="sugg-item" data-folder="' + f.replace(/"/g,'&quot;') + '" onmousedown="pickFolderSugg(this)">' +
+                            '<span class="material-symbols-outlined" style="font-size:14px;color:#3b82f6">folder</span>' + f +
+                        '</div>';
+                    });
+                }
+            } else {
+                // Show matching folders + matching filenames
+                const tl = term.toLowerCase();
+                const matchFolders = folders.filter(f => f.toLowerCase().includes(tl));
+                const matchFiles = allFiles.filter(f => f.name.toLowerCase().includes(tl)).slice(0, 5);
+                if (matchFolders.length) {
+                    html += '<div class="sugg-section">Folders</div>';
+                    matchFolders.forEach(f => {
+                        html += '<div class="sugg-item" data-folder="' + f.replace(/"/g,'&quot;') + '" onmousedown="pickFolderSugg(this)">' +
+                            '<span class="material-symbols-outlined" style="font-size:14px;color:#3b82f6">folder</span>' + f +
+                        '</div>';
+                    });
+                }
+                if (matchFiles.length) {
+                    html += '<div class="sugg-section">Files</div>';
+                    matchFiles.forEach(f => {
+                        html += '<div class="sugg-item" data-val="' + f.name.replace(/"/g,'&quot;') + '" onmousedown="pickSuggestion(this)">' +
+                            '<span class="material-symbols-outlined" style="font-size:14px;color:#475569">' + getFileIcon(f.name) + '</span>' + f.name +
+                        '</div>';
+                    });
+                }
+            }
+
+            if (!html) { box.classList.remove('open'); return; }
+            box.innerHTML = html;
+            box.classList.add('open');
+            suggFocusIdx = -1;
+        }
+        function pickSuggestion(el) {
+            const val = el.dataset.val;
+            const inp = document.getElementById('searchInput');
+            inp.value = val;
+            filterFiles(val);
+            closeSuggestions();
+        }
+        function pickFolderSugg(el) {
+            const folder = el.dataset.folder;
+            document.getElementById('searchInput').value = '';
+            currentSearchTerm = '';
+            closeSuggestions();
+            filterByFolder(folder, null);
+        }
+        function removeHistory(e, idx) {
+            e.stopPropagation();
+            let h = getSearchHistory();
+            h.splice(idx, 1);
+            sessionStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(h));
+            buildSuggestions('');
+        }
+        function handleSearchKey(e) {
+            const box = document.getElementById('searchSuggestions');
+            const items = box.querySelectorAll('.sugg-item');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                suggFocusIdx = Math.min(suggFocusIdx + 1, items.length - 1);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                suggFocusIdx = Math.max(suggFocusIdx - 1, -1);
+            } else if (e.key === 'Enter' && suggFocusIdx >= 0 && items[suggFocusIdx]) {
+                items[suggFocusIdx].dispatchEvent(new MouseEvent('mousedown'));
+                return;
+            } else if (e.key === 'Enter' && suggFocusIdx < 0) {
+                // Save current search to history
+                if (document.getElementById('searchInput').value.trim()) {
+                    addSearchHistory(document.getElementById('searchInput').value.trim());
+                }
+                closeSuggestions();
+                return;
+            } else if (e.key === 'Escape') {
+                closeSuggestions();
+                return;
+            }
+            items.forEach((it, i) => it.classList.toggle('focused', i === suggFocusIdx));
+        }
+
+        // ── DATE RANGE FILTER ───────────────────────────────────
+        let dateRangeOpen = false;
+        function toggleDateRange() {
+            dateRangeOpen = !dateRangeOpen;
+            document.getElementById('dateRangeBar').classList.toggle('open', dateRangeOpen);
+            document.getElementById('dateFilterBtn').classList.toggle('bg-primary/20', dateRangeOpen);
+            document.getElementById('dateFilterBtn').classList.toggle('text-primary', dateRangeOpen);
+        }
+        function clearDateRange() {
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            renderFileList(getFilteredFiles());
+        }
+
+        // ── TIMEAGO ─────────────────────────────────────────────
+        function timeAgo(dateStr) {
+            const diff = Date.now() - new Date(dateStr).getTime();
+            const mins = Math.floor(diff / 60000);
+            const hrs = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+            if (mins < 2) return 'just now';
+            if (mins < 60) return mins + 'm ago';
+            if (hrs < 24) return hrs + 'h ago';
+            if (days === 1) return 'yesterday';
+            if (days < 7) return days + ' days ago';
+            if (days < 30) return Math.floor(days / 7) + 'w ago';
+            if (days < 365) return Math.floor(days / 30) + 'mo ago';
+            return Math.floor(days / 365) + 'y ago';
+        }
+
+        // ── URL STATE ───────────────────────────────────────────
+        function pushFolderToURL(folder) {
+            const url = new URL(window.location.href);
+            if (folder) { url.searchParams.set('folder', folder); }
+            else { url.searchParams.delete('folder'); }
+            history.replaceState(null, '', url.toString());
+        }
+        function getFolderFromURL() {
+            return new URL(window.location.href).searchParams.get('folder') || null;
+        }
+
+        // ── SESSION CACHE ────────────────────────────────────────
+        const CACHE_KEY = 'fvFilesCache';
+        const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+        function getCachedFiles() {
+            try {
+                const raw = sessionStorage.getItem(CACHE_KEY);
+                if (!raw) return null;
+                const { ts, data } = JSON.parse(raw);
+                if (Date.now() - ts > CACHE_TTL) { sessionStorage.removeItem(CACHE_KEY); return null; }
+                return data;
+            } catch(e) { return null; }
+        }
+        function setCachedFiles(data) {
+            try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch(e) {}
+        }
+
+        // ── VIRTUAL SCROLL (render in chunks of 30) ─────────────
+        let _vsAllCards = [];
+        let _vsRendered = 0;
+        const VS_PAGE = 30;
+        let _vsObserver = null;
+
+        function renderVirtualScroll(cards) {
+            _vsAllCards = cards;
+            _vsRendered = 0;
+            const grid = document.getElementById('fileGrid');
+            grid.innerHTML = '';
+            appendNextChunk(grid);
+            attachVSObserver(grid);
+        }
+
+        function appendNextChunk(grid) {
+            const chunk = _vsAllCards.slice(_vsRendered, _vsRendered + VS_PAGE);
+            if (!chunk.length) return;
+            chunk.forEach(html => {
+                const wrap = document.createElement('div');
+                wrap.innerHTML = html;
+                grid.appendChild(wrap.firstChild);
+            });
+            _vsRendered += chunk.length;
+        }
+
+        function attachVSObserver(grid) {
+            if (_vsObserver) _vsObserver.disconnect();
+            if (_vsRendered >= _vsAllCards.length) return;
+            const sentinel = document.createElement('div');
+            sentinel.id = 'vsSentinel';
+            sentinel.style.height = '1px';
+            grid.appendChild(sentinel);
+            _vsObserver = new IntersectionObserver(entries => {
+                if (entries[0].isIntersecting) {
+                    sentinel.remove();
+                    appendNextChunk(grid);
+                    attachVSObserver(grid);
+                }
+            }, { rootMargin: '200px' });
+            _vsObserver.observe(sentinel);
+        }
+
+        // ── KEYBOARD NAVIGATION ──────────────────────────────────
+        let kbFocusIdx = -1;
+        function getCardEls() { return [...document.querySelectorAll('#fileGrid .file-card')]; }
+        function setKbFocus(idx) {
+            const cards = getCardEls();
+            if (!cards.length) return;
+            idx = Math.max(0, Math.min(idx, cards.length - 1));
+            cards.forEach((c, i) => c.classList.toggle('kb-focus', i === idx));
+            kbFocusIdx = idx;
+            cards[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        function clearKbFocus() {
+            getCardEls().forEach(c => c.classList.remove('kb-focus'));
+            kbFocusIdx = -1;
+        }
+
+        // ── DRAG-SELECT ──────────────────────────────────────────
+        let _ds = { active: false, startX: 0, startY: 0 };
+        function initDragSelect() {
+            const grid = document.getElementById('fileGrid');
+            const box = document.getElementById('dragSelectBox');
+
+            document.addEventListener('mousedown', e => {
+                if (e.button !== 0) return;
+                const card = e.target.closest('.file-card');
+                const input = e.target.closest('input,button,a');
+                // Only start drag if clicking on the grid background (not a card control)
+                if (input || (card && e.target.tagName !== 'DIV')) return;
+                _ds.active = true;
+                _ds.startX = e.clientX;
+                _ds.startY = e.clientY;
+                box.style.cssText = 'display:block;left:'+e.clientX+'px;top:'+e.clientY+'px;width:0;height:0';
+            });
+
+            document.addEventListener('mousemove', e => {
+                if (!_ds.active) return;
+                const x = Math.min(e.clientX, _ds.startX);
+                const y = Math.min(e.clientY, _ds.startY);
+                const w = Math.abs(e.clientX - _ds.startX);
+                const h = Math.abs(e.clientY - _ds.startY);
+                box.style.left = x + 'px';
+                box.style.top = y + 'px';
+                box.style.width = w + 'px';
+                box.style.height = h + 'px';
+
+                if (w > 8 || h > 8) {
+                    const selRect = { x, y, right: x + w, bottom: y + h };
+                    getCardEls().forEach((card, i) => {
+                        const r = card.getBoundingClientRect();
+                        const overlaps = r.left < selRect.right && r.right > selRect.x && r.top < selRect.bottom && r.bottom > selRect.y;
+                        const cb = card.querySelector('input[type="checkbox"]');
+                        if (cb && overlaps !== cb.checked) {
+                            cb.checked = overlaps;
+                            cb.dispatchEvent(new Event('change'));
+                        }
+                    });
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (!_ds.active) return;
+                _ds.active = false;
+                box.style.display = 'none';
+            });
+        }
+
         function filterFiles(term) {
             currentSearchTerm = term.toLowerCase();
+            document.getElementById('clearSearchBtn').style.display = term ? 'block' : 'none';
+            buildSuggestions(term);
             renderFileList(getFilteredFiles());
         }
         
@@ -839,6 +1228,16 @@
             fetchFiles();
         })();
         
+        function _restoreInitialFolder() {
+            // URL param takes priority, then sessionStorage
+            const urlFolder = getFolderFromURL();
+            const ssFolder = sessionStorage.getItem('fvLastFolder');
+            const target = urlFolder || ssFolder || null;
+            if (target && allFiles.some(f => f.folder === target)) {
+                filterByFolder(target, null);
+            }
+        }
+
         function isListView() { return viewType === 'list'; }
 
         function showTip(idx) {
@@ -850,6 +1249,13 @@
             if (el) el.classList.remove('show');
         }
 
+        function handleCardClick(e, idx) {
+            // Set kb focus to clicked card without overriding button actions
+            if (!e.target.closest('button,a,input')) {
+                setKbFocus(idx);
+            }
+        }
+
         // ── Back to top visibility ──
         window.addEventListener('scroll', function() {
             const btn = document.getElementById('backToTop');
@@ -858,18 +1264,46 @@
         }, { passive: true });
 
         document.addEventListener('keydown', e => {
+            const active = document.activeElement;
+            const inInput = active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT';
+
             if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
                 e.preventDefault();
                 document.getElementById('searchInput').focus();
+                return;
             }
-            if (e.key === '?') {
-                // Only open if not focused on an input
-                if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
-                    openShortcuts();
-                }
+            if (e.key === '?' && !inInput) { openShortcuts(); return; }
+            if (e.key === 'Escape') { closePreview(); closeShortcuts(); closeSuggestions(); return; }
+
+            // Arrow key navigation through file cards
+            if (!inInput && ['ArrowDown','ArrowUp','ArrowLeft','ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+                const cards = getCardEls();
+                if (!cards.length) return;
+                const cols = viewType === 'list' ? 1 : (window.innerWidth >= 1280 ? 3 : window.innerWidth >= 640 ? 2 : 1);
+                let next = kbFocusIdx < 0 ? 0 : kbFocusIdx;
+                if (e.key === 'ArrowDown') next += cols;
+                else if (e.key === 'ArrowUp') next -= cols;
+                else if (e.key === 'ArrowRight') next += 1;
+                else if (e.key === 'ArrowLeft') next -= 1;
+                setKbFocus(Math.max(0, Math.min(next, cards.length - 1)));
+                return;
             }
-            if (e.key === 'Escape') { closePreview(); closeShortcuts(); }
+            if (e.key === 'Enter' && !inInput && kbFocusIdx >= 0) {
+                e.preventDefault();
+                previewByIdx(kbFocusIdx);
+                return;
+            }
+            if (e.key === ' ' && !inInput && kbFocusIdx >= 0) {
+                e.preventDefault();
+                const card = getCardEls()[kbFocusIdx];
+                if (card) { const cb = card.querySelector('input[type="checkbox"]'); if (cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); } }
+                return;
+            }
         });
+
+        // Init drag-select after DOM ready
+        initDragSelect();
     </script>
     
     <!-- Preview Modal -->
@@ -909,6 +1343,26 @@
                 <button onclick="closeShortcuts()" style="width:32px;height:32px;background:rgba(255,255,255,.05);border:none;border-radius:10px;cursor:pointer;color:#64748b;display:flex;align-items:center;justify-content:center">
                     <span class="material-symbols-outlined" style="font-size:18px">close</span>
                 </button>
+            </div>
+            <div class="sc-row">
+                <span style="color:#cbd5e1;font-size:13px">Navigate file cards</span>
+                <span class="sc-key"><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></span>
+            </div>
+            <div class="sc-row">
+                <span style="color:#cbd5e1;font-size:13px">Preview focused card</span>
+                <span class="sc-key"><kbd>Enter</kbd></span>
+            </div>
+            <div class="sc-row">
+                <span style="color:#cbd5e1;font-size:13px">Filter by date</span>
+                <span style="color:#64748b;font-size:12px">Calendar 🗓 button</span>
+            </div>
+            <div class="sc-row">
+                <span style="color:#cbd5e1;font-size:13px">Share folder link</span>
+                <span style="color:#64748b;font-size:12px">URL updates automatically</span>
+            </div>
+            <div class="sc-row">
+                <span style="color:#cbd5e1;font-size:13px">Drag-select files</span>
+                <span style="color:#64748b;font-size:12px">Click & drag on grid</span>
             </div>
             <div class="sc-row">
                 <span style="color:#cbd5e1;font-size:13px">Search files</span>
