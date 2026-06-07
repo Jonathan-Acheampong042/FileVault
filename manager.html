@@ -18,54 +18,77 @@
         * { box-sizing: border-box; }
         @media (max-width: 1023px) { body { -webkit-text-size-adjust: 100%; } }
 
-        /* ── Mobile layout fixes ── */
+        /* ── Mobile: prevent ALL horizontal scroll ── */
         @media (max-width: 768px) {
-            /* Prevent anything from pushing past screen edge */
-            body, main, section { max-width: 100vw; box-sizing: border-box; }
-
-            /* Library header controls: stack into two rows */
-            #mainContent .flex.items-center.gap-1\.5 {
-                flex-wrap: wrap !important;
+            html, body {
+                overflow-x: hidden !important;
+                max-width: 100vw !important;
             }
-
-            /* File grid: single column on mobile */
-            #managerFileGrid {
-                grid-template-columns: 1fr !important;
-            }
-
-            /* File card action buttons: allow wrapping */
-            .file-item .flex.gap-1\.5 {
-                flex-wrap: wrap !important;
-            }
-
-            /* File name: truncate so it never expands the card */
-            .file-item p.truncate {
+            *, *::before, *::after {
+                box-sizing: border-box !important;
                 max-width: 100% !important;
+            }
+            main, section, .glass-card {
+                width: 100% !important;
+                max-width: 100% !important;
+                overflow-x: hidden !important;
+            }
+            #managerFileGrid {
+                display: block !important;
+            }
+            #managerFileGrid .file-item,
+            #managerFileGrid > div {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin-bottom: 12px !important;
+                overflow: hidden !important;
+            }
+            .file-item {
+                overflow: hidden !important;
+                width: 100% !important;
+            }
+            .file-item p.truncate {
+                max-width: calc(100vw - 130px) !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                white-space: nowrap !important;
+                display: block !important;
+            }
+            .file-item p, .file-item span {
+                word-break: break-word !important;
+                overflow-wrap: break-word !important;
+            }
+            .file-item > div:last-child {
+                flex-wrap: wrap !important;
+                gap: 6px !important;
+            }
+            #mainFolderGrid {
+                grid-template-columns: repeat(2, 1fr) !important;
+                overflow: hidden !important;
+            }
+            #mainFolderGrid .folder-item {
+                min-width: 0 !important;
+                overflow: hidden !important;
+            }
+            #mainFolderGrid .folder-item p {
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
                 white-space: nowrap !important;
             }
-
-            /* Folder grid: 2 cols, no overflow */
-            #mainFolderGrid {
-                grid-template-columns: repeat(2, 1fr) !important;
+            .flex.items-center.gap-1\.5,
+            .flex.items-center.gap-2 {
+                flex-wrap: wrap !important;
             }
-
-            /* Upload zone: never wider than screen */
-            #uploadZone {
-                max-width: 100% !important;
-                box-sizing: border-box !important;
-            }
-
-            /* Tabs bar: stretch without overflow */
             .tab-btn {
                 min-width: 0 !important;
                 flex: 1 1 0 !important;
             }
-
-            /* Bulk bar: wrap on small screens */
             #bulkBar {
                 flex-wrap: wrap !important;
+                gap: 6px !important;
+            }
+            #syncPanel > div p:last-child {
+                font-size: 1.1rem !important;
             }
         }
         .bg-fixed-image { position: fixed; inset: 0; background-image: url('screen.png'); background-size: cover; background-position: center; background-repeat: no-repeat; filter: saturate(0.72) brightness(0.5); z-index: -2; }
@@ -111,7 +134,7 @@
     </style>
     <!-- chat-widget loaded at bottom of body -->
 </head>
-<body class="font-sans" style="overflow-x:clip">
+<body class="font-sans" style="overflow-x:hidden;max-width:100vw">
     <div class="bg-fixed-image"></div>
     <div class="bg-overlay"></div>
     <div class="flex flex-col min-h-screen">
@@ -454,7 +477,7 @@
                         </button>
                     </div>
                 </div>
-                <p class="text-white/80 text-sm font-semibold truncate" onclick="filterByFolder('${folder}')">${folder}</p>
+                <p class="text-white/80 text-sm font-semibold truncate" onclick="filterByFolder('${folder}')" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">${folder}</p>
                 <p class="text-white/40 text-xs mt-1 folder-count" data-folder="${folder}">· click to filter</p>
             </div>`;
         });
@@ -986,14 +1009,14 @@
         </span>`;
 
         return `
-        <div class="file-item glass-card p-5 rounded-2xl border border-white/5 hover:border-white/20 transition-all">
+        <div class="file-item glass-card p-5 rounded-2xl border border-white/5 hover:border-white/20 transition-all" style="overflow:hidden;min-width:0;max-width:100%">
             <div class="flex items-start gap-3 mb-3">
                 <input type="checkbox" class="file-checkbox mt-1 accent-blue-500 cursor-pointer" onchange="toggleFileSelect('${storagePath.replace(/'/g,"\\'")}', this, ${row.file_size || 0})">
                 <div class="${bgColor} w-12 h-12 rounded-xl flex items-center justify-center shrink-0">
                     <span class="material-symbols-outlined ${textColor} text-2xl">${icon}</span>
                 </div>
-                <div class="min-w-0 flex-1">
-                    <p class="font-semibold text-white/80 text-sm truncate" title="${row.file_name}">${row.file_name}</p>
+                <div class="min-w-0 flex-1" style="overflow:hidden;min-width:0">
+                    <p class="font-semibold text-white/80 text-sm truncate" title="${row.file_name}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">${row.file_name}</p>
                     <p class="text-[10px] text-white/40 mt-0.5 flex items-center gap-1 flex-wrap">
                         <span class="material-symbols-outlined text-[10px]">folder</span> ${row.folder_name || 'Root'}
                         <span class="text-white/20">·</span>
