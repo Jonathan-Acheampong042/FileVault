@@ -683,36 +683,63 @@
         }
         
         // Sidebar "My Vault" — show all files, clear folder filter
-        function sidebarFilterAll(el) {
-            currentFolder = null;
-            // Highlight My Vault, deactivate all folder buttons
-            document.querySelectorAll('.folder-btn').forEach(btn => {
-                btn.classList.remove('active', 'text-primary', 'bg-primary/10');
-            });
-            document.getElementById('sidebarMyVault').classList.add('active-nav');
-            // Also reset the pills row to "All"
+        function _clearAllFolderHighlights() {
+            // Clear pills row
             document.querySelectorAll('#folderSection .folder-btn').forEach(btn => {
                 btn.classList.remove('active', 'border-primary/40', 'bg-primary/20', 'text-primary', 'shadow-lg');
             });
+            // Clear sidebar folder buttons — remove every highlight class
+            document.querySelectorAll('#sidebarFolderList .folder-btn').forEach(btn => {
+                btn.classList.remove('active', 'text-primary', 'bg-primary/10', 'border-primary/40', 'bg-primary/20', 'shadow-lg');
+            });
+        }
+
+        function sidebarFilterAll(el) {
+            currentFolder = null;
+            _clearAllFolderHighlights();
+            // Restore My Vault as active
+            document.getElementById('sidebarMyVault').classList.add('active-nav');
+            // Highlight the "All" pill
             const allPill = document.querySelector('#folderSection .folder-btn');
             if (allPill) allPill.classList.add('active', 'border-primary/40', 'bg-primary/20', 'text-primary');
+            // Hide folder label badge
+            const folderLabel = document.getElementById('activeFolderLabel');
+            if (folderLabel) folderLabel.style.display = 'none';
             renderFileList(getFilteredFiles());
         }
 
         function filterByFolder(folder, button) {
             currentFolder = folder;
-            document.querySelectorAll('.folder-btn').forEach(btn => {
-                btn.classList.remove('active', 'border-primary/40', 'bg-primary/20', 'text-primary', 'shadow-lg');
-            });
-            if (button) {
-                button.classList.add('active', 'border-primary/40', 'bg-primary/20', 'text-primary', 'shadow-lg');
+            _clearAllFolderHighlights();
+
+            if (folder) {
+                // Remove active-nav from My Vault
+                document.getElementById('sidebarMyVault').classList.remove('active-nav');
+
+                // Highlight the matching sidebar folder button by name
+                document.querySelectorAll('#sidebarFolderList .folder-btn').forEach(btn => {
+                    if (btn.querySelector('span.truncate') && btn.querySelector('span.truncate').textContent.trim() === folder) {
+                        btn.classList.add('active', 'text-primary', 'bg-primary/10');
+                    }
+                });
+
+                // Highlight the matching pill button by name
+                document.querySelectorAll('#folderSection .folder-btn').forEach(btn => {
+                    if (btn.textContent.trim() === folder) {
+                        btn.classList.add('active', 'border-primary/40', 'bg-primary/20', 'text-primary', 'shadow-lg');
+                    }
+                });
+
+                // Also highlight whichever button was directly clicked (grid card or pill)
+                if (button) button.classList.add('active', 'border-primary/40', 'bg-primary/20', 'text-primary', 'shadow-lg');
+            } else {
+                // Clicking "All" — restore My Vault and All pill
+                document.getElementById('sidebarMyVault').classList.add('active-nav');
+                const allPill = document.querySelector('#folderSection .folder-btn');
+                if (allPill) allPill.classList.add('active', 'border-primary/40', 'bg-primary/20', 'text-primary');
             }
-            const myVault = document.getElementById('sidebarMyVault');
-            if (myVault) {
-                if (folder) { myVault.classList.remove('active-nav'); }
-                else { myVault.classList.add('active-nav'); }
-            }
-            // Update active folder label above file grid
+
+            // Update folder label badge
             const folderLabel = document.getElementById('activeFolderLabel');
             if (folderLabel) {
                 if (folder) {
@@ -722,6 +749,7 @@
                     folderLabel.style.display = 'none';
                 }
             }
+
             renderFileList(getFilteredFiles());
             // Scroll down to the file grid automatically on all screen sizes
             setTimeout(function() {
