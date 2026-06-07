@@ -379,16 +379,16 @@
     // ─── FOLDERS ────────────────────────────────────────────────
     async function loadFolders() {
         try {
-            // Pull folder names from both DB and storage
-            const [{ data: dbData }, { data: storageData }] = await Promise.all([
-                _supabase.from('files_list').select('folder_name'),
-                _supabase.storage.from('vault-files').list('', { limit: 200, recursive: true })
-            ]);
-
+            // DB is the single source of truth for folder names.
+            // Never read from storage — stale storage paths after rename
+            // cause deleted/renamed folders to reappear.
+            const { data: dbData, error } = await _supabase
+                .from('files_list').select('folder_name');
+            if (error) throw error;
             const folders = new Set();
-            (dbData || []).forEach(r => { if (r.folder_name && r.folder_name !== 'Root') folders.add(r.folder_name); });
-            (storageData || []).forEach(f => { if (f.name.includes('/')) folders.add(f.name.split('/')[0]); });
-
+            (dbData || []).forEach(r => {
+                if (r.folder_name && r.folder_name !== 'Root') folders.add(r.folder_name);
+            });
             availableFolders = [...folders].sort();
             const select = document.getElementById('folderSelect');
             select.innerHTML = '<option value="" class="text-black">No folder (root)</option>';
@@ -429,14 +429,13 @@
         const marker = '/object/public/vault-files/';
 
         try {
-            // ── Step 1: Get all DB records for this folder ──
+            // Step 1: Get all DB records for this folder
             const { data: dbFiles, error: dbErr } = await _supabase
                 .from('files_list').select('id, file_name, download_url').eq('folder_name', oldName);
             if (dbErr) throw new Error('DB read failed: ' + dbErr.message);
 
-            // ── Step 2: For each file, copy to new path using exact URL, delete old ──
+            // Step 2: For each file, use the exact storage path from download_url
             for (const row of (dbFiles || [])) {
-                // Get exact old storage path from download_url
                 let oldStoragePath = `${oldName}/${row.file_name}`; // fallback
                 if (row.download_url) {
                     const idx = row.download_url.indexOf(marker);
@@ -444,22 +443,20 @@
                 }
                 const newStoragePath = `${newName}/${row.file_name}`;
 
-                // Delete destination first so copy doesn't silently fail
+                // Remove destination first — copy silently fails if dest exists
                 await _supabase.storage.from('vault-files').remove([newStoragePath]);
-
                 const { error: copyErr } = await _supabase.storage.from('vault-files').copy(oldStoragePath, newStoragePath);
                 if (copyErr) throw new Error(`Copy failed for "${row.file_name}": ${copyErr.message}`);
-
                 await _supabase.storage.from('vault-files').remove([oldStoragePath]);
 
-                // Update DB record: folder_name + download_url
+                // Update DB: both folder_name and download_url
                 const { data: urlData } = _supabase.storage.from('vault-files').getPublicUrl(newStoragePath);
                 await _supabase.from('files_list')
                     .update({ folder_name: newName, download_url: urlData.publicUrl })
                     .eq('id', row.id);
             }
 
-            // ── Step 3: Clean up any leftover storage items (placeholders etc.) ──
+            // Step 3: Clean up any leftover storage items in old folder (placeholders etc.)
             const { data: leftover } = await _supabase.storage
                 .from('vault-files').list(oldName, { limit: 500 });
             if (leftover && leftover.length > 0) {
@@ -467,8 +464,8 @@
                     .remove(leftover.map(f => `${oldName}/${f.name}`));
             }
 
-            // ── Step 4: Update local state — do NOT call loadFolders() because
-            //    storage still shows old folder briefly; drive from DB only ──
+            // Step 4: Update local state WITHOUT calling loadFolders()
+            // loadFolders() reads storage which still shows old folder briefly → ghost reappears
             availableFolders = availableFolders.map(f => f === oldName ? newName : f).sort();
             const folderSelect = document.getElementById('folderSelect');
             folderSelect.innerHTML = '<option value="" class="text-black">No folder (root)</option>';
@@ -693,16 +690,32 @@
         if (selectedFiles.size === 0) return;
         if (!confirm(`Delete ${selectedFiles.size} file(s)? This cannot be undone.`)) return;
         setStatus(`Deleting ${selectedFiles.size} file(s)...`, 'blue');
-        let done = 0;
+
+        const marker = '/object/public/vault-files/';
+        const storagePaths = [];
+        const dbIds = [];
+
         for (const path of selectedFiles) {
             const name = path.split('/').pop();
-            await Promise.all([
-                _supabase.storage.from('vault-files').remove([path]),
-                _supabase.from('files_list').delete().eq('file_name', name)
-            ]);
-            done++;
+            const { data: row } = await _supabase
+                .from('files_list').select('id, download_url').eq('file_name', name).maybeSingle();
+            if (row?.download_url) {
+                const idx = row.download_url.indexOf(marker);
+                storagePaths.push(idx !== -1
+                    ? decodeURIComponent(row.download_url.substring(idx + marker.length))
+                    : path);
+                if (row.id) dbIds.push(row.id);
+            } else {
+                storagePaths.push(path);
+            }
         }
+
+        if (storagePaths.length > 0) await _supabase.storage.from('vault-files').remove(storagePaths);
+        if (dbIds.length > 0) await _supabase.from('files_list').delete().in('id', dbIds);
+
+        const done = selectedFiles.size;
         selectedFiles.clear();
+        selectedFileSizes.clear();
         updateBulkBar();
         setStatus(`✓ Deleted ${done} file(s).`, 'green');
         loadManagerFiles();
@@ -752,7 +765,7 @@
         const marker = '/object/public/vault-files/';
         const realId = (dbId && dbId !== 'null' && dbId !== null) ? dbId : null;
 
-        // ── Get exact old storage path from DB download_url ──
+        // Get exact old storage path from DB download_url
         let exactOldPath = storagePath; // fallback
         let folderPrefix = '';
         if (realId) {
@@ -764,12 +777,10 @@
             }
             if (row?.folder_name && row.folder_name !== 'Root') folderPrefix = row.folder_name;
         }
-
         const newPath = folderPrefix ? `${folderPrefix}/${trimmed}` : trimmed;
 
-        // Delete destination first so copy doesn't fail silently
+        // Remove destination first so copy doesn't fail silently
         await _supabase.storage.from('vault-files').remove([newPath]);
-
         const { error: copyErr } = await _supabase.storage.from('vault-files').copy(exactOldPath, newPath);
         if (copyErr) { setStatus('Storage rename failed: ' + copyErr.message, 'red'); return; }
         await _supabase.storage.from('vault-files').remove([exactOldPath]);
@@ -785,12 +796,8 @@
                 .update({ file_name: trimmed, download_url: urlData.publicUrl }).eq('file_name', oldName);
             dbError = error;
         }
-
-        if (dbError) {
-            setStatus('Renamed in storage but DB update failed: ' + dbError.message, 'yellow');
-        } else {
-            setStatus(`✓ Renamed to "${trimmed}".`, 'green');
-        }
+        if (dbError) { setStatus('Renamed in storage but DB update failed: ' + dbError.message, 'yellow'); }
+        else { setStatus(`✓ Renamed to "${trimmed}".`, 'green'); }
         loadManagerFiles();
     }
 
@@ -804,7 +811,7 @@
         const marker = '/object/public/vault-files/';
         const realId = (dbId && dbId !== 'null' && dbId !== null) ? dbId : null;
 
-        // ── Get exact old storage path from DB download_url ──
+        // Get exact old storage path from DB download_url
         let exactOldPath = storagePath; // fallback
         if (realId) {
             const { data: row } = await _supabase
@@ -814,11 +821,10 @@
                 if (idx !== -1) exactOldPath = decodeURIComponent(row.download_url.substring(idx + marker.length));
             }
         }
-
         if (newPath === exactOldPath) return;
         setStatus('Moving file…', 'blue');
 
-        // Delete destination first
+        // Remove destination first
         await _supabase.storage.from('vault-files').remove([newPath]);
         const { error: copyErr } = await _supabase.storage.from('vault-files').copy(exactOldPath, newPath);
         if (copyErr) { setStatus('Move failed: ' + copyErr.message, 'red'); return; }
@@ -835,18 +841,11 @@
                 .update({ folder_name: newFolder, download_url: urlData.publicUrl }).eq('file_name', fileName);
             dbError = error;
         }
-
         if (dbError) { setStatus('Moved in storage but DB update failed: ' + dbError.message, 'yellow'); }
         else { setStatus(`✓ Moved to "${newFolder}".`, 'green'); }
 
-        // Reload folders from DB only — not storage (avoids ghost folder reappearing)
-        const { data: dbFolders } = await _supabase.from('files_list').select('folder_name');
-        const folders = new Set();
-        (dbFolders || []).forEach(r => { if (r.folder_name && r.folder_name !== 'Root') folders.add(r.folder_name); });
-        availableFolders = [...folders].sort();
-        const sel = document.getElementById('folderSelect');
-        sel.innerHTML = '<option value="" class="text-black">No folder (root)</option>';
-        availableFolders.forEach(f => { sel.innerHTML += `<option value="${f}" class="text-black">${f}</option>`; });
+        // Reload folders from DB only — never storage
+        await loadFolders();
         renderMainFolders();
         populateRequestFolderSelect();
         loadManagerFiles();
@@ -878,18 +877,41 @@
         if (!confirm(`Delete the entire "${folderName}" folder and all its files? This cannot be undone.`)) return;
         setStatus(`Deleting folder "${folderName}"…`, 'blue');
 
-        // List all files in that folder
-        const { data: storageData } = await _supabase.storage.from('vault-files').list(folderName, { limit: 200 });
-        const paths = (storageData || []).map(f => `${folderName}/${f.name}`);
-        if (paths.length > 0) {
-            await _supabase.storage.from('vault-files').remove(paths);
+        const marker = '/object/public/vault-files/';
+
+        // Get exact storage paths from DB download_urls
+        const { data: dbFiles } = await _supabase
+            .from('files_list').select('id, download_url').eq('folder_name', folderName);
+
+        const storagePaths = (dbFiles || []).map(row => {
+            if (!row.download_url) return null;
+            const idx = row.download_url.indexOf(marker);
+            return idx !== -1 ? decodeURIComponent(row.download_url.substring(idx + marker.length)) : null;
+        }).filter(Boolean);
+
+        // Also list storage directly as fallback for orphan files
+        const { data: storageData } = await _supabase.storage
+            .from('vault-files').list(folderName, { limit: 500 });
+        const fallbackPaths = (storageData || []).filter(f => f.id)
+            .map(f => `${folderName}/${f.name}`);
+
+        const allPaths = [...new Set([...storagePaths, ...fallbackPaths])];
+        if (allPaths.length > 0) {
+            await _supabase.storage.from('vault-files').remove(allPaths);
         }
         await _supabase.from('files_list').delete().eq('folder_name', folderName);
 
-        setStatus(`✓ Folder "${folderName}" deleted.`, 'green');
-        loadFolders();
+        // Update local state without calling loadFolders() to avoid ghost folder
+        availableFolders = availableFolders.filter(f => f !== folderName);
+        const folderSelect = document.getElementById('folderSelect');
+        folderSelect.innerHTML = '<option value="" class="text-black">No folder (root)</option>';
+        availableFolders.forEach(f => {
+            folderSelect.innerHTML += `<option value="${f}" class="text-black">${f}</option>`;
+        });
+        if (currentFolder === folderName) currentFolder = null;
         renderMainFolders();
         populateRequestFolderSelect();
+        setStatus(`✓ Folder "${folderName}" deleted.`, 'green');
         loadManagerFiles();
     }
 
@@ -1071,32 +1093,44 @@
     });
 
     // ─── DELETE (synced) ────────────────────────────────────────
-   async function deleteFile(storagePath, dbId) {
-    const displayName = storagePath.split('/').pop();
-    console.log('storagePath:', storagePath);
-    console.log('displayName:', displayName);
-    if (!confirm(`Delete "${displayName}"?`)) return;
+    async function deleteFile(storagePath, dbId) {
+        const displayName = storagePath.split('/').pop();
+        if (!confirm(`Delete "${displayName}"?`)) return;
+        setStatus('Deleting...', 'blue');
 
-    setStatus('Deleting...', 'blue');
+        const marker = '/object/public/vault-files/';
+        const realId = (dbId && dbId !== 'null' && dbId !== null) ? dbId : null;
 
-    const [storageResult, dbResult] = await Promise.all([
-    _supabase.storage.from('vault-files').remove([storagePath]),
-    _supabase.from('files_list').delete().eq('file_name', displayName)
-]);
+        // Get exact storage path from DB download_url
+        let exactStoragePath = storagePath;
+        if (realId) {
+            const { data: row } = await _supabase
+                .from('files_list').select('download_url').eq('id', realId).single();
+            if (row?.download_url) {
+                const idx = row.download_url.indexOf(marker);
+                if (idx !== -1) exactStoragePath = decodeURIComponent(row.download_url.substring(idx + marker.length));
+            }
+        }
 
-console.log('storageResult:', JSON.stringify(storageResult));
-console.log('dbResult:', JSON.stringify(dbResult));
+        const { error: storageError } = await _supabase.storage.from('vault-files').remove([exactStoragePath]);
+        let dbError = null;
+        if (realId) {
+            const { error } = await _supabase.from('files_list').delete().eq('id', realId);
+            dbError = error;
+        } else {
+            const { error } = await _supabase.from('files_list').delete().eq('file_name', displayName);
+            dbError = error;
+        }
 
-    if (!storageResult.error && !dbResult.error) {
-        setStatus('✓ Deleted successfully.', 'green');
-    } else if (storageResult.error) {
-        setStatus('Storage error: ' + storageResult.error.message, 'red');
-    } else {
-        setStatus('DB error: ' + dbResult.error.message, 'red');
+        if (!storageError && !dbError) {
+            setStatus('✓ Deleted successfully.', 'green');
+        } else if (storageError) {
+            setStatus('Storage error: ' + storageError.message, 'red');
+        } else {
+            setStatus('DB error: ' + dbError.message, 'red');
+        }
+        await loadManagerFiles();
     }
-
-    await loadManagerFiles();
-}
     // ─── SYNC STATUS ────────────────────────────────────────────
     async function updateSyncStatus() {
         try {
