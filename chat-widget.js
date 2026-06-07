@@ -285,37 +285,23 @@ function initChatWidget() {
             #chatMessages::-webkit-scrollbar-track { background: transparent; }
             #chatMessages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 
-            /* ── Mobile: prevent horizontal overflow, keep widget on-screen ── */
+            /* ── Mobile: compact right-anchored widget, never causes horizontal scroll ── */
             @media (max-width: 600px) {
-                /* Wrapper spans full bottom edge so nothing overflows */
                 #aiChatWidget {
-                    left: 0 !important;
-                    right: 0 !important;
-                    bottom: 0 !important;
-                    width: 100% !important;
-                    padding: 0 !important;
-                    display: flex !important;
-                    flex-direction: column !important;
-                    align-items: flex-end !important;
+                    right: 16px !important;
+                    left: auto !important;
+                    bottom: 20px !important;
+                    width: auto !important;
+                    max-width: calc(100vw - 32px) !important;
                     box-sizing: border-box !important;
-                    pointer-events: none;
                 }
-                #aiChatWidget > * { pointer-events: auto; }
-
-                /* Chat window: full-width, rounded top corners only, no side gaps */
+                /* Chat window: fixed width that fits most phones without overflow */
                 #chatWindow {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                    margin-bottom: 0 !important;
-                    border-radius: 20px 20px 0 0 !important;
-                    max-height: 72vh !important;
-                    box-shadow: 0 -8px 40px rgba(0,0,0,0.5) !important;
-                }
-
-                /* Toggle button sits in bottom-right with breathing room */
-                #chatToggleBtn {
-                    margin: 0 16px 16px 0 !important;
-                    align-self: flex-end;
+                    width: min(300px, calc(100vw - 32px)) !important;
+                    max-width: calc(100vw - 32px) !important;
+                    height: min(420px, 65vh) !important;
+                    margin-bottom: 12px !important;
+                    border-radius: 20px !important;
                 }
             }
         `;
