@@ -285,23 +285,22 @@ function initChatWidget() {
             #chatMessages::-webkit-scrollbar-track { background: transparent; }
             #chatMessages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 
-            /* ── Mobile: compact right-anchored widget, never causes horizontal scroll ── */
-            @media (max-width: 600px) {
+            /* ── Mobile: right-anchored widget — window stays partial right, never overflows ── */
+            @media (max-width: 768px) {
                 #aiChatWidget {
                     right: 16px !important;
                     left: auto !important;
                     bottom: 20px !important;
                     width: auto !important;
-                    max-width: calc(100vw - 32px) !important;
                     box-sizing: border-box !important;
                 }
-                /* Chat window: fixed width that fits most phones without overflow */
                 #chatWindow {
-                    width: min(300px, calc(100vw - 32px)) !important;
+                    width: 340px !important;
                     max-width: calc(100vw - 32px) !important;
-                    height: min(420px, 65vh) !important;
+                    height: min(480px, 70vh) !important;
                     margin-bottom: 12px !important;
                     border-radius: 20px !important;
+                    box-sizing: border-box !important;
                 }
             }
         `;
