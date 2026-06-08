@@ -97,7 +97,7 @@
         .skeleton { position:relative;overflow:hidden;background:rgba(30,41,59,0.4);border-radius:12px; }
         .skeleton::after { content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.06) 50%,transparent 100%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite; }
         @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-        .skeleton-card { glass-card:unset;background:rgba(30,41,59,0.25);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:16px;display:flex;align-items:center;gap:12px; }
+        .skeleton-card {background:rgba(30,41,59,0.25);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:16px;display:flex;align-items:center;gap:12px; }
 
         /* ── File card entrance animation ── */
         @keyframes cardIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
@@ -974,7 +974,7 @@
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
                     '<button onclick="togglePin(\'' + safeUrl + '\',\'' + safeName + '\',this);event.stopPropagation()" class="pin-btn' + (isPinned(file.url) ? ' pinned' : '') + '" title="' + (isPinned(file.url) ? 'Unpin' : 'Pin to top') + '"><span class="material-symbols-outlined" style="font-size:18px;display:block">push_pin</span></button>' +
-                    '<button onclick="openNoteModal(\'' + safeUrl + '\',\'' + safeName.replace(/\'/, \'\\\'\'\') + '\');event.stopPropagation()" class="note-btn' + (getFileNote(file.url) ? ' has-note' : '') + '" title="' + (getFileNote(file.url) ? 'Edit note' : 'Add note') + '"><span class="material-symbols-outlined" style="font-size:18px;display:block">sticky_note_2</span></button>' +
+                    '<button onclick="openNoteModal(\'' + safeUrl + '\',\'' +safeName.replace(/'/g, "\\'") + '\');event.stopPropagation()" class="note-btn' + (getFileNote(file.url) ? ' has-note' : '') + '" title="' + (getFileNote(file.url) ? 'Edit note' : 'Add note') + '"><span class="material-symbols-outlined" style="font-size:18px;display:block">sticky_note_2</span></button>' +
                     '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview">visibility</button>' +
                     '<button onclick="copyFileLink(\'' + safeUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block">link</span></button>' +
                     '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\');event.stopPropagation()" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download">download</a>' +
@@ -1464,7 +1464,7 @@
         (async () => {
             await checkAuth();
             fetchFiles();
-        loadAnnouncement();
+            loadAnnouncement();
         })();
         
         function _restoreInitialFolder() {
@@ -2248,7 +2248,7 @@
             <div style="display:flex;align-items:center;justify-content:space-between">
                 <span style="font-size:12px;color:#cbd5e1">Compact / Dense</span>
                 <button id="compactToggle" onclick="toggleCompactView()" title="Toggle compact view"
-                    style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:;color:rgba(255,255,255,0.5);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
+                    style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background-color:rgba(255,255,255,0.5);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
                     <span class="material-symbols-outlined" style="font-size:15px">density_small</span> Toggle
                 </button>
             </div>
