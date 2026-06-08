@@ -4,7 +4,7 @@
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
     <link rel="icon" href="filevault%20logo.png">
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="Manifest.json">
     <meta name="theme-color" content="#020617">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -147,9 +147,142 @@
         /* ── PWA install button ── */
         #pwaInstallBtn { display:none; }
         #pwaInstallBtn.visible { display:flex; }
+
+        /* ── 27: Swipe gesture action tray ── */
+        .file-card { touch-action: pan-y; }
+        .swipe-tray { position:absolute; right:0; top:0; bottom:0; display:flex; align-items:center; overflow:hidden; border-radius:0 16px 16px 0; pointer-events:none; opacity:0; transition:opacity 0.15s; }
+        .swipe-tray.visible { pointer-events:auto; opacity:1; }
+        .swipe-action { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; width:60px; height:100%; font-size:9px; font-weight:700; border:none; cursor:pointer; }
+        .swipe-action span.material-symbols-outlined { font-size:20px; }
+        .swipe-action.dl  { background:rgba(34,197,94,0.25);  color:#4ade80; }
+        .swipe-action.cp  { background:rgba(59,130,246,0.25); color:#93c5fd; }
+        .swipe-action.pv  { background:rgba(139,92,246,0.25); color:#c084fc; }
+        /* ── 28: Pull-to-refresh ── */
+        #pullIndicator { position:fixed; top:56px; left:50%; transform:translateX(-50%) translateY(-60px); z-index:9100; background:rgba(15,23,42,0.95); border:1px solid rgba(59,130,246,0.3); border-radius:99px; padding:8px 16px; display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; color:#93c5fd; transition:transform 0.2s, opacity 0.2s; opacity:0; pointer-events:none; }
+        #pullIndicator.show { transform:translateX(-50%) translateY(0); opacity:1; }
+        /* ── 32: Expiry progress bar ── */
+        .expiry-bar-wrap { height:3px; background:rgba(255,255,255,0.06); border-radius:99px; overflow:hidden; margin-top:4px; }
+        .expiry-bar { height:100%; border-radius:99px; transition:width 0.3s; }
+        /* ── 33: Most Downloaded ── */
+        #popularSection { margin-bottom:24px; }
+        .pop-rank { min-width:20px; font-size:11px; font-weight:800; color:#475569; }
+        .pop-bar-wrap { flex:1; height:4px; background:rgba(255,255,255,0.06); border-radius:99px; overflow:hidden; }
+        .pop-bar { height:100%; background:linear-gradient(90deg,#3b82f6,#8b5cf6); border-radius:99px; }
+        /* ── 34: Keyboard focus indicators ── */
+        :focus-visible { outline:2px solid #3b82f6 !important; outline-offset:2px !important; border-radius:8px; }
+        /* ── 36: High contrast ── */
+        html.high-contrast body { background:#000 !important; color:#fff !important; }
+        html.high-contrast .glass-card { background:#111 !important; border:2px solid #fff !important; }
+        html.high-contrast .sidebar-glass { background:#000 !important; border-right:2px solid #fff !important; }
+        html.high-contrast .file-card { background:#111 !important; border:2px solid #fff !important; }
+        html.high-contrast .text-slate-400, html.high-contrast .text-slate-500 { color:#ccc !important; }
+        /* ── 31: New-since-last-visit badge ── */
+        .folder-new-badge { display:inline-flex;align-items:center;font-size:8px;font-weight:800;background:rgba(16,185,129,0.2);color:#34d399;border:1px solid rgba(52,211,153,0.35);padding:1px 5px;border-radius:99px;margin-left:4px;vertical-align:middle; }
+
+        /* ══ 53: ACCENT COLOR ══ */
+        :root { --accent:#3b82f6; --accent-light:rgba(59,130,246,0.2); --accent-border:rgba(59,130,246,0.4); }
+        .text-primary { color: var(--accent) !important; }
+        .bg-primary { background-color: var(--accent) !important; }
+        .border-primary { border-color: var(--accent) !important; }
+        .hover\:text-primary:hover { color: var(--accent) !important; }
+        .bg-primary\/20 { background-color: var(--accent-light) !important; }
+        .hover\:bg-primary\/20:hover { background-color: var(--accent-light) !important; }
+        .border-primary\/40 { border-color: var(--accent-border) !important; }
+        .folder-btn.active { background: var(--accent-light) !important; color: var(--accent) !important; }
+        .active-nav { background: var(--accent-light) !important; color: var(--accent) !important; }
+        .active-nav::after { background: var(--accent) !important; }
+        .type-btn.active,.type-btn:hover { background:var(--accent-light) !important;border-color:var(--accent-border) !important;color:var(--accent) !important; }
+
+        /* ══ 54: COMPACT MODE ══ */
+        html.compact .file-card { padding: 8px 12px !important; border-radius: 12px !important; }
+        html.compact #fileGrid { gap: 6px !important; }
+        html.compact .file-card .w-10 { width: 32px !important; height: 32px !important; }
+        html.compact .file-card .text-sm { font-size: 11px !important; }
+        html.compact .file-card .text-\[10px\] { font-size: 9px !important; }
+
+        /* ══ 55: CARD SIZE ══ */
+        #fileGrid { --card-scale: 1; }
+        .file-card { transform-origin: top left; }
+
+        /* ══ 56: CUSTOM BACKGROUND ══ */
+        .bg-fixed-image { transition: background-image 0.5s ease; }
+
+        /* ══ Settings Panel ══ */
+        #settingsPanel { display:none;position:fixed;top:60px;right:16px;z-index:99990;width:260px;background:rgba(15,23,42,0.98);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:20px;box-shadow:0 24px 64px rgba(0,0,0,0.6);backdrop-filter:blur(24px); }
+        #settingsPanel.open { display:block; }
+        .setting-row { margin-bottom:16px; }
+        .setting-label { font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;display:block; }
+        .color-swatch { width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .2s;flex-shrink:0; }
+        .color-swatch.active { border-color:white;transform:scale(1.15); }
+        .bg-thumb { width:52px;height:36px;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all .2s;background-size:cover;background-position:center;flex-shrink:0; }
+        .bg-thumb.active { border-color:var(--accent); }
+
+        /* ══ 57: CONFETTI ══ */
+        .confetti-piece { position:fixed;width:8px;height:8px;border-radius:2px;pointer-events:none;z-index:99999;animation:confettiFall 1.2s ease-in forwards; }
+        @keyframes confettiFall { 0%{opacity:1;transform:translateY(0) rotate(0deg)} 100%{opacity:0;transform:translateY(300px) rotate(720deg)} }
+
+        /* ══ 58: ZIP PROGRESS BAR ══ */
+        #zipProgressBar { display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:99998;width:min(320px,90vw);background:rgba(15,23,42,0.97);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,0.5); }
+        #zipProgressBar.open { display:block; }
+        #zipProgressFill { height:6px;border-radius:99px;background:linear-gradient(90deg,var(--accent),#8b5cf6);width:0%;transition:width .3s; }
+
+        /* ══ 59: SLIDESHOW ARROWS ══ */
+        .preview-nav { position:absolute;top:50%;transform:translateY(-50%);z-index:10;width:40px;height:40px;border-radius:50%;background:rgba(15,23,42,0.85);border:1px solid rgba(255,255,255,0.12);color:white;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;backdrop-filter:blur(8px); }
+        .preview-nav:hover { background:rgba(59,130,246,0.3); }
+        .preview-nav.left { left:12px; }
+        .preview-nav.right { right:12px; }
+        #previewBody { position:relative; }
+
+        /* ══ 60: TYPEWRITER ══ */
+        .typewriter { overflow:hidden;white-space:nowrap;border-right:3px solid var(--accent);animation:typewriter 1.2s steps(9,end) .3s both, blink .6s step-end .3s 4; }
+        @keyframes typewriter { from{width:0} to{width:100%} }
+        @keyframes blink { 0%,100%{border-color:var(--accent)} 50%{border-color:transparent} }
+
+        /* ── 37: Pinned files ── */
+        .pin-btn { background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#475569;transition:color .2s,background .2s;font-size:0;line-height:0; }
+        .pin-btn:hover { color:#f59e0b;background:rgba(245,158,11,.1); }
+        .pin-btn.pinned { color:#f59e0b; }
+        .badge-pinned { display:inline-flex;align-items:center;font-size:9px;font-weight:800;background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.25);padding:1px 6px;border-radius:99px;vertical-align:middle;margin-left:3px; }
+
+        /* ── 38: Recently downloaded section ── */
+        #recentDLSection { display:none;margin-bottom:16px; }
+
+        /* ── 39: Related files + 42/43/45: Share row in preview ── */
+        #previewShareRow { display:flex;gap:8px;flex-wrap:wrap;padding:10px 18px 12px;flex-shrink:0;border-top:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.1); }
+        .share-btn { display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s; }
+        .share-btn-wa   { background:rgba(37,211,102,0.15);color:#4ade80; }
+        .share-btn-wa:hover   { background:rgba(37,211,102,0.28); }
+        .share-btn-mail { background:rgba(59,130,246,0.15);color:#93c5fd; }
+        .share-btn-mail:hover { background:rgba(59,130,246,0.28); }
+        .share-btn-qr   { background:rgba(139,92,246,0.15);color:#c084fc; }
+        .share-btn-qr:hover   { background:rgba(139,92,246,0.28); }
+        #relatedFilesStrip { border-top:1px solid rgba(255,255,255,0.06);padding:10px 18px 14px;flex-shrink:0;background:rgba(0,0,0,0.1); }
+        #relatedFilesStrip.hidden { display:none; }
+        .related-chip { display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:9px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .18s;white-space:nowrap;max-width:190px;overflow:hidden;text-overflow:ellipsis; }
+        .related-chip:hover { background:rgba(59,130,246,0.15);border-color:rgba(59,130,246,0.3);color:#93c5fd; }
+
+        /* ── 43: QR modal ── */
+        #qrModal { display:none;position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px; }
+        #qrModal.open { display:flex; }
+        #qrBox { background:rgba(15,23,42,.98);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:28px;text-align:center;max-width:300px;width:100%;box-shadow:0 32px 80px rgba(0,0,0,.6); }
+
+        /* ── 50: Notification bell ── */
+        #notifBtn.granted { color:#4ade80 !important; }
+
+        /* ── 51: Returning user banner ── */
+        #returningBanner { display:none; }
+        #returningBanner.visible { display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:11px 16px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.22);border-radius:14px;animation:fadeIn .4s ease; }
+
+        /* ── 52: What's New modal ── */
+        #whatsNewModal { display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px; }
+        #whatsNewModal.open { display:flex; }
+        #whatsNewBox { background:rgba(15,23,42,.97);border:1px solid rgba(255,255,255,.1);border-radius:20px;width:100%;max-width:440px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,.6); }
+        .wn-row { display:flex;gap:11px;align-items:flex-start;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05); }
+        .wn-row:last-child { border-bottom:none; }
     </style>
 </head>
 <body class="overflow-x-hidden">
+    <div id="pullIndicator"><span class="material-symbols-outlined" style="font-size:18px">refresh</span><span id="pullLabel">Pull to refresh</span></div>
     <div class="bg-fixed-image"></div>
     <div class="bg-overlay"></div>
     <aside class="fixed left-0 top-0 h-screen w-64 z-40 sidebar-glass hidden lg:flex flex-col py-8">
@@ -195,7 +328,17 @@
             <button id="pwaInstallBtn" onclick="installPWA()" title="Install FileVault app" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition items-center justify-center">
                 <span class="material-symbols-outlined text-lg">install_mobile</span>
             </button>
+            <button id="notifBtn" onclick="requestNotifPermission()" title="Enable file notifications" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
+                <span class="material-symbols-outlined" style="font-size:18px">notifications</span>
+            </button>
+            <button onclick="openWhatsNew()" title="What's new since last visit" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center" style="position:relative">
+                <span class="material-symbols-outlined" style="font-size:18px">new_releases</span>
+                <span id="whatsNewDot" style="display:none;position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#ef4444;border:1.5px solid #020617"></span>
+            </button>
             <button onclick="openShortcuts()" title="Keyboard shortcuts" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center font-bold text-sm">?</button>
+            <button onclick="toggleSettings()" title="Display settings" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
+                <span class="material-symbols-outlined" style="font-size:18px">palette</span>
+            </button>
         </header>
         <main class="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full">
             <!-- Announcement Banner (populated from Supabase) -->
@@ -208,7 +351,23 @@
                 <button onclick="dismissAnnouncement()" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.3);font-size:20px;line-height:1;padding:0;flex-shrink:0" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.3)'">×</button>
             </div>
 
-            <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4 sm:mb-6">FileVault</h2>
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4 sm:mb-6 inline-block typewriter">FileVault</h2>
+
+            <!-- 51: Returning user banner -->
+            <div id="returningBanner">
+                <span class="material-symbols-outlined shrink-0" style="color:#a78bfa;font-size:20px">waving_hand</span>
+                <span id="returningText" style="flex:1;font-size:13px;font-weight:600;color:rgba(255,255,255,0.8)">Welcome back!</span>
+                <button onclick="document.getElementById('returningBanner').classList.remove('visible')" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.25);font-size:20px;line-height:1">×</button>
+            </div>
+
+            <!-- 38: Recently downloaded (session only) -->
+            <section id="recentDLSection" class="glass-card p-4 rounded-2xl">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="material-symbols-outlined text-green-400" style="font-size:20px">download_done</span>
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wide">Downloaded This Session</h3>
+                </div>
+                <div id="recentDLList" class="flex gap-2 flex-wrap"></div>
+            </section>
 
             <!-- Folders Section — always visible, hidden only when truly empty -->
             <section id="foldersSection" class="mb-6 glass-card p-4 sm:p-5 rounded-3xl">
@@ -264,6 +423,11 @@
                     <a href="mailto:acheampongjonathan21@gmail.com" class="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold">Contact Support</a>
                 </aside>
             </div>
+            <!-- 33: Most Downloaded -->
+            <section id="popularSection" class="mb-6 glass-card p-4 sm:p-5 rounded-3xl" style="display:none">
+                <div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined text-amber-400 text-xl">trending_up</span><h3 class="text-sm font-bold text-white uppercase tracking-wide">Most Downloaded</h3></div>
+                <div id="popularList" class="space-y-1"></div>
+            </section>
             <div id="folderSection" class="flex gap-2 sm:gap-3 overflow-x-auto pb-3 sm:pb-4 mb-3 scrollbar-hide"></div>
             <!-- File-type filter pills -->
             <div id="typeSection" class="mb-4 sm:mb-5">
@@ -312,7 +476,7 @@
                     <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400 material-symbols-outlined">expand_more</span>
                 </div>
             </div>
-            <div id="bulkBar" class="hidden mb-4 p-4 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-between">
+            <div id="bulkBar" class="hidden mb-4 p-4 bg-primary/10 border border-primary/20 rounded-2xl items-center justify-between">
                 <span id="bulkCount" class="text-primary font-bold text-sm">0 selected</span>
                 <button onclick="bulkDownloadZip()" class="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-xl text-xs font-bold">
                     <span class="material-symbols-outlined text-sm">download</span> ZIP
@@ -332,7 +496,7 @@
             </div>
             <!-- Drag-select box -->
             <div id="dragSelectBox"></div>
-            <div id="fileGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6" id="fileGrid">
+            <div id="fileGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                 <!-- skeleton placeholders -->
                 <div class="skeleton-card glass-card p-4 rounded-2xl flex items-center gap-3"><div class="skeleton w-10 h-10 rounded-xl shrink-0"></div><div class="flex-1 space-y-2"><div class="skeleton h-3.5 rounded w-3/4"></div><div class="skeleton h-2.5 rounded w-1/2"></div></div></div>
                 <div class="skeleton-card glass-card p-4 rounded-2xl flex items-center gap-3"><div class="skeleton w-10 h-10 rounded-xl shrink-0"></div><div class="flex-1 space-y-2"><div class="skeleton h-3.5 rounded w-2/3"></div><div class="skeleton h-2.5 rounded w-2/5"></div></div></div>
@@ -761,7 +925,7 @@
                     '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="toggleSelect(\'' + safeUrl + '\',\'' + safeName + '\',this,' + (file.file_size||0) + ')" class="w-4 h-4 rounded text-primary cursor-pointer shrink-0">' +
                     '<div class="' + getFileColor(file.name) + ' w-10 h-10 rounded-xl flex items-center justify-center border shrink-0"><span class="material-symbols-outlined text-xl">' + getFileIcon(file.name) + '</span></div>' +
                     '<div class="flex-1 min-w-0 overflow-hidden">' +
-                        '<p class="font-semibold text-white truncate text-sm leading-snug">' + highlightText(file.name, currentSearchTerm) + (isNewFile(file.date) ? ' <span class="badge-new">NEW</span>' : '') + ' ' + dlCount + '</p>' +
+                        '<p class="font-semibold text-white truncate text-sm leading-snug">' + highlightText(file.name, currentSearchTerm) + (isNewFile(file.date) ? ' <span class="badge-new">NEW</span>' : '') + (isPinned(file.url) ? ' <span class="badge-pinned">📌</span>' : '') + ' ' + dlCount + '</p>' +
                         '<div class="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-slate-500">' +
                             '<span class="uppercase truncate max-w-[100px]">' + highlightText(file.folder || 'ROOT', currentSearchTerm) + '</span>' +
                             (sizeLabel ? '<span>·</span><span class="text-slate-400 font-medium">' + sizeLabel + '</span>' : '') +
@@ -771,6 +935,7 @@
                         (file.description ? '<p class="mt-0.5 text-[11px] text-slate-400 italic truncate">' + highlightText(file.description, currentSearchTerm) + '</p>' : '') +
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
+                    '<button onclick="togglePin(\'' + safeUrl + '\',\'' + safeName + '\',this);event.stopPropagation()" class="pin-btn' + (isPinned(file.url) ? ' pinned' : '') + '" title="' + (isPinned(file.url) ? 'Unpin' : 'Pin to top') + '"><span class="material-symbols-outlined" style="font-size:18px;display:block">push_pin</span></button>' +
                     '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview">visibility</button>' +
                     '<button onclick="copyFileLink(\'' + safeUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block">link</span></button>' +
                     '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\');event.stopPropagation()" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download">download</a>' +
@@ -1338,7 +1503,7 @@
         }
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js').catch(() => {});
+                navigator.serviceWorker.register('/Sw.js').catch(() => {});
             });
         }
 
@@ -1383,8 +1548,695 @@
 
         // Init drag-select after DOM ready
         initDragSelect();
+
+        // ═══ 27: SWIPE GESTURES ═══════════════════════════════
+        function initSwipeGestures() {
+            const THRESH = 50;
+            let activeTray = null;
+            function closeTray(card) {
+                if (!card) return;
+                const t = card.querySelector('.swipe-tray');
+                const inn = card.querySelector('.swipe-inner');
+                if (t) t.classList.remove('visible');
+                if (inn) inn.style.transform = '';
+            }
+            function closeAll() {
+                document.querySelectorAll('.file-card[data-swipe-open]').forEach(c => { closeTray(c); delete c.dataset.swipeOpen; });
+                if (activeTray) { closeTray(activeTray); activeTray = null; }
+            }
+            const grid = document.getElementById('fileGrid');
+            grid.addEventListener('touchstart', e => {
+                const card = e.target.closest('.file-card');
+                if (!card) return;
+                card._tsx = e.touches[0].clientX;
+                card._tsy = e.touches[0].clientY;
+                card._tmv = false;
+            }, { passive: true });
+            grid.addEventListener('touchmove', e => {
+                const card = e.target.closest('.file-card');
+                if (!card || card._tsx === undefined) return;
+                const dx = e.touches[0].clientX - card._tsx;
+                const dy = e.touches[0].clientY - card._tsy;
+                if (Math.abs(dy) > Math.abs(dx)) return;
+                card._tmv = true;
+                if (dx < -10) e.preventDefault();
+                const inn = card.querySelector('.swipe-inner');
+                if (inn) inn.style.transform = 'translateX(' + Math.max(-180, Math.min(0, dx)) + 'px)';
+            }, { passive: false });
+            grid.addEventListener('touchend', e => {
+                const card = e.target.closest('.file-card');
+                if (!card || !card._tmv) return;
+                const dx = e.changedTouches[0].clientX - card._tsx;
+                const inn = card.querySelector('.swipe-inner');
+                const tray = card.querySelector('.swipe-tray');
+                if (dx < -THRESH) {
+                    if (activeTray && activeTray !== card) closeTray(activeTray);
+                    if (inn) inn.style.transform = 'translateX(-180px)';
+                    if (tray) tray.classList.add('visible');
+                    card.dataset.swipeOpen = '1';
+                    activeTray = card;
+                } else {
+                    if (inn) inn.style.transform = '';
+                    if (tray) tray.classList.remove('visible');
+                    delete card.dataset.swipeOpen;
+                }
+                card._tmv = false;
+            }, { passive: true });
+            document.addEventListener('touchstart', e => { if (!e.target.closest('.file-card')) closeAll(); }, { passive: true });
+        }
+
+        // ═══ 28: PULL TO REFRESH ══════════════════════════════
+        function initPullToRefresh() {
+            let startY = 0, pulling = false, triggered = false;
+            const ind = document.getElementById('pullIndicator');
+            const lbl = document.getElementById('pullLabel');
+            const THRESH = 80;
+            document.addEventListener('touchstart', e => {
+                if (window.scrollY === 0) { startY = e.touches[0].clientY; pulling = true; triggered = false; }
+            }, { passive: true });
+            document.addEventListener('touchmove', e => {
+                if (!pulling) return;
+                const dy = e.touches[0].clientY - startY;
+                if (dy > 10 && window.scrollY === 0) {
+                    const pct = Math.min(dy / THRESH, 1);
+                    ind.classList.add('show');
+                    lbl.textContent = pct >= 1 ? 'Release to refresh' : 'Pull to refresh';
+                    ind.style.opacity = pct.toString();
+                }
+            }, { passive: true });
+            document.addEventListener('touchend', e => {
+                if (!pulling) return;
+                pulling = false;
+                const dy = e.changedTouches[0].clientY - startY;
+                ind.classList.remove('show');
+                ind.style.opacity = '';
+                if (dy >= THRESH && !triggered) {
+                    triggered = true;
+                    lbl.textContent = 'Refreshing\u2026';
+                    ind.classList.add('show');
+                    try { sessionStorage.removeItem('fvFilesCache'); } catch(e2) {}
+                    allFiles = [];
+                    fetchFiles().then(() => setTimeout(() => ind.classList.remove('show'), 600));
+                }
+            }, { passive: true });
+        }
+
+        // ═══ 29: HAPTIC FEEDBACK ══════════════════════════════
+        function haptic(type) {
+            if (!navigator.vibrate) return;
+            if (type === 'light') navigator.vibrate(10);
+            else if (type === 'medium') navigator.vibrate(25);
+            else if (type === 'success') navigator.vibrate([15, 50, 15]);
+        }
+
+        // ═══ 30: PINCH TO ZOOM ════════════════════════════════
+        function initPinchZoom() {
+            const body = document.getElementById('previewBody');
+            let scale = 1, lastScale = 1, startDist = 0, ox = 0, oy = 0;
+            body.addEventListener('touchstart', e => {
+                if (e.touches.length !== 2) return;
+                const img = body.querySelector('img'); if (!img) return;
+                startDist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+                ox = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                oy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            }, { passive: true });
+            body.addEventListener('touchmove', e => {
+                if (e.touches.length !== 2) return;
+                const img = body.querySelector('img'); if (!img) return;
+                e.preventDefault();
+                const dist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+                scale = Math.min(4, Math.max(1, lastScale * (dist / startDist)));
+                img.style.transform = 'scale(' + scale + ')';
+                img.style.transformOrigin = ox + 'px ' + oy + 'px';
+            }, { passive: false });
+            body.addEventListener('touchend', e => {
+                if (e.touches.length < 2) lastScale = scale;
+                if (scale <= 1) { const img = body.querySelector('img'); if (img) { img.style.transform = ''; img.style.transformOrigin = ''; } scale = 1; lastScale = 1; }
+            }, { passive: true });
+        }
+
+        // ═══ 31: NEW SINCE LAST VISIT ═════════════════════════
+        const LAST_VISIT_KEY = 'fvLastVisit';
+        let _lastVisitTime = null;
+        function initLastVisit() {
+            const s = localStorage.getItem(LAST_VISIT_KEY);
+            _lastVisitTime = s ? new Date(s) : null;
+            localStorage.setItem(LAST_VISIT_KEY, new Date().toISOString());
+        }
+        function getFolderNewCount(folder, files) {
+            if (!_lastVisitTime) return 0;
+            return files.filter(f => f.folder === folder && new Date(f.date) > _lastVisitTime && (!f.expires_at || new Date(f.expires_at) > new Date())).length;
+        }
+
+        // ═══ 32: EXPIRY PROGRESS BAR ══════════════════════════
+        function expiryProgressBar(file) {
+            if (!file.expires_at) return '';
+            const now = Date.now(), expires = new Date(file.expires_at).getTime(), created = new Date(file.date).getTime();
+            const remaining = expires - now;
+            if (remaining <= 0) return '';
+            const pct = Math.max(0, Math.min(100, (remaining / (expires - created)) * 100));
+            const color = pct > 50 ? '#22c55e' : pct > 20 ? '#f59e0b' : '#ef4444';
+            const days = Math.ceil(remaining / 86400000);
+            return '<div class="expiry-bar-wrap" title="' + days + ' day' + (days !== 1 ? 's' : '') + ' remaining"><div class="expiry-bar" style="width:' + pct.toFixed(1) + '%;background:' + color + '"></div></div>';
+        }
+
+        // ═══ 33: POPULAR FILES ════════════════════════════════
+        function renderPopularFiles(files) {
+            const sec = document.getElementById('popularSection'); if (!sec) return;
+            const now = new Date();
+            const popular = [...files].filter(f => (f.download_count || 0) > 0 && (!f.expires_at || new Date(f.expires_at) > now)).sort((a,b) => (b.download_count||0)-(a.download_count||0)).slice(0, 5);
+            if (!popular.length) { sec.style.display = 'none'; return; }
+            sec.style.display = '';
+            const maxDl = popular[0].download_count || 1;
+            document.getElementById('popularList').innerHTML = popular.map((f, i) => {
+                const pct = Math.round(((f.download_count||0) / maxDl) * 100);
+                const su = f.url.replace(/'/g, "\\'");
+                const sn = f.name.replace(/'/g, "\\'");
+                return '<div class="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">' +
+                    '<span class="pop-rank">#' + (i+1) + '</span>' +
+                    '<div class="flex-1 min-w-0"><p class="text-xs font-semibold text-white/80 truncate">' + f.name + '</p>' +
+                    '<div class="pop-bar-wrap mt-1"><div class="pop-bar" style="width:' + pct + '%"></div></div></div>' +
+                    '<span style="font-size:11px;font-weight:700;color:#60a5fa;flex-shrink:0">' + (f.download_count||0) + '</span>' +
+                    '<a href="' + f.url + '" download onclick="track(\'' + (f.id||'') + '\',\'' + sn + '\',\'' + su + '\');haptic(\'success\')" class="p-1.5 text-slate-400 hover:text-green-400 material-symbols-outlined text-base" aria-label="Download ' + f.name + '" title="Download">download</a>' +
+                    '</div>';
+            }).join('');
+        }
+
+        // ═══ 36: HIGH CONTRAST ════════════════════════════════
+        function initHighContrast() {
+            if (localStorage.getItem('fvHighContrast') === '1') document.documentElement.classList.add('high-contrast');
+        }
+        function toggleHighContrast() {
+            const on = document.documentElement.classList.toggle('high-contrast');
+            localStorage.setItem('fvHighContrast', on ? '1' : '0');
+            showToast('High contrast ' + (on ? 'enabled' : 'disabled'), 'info', 1800);
+        }
+
+        // ═══ PATCH renderFileList: swipe tray + expiry bar ════
+        const _origRFL = renderFileList;
+        renderFileList = function(files) {
+            _origRFL(files);
+            setTimeout(function() {
+                document.querySelectorAll('#fileGrid .file-card').forEach(function(card) {
+                    if (card.querySelector('.swipe-tray')) return;
+                    const inner = document.createElement('div');
+                    inner.className = 'swipe-inner';
+                    inner.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;transition:transform 0.2s;flex:1;min-width:0;position:relative;z-index:1';
+                    while (card.firstChild) inner.appendChild(card.firstChild);
+                    card.style.position = 'relative';
+                    card.style.overflow = 'hidden';
+                    card.appendChild(inner);
+                    const idx = card.dataset.idx;
+                    const tray = document.createElement('div');
+                    tray.className = 'swipe-tray';
+                    tray.innerHTML =
+                        '<button class="swipe-action pv" onclick="previewByIdx(' + idx + ');event.stopPropagation()" aria-label="Preview"><span class="material-symbols-outlined">visibility</span>Preview</button>' +
+                        '<button class="swipe-action cp" onclick="(function(){var f=_fileRegistry[' + idx + '];if(f)copyFileLink(f.url,null);haptic(\'medium\');})();event.stopPropagation()" aria-label="Copy link"><span class="material-symbols-outlined">link</span>Copy</button>' +
+                        '<button class="swipe-action dl" onclick="(function(){var f=_fileRegistry[' + idx + '];if(f){var a=document.createElement(\'a\');a.href=f.url;a.download=f.name;a.click();haptic(\'success\');track(f.id||null,f.name,f.url);}})();event.stopPropagation()" aria-label="Download"><span class="material-symbols-outlined">download</span>Save</button>';
+                    card.appendChild(tray);
+                    const f = _fileRegistry[parseInt(idx)];
+                    if (f && f.expires_at) {
+                        const bar = document.createElement('div');
+                        bar.innerHTML = expiryProgressBar(f);
+                        const metaRow = inner.querySelector('.flex.flex-wrap.items-center');
+                        if (metaRow && metaRow.parentNode && bar.firstChild) metaRow.parentNode.insertBefore(bar.firstChild, metaRow.nextSibling);
+                    }
+                });
+                initSwipeGestures();
+            }, 50);
+        };
+
+        // ═══ PATCH track + copyFileLink: add haptic ═══════════
+        const _origTrackH = track;
+        track = function(id, name, url) { haptic('success'); _origTrackH(id, name, url); };
+        const _origCopyH = copyFileLink;
+        copyFileLink = function(url, e) { haptic('medium'); _origCopyH(url, e); };
+
+        // ═══ PATCH renderAll: new-badges + popular ════════════
+        const _origRA = renderAll;
+        renderAll = function(files) {
+            _origRA(files);
+            if (_lastVisitTime) {
+                document.querySelectorAll('#folderGrid .folder-btn').forEach(function(btn) {
+                    const el = btn.querySelector('p.truncate, p.text-sm'); if (!el) return;
+                    const folder = el.textContent.trim();
+                    const n = getFolderNewCount(folder, files);
+                    if (n > 0) { const b = document.createElement('span'); b.className = 'folder-new-badge'; b.textContent = '+' + n + ' new'; el.appendChild(b); }
+                });
+                document.querySelectorAll('#sidebarFolderList .folder-btn').forEach(function(btn) {
+                    const lbl = btn.querySelector('span.truncate'); if (!lbl) return;
+                    const folder = lbl.textContent.trim();
+                    const n = getFolderNewCount(folder, files);
+                    if (n > 0 && !btn.querySelector('.folder-new-badge')) { const b = document.createElement('span'); b.className = 'folder-new-badge'; b.textContent = '+' + n; btn.appendChild(b); }
+                });
+            }
+            renderPopularFiles(files);
+        };
+
+        // ═══ INIT ═════════════════════════════════════════════
+        initLastVisit();
+        initHighContrast();
+        initPullToRefresh();
+        initPinchZoom();
+        checkWhatsNew();
+
+        // ══ 53: ACCENT COLOR ══════════════════════════════════
+        function setAccent(color, light, border, el) {
+            document.documentElement.style.setProperty('--accent', color);
+            document.documentElement.style.setProperty('--accent-light', light);
+            document.documentElement.style.setProperty('--accent-border', border);
+            document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+            if (el) el.classList.add('active');
+            localStorage.setItem('fvAccent', JSON.stringify({ color, light, border }));
+        }
+        function initAccent() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('fvAccent'));
+                if (saved) {
+                    document.documentElement.style.setProperty('--accent', saved.color);
+                    document.documentElement.style.setProperty('--accent-light', saved.light);
+                    document.documentElement.style.setProperty('--accent-border', saved.border);
+                    document.querySelectorAll('.color-swatch').forEach(s => {
+                        if (s.style.background === saved.color) s.classList.add('active');
+                    });
+                }
+            } catch(e) {}
+        }
+        initAccent();
+
+        // ══ 54: COMPACT MODE ══════════════════════════════════
+        let _compact = localStorage.getItem('fvCompact') === '1';
+        function applyCompact() {
+            document.documentElement.classList.toggle('compact', _compact);
+            const thumb = document.getElementById('compactThumb');
+            const btn = document.getElementById('compactToggle');
+            if (thumb) thumb.style.transform = _compact ? 'translateX(20px)' : '';
+            if (btn) btn.style.background = _compact ? 'var(--accent)' : 'rgba(255,255,255,0.1)';
+        }
+        function toggleCompact() {
+            _compact = !_compact;
+            localStorage.setItem('fvCompact', _compact ? '1' : '0');
+            applyCompact();
+        }
+        applyCompact();
+
+        // ══ 55: CARD SIZE ══════════════════════════════════════
+        function setCardSize(val) {
+            const scale = val / 100;
+            document.documentElement.style.setProperty('--card-scale', scale);
+            const grid = document.getElementById('fileGrid');
+            if (grid) {
+                const gap = Math.round(16 * scale) + 'px';
+                grid.style.gap = gap;
+            }
+            document.querySelectorAll('#fileGrid .file-card').forEach(c => {
+                c.style.fontSize = (scale * 100) + '%';
+            });
+            localStorage.setItem('fvCardSize', val);
+        }
+        function initCardSize() {
+            const saved = localStorage.getItem('fvCardSize');
+            if (saved) {
+                const slider = document.getElementById('cardSizeSlider');
+                if (slider) slider.value = saved;
+                setCardSize(saved);
+            }
+        }
+        initCardSize();
+
+        // ══ 56: CUSTOM BACKGROUND ══════════════════════════════
+        function setBg(src, filter, el) {
+            const bgEl = document.querySelector('.bg-fixed-image');
+            document.querySelectorAll('.bg-thumb').forEach(t => t.classList.remove('active'));
+            if (el) el.classList.add('active');
+            if (!bgEl) return;
+            if (src === '__gradient1') {
+                bgEl.style.backgroundImage = 'linear-gradient(135deg,#0d1117,#161b22,#0d1117)';
+                bgEl.style.filter = '';
+            } else if (src === '__gradient2') {
+                bgEl.style.backgroundImage = 'linear-gradient(135deg,#0f0c29,#302b63,#24243e)';
+                bgEl.style.filter = '';
+            } else if (src) {
+                bgEl.style.backgroundImage = "url('" + src + "')";
+                bgEl.style.filter = filter || '';
+            } else {
+                bgEl.style.backgroundImage = 'none';
+                bgEl.style.filter = '';
+            }
+            localStorage.setItem('fvBg', JSON.stringify({ src, filter }));
+        }
+        function initBg() {
+            try {
+                const s = JSON.parse(localStorage.getItem('fvBg'));
+                if (s) setBg(s.src, s.filter, null);
+            } catch(e) {}
+        }
+        initBg();
+
+        // ══ 57: CONFETTI ON FIRST DOWNLOAD ════════════════════
+        function fireConfetti(x, y) {
+            const colors = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#ffffff'];
+            for (let i = 0; i < 18; i++) {
+                const el = document.createElement('div');
+                el.className = 'confetti-piece';
+                el.style.cssText = 'left:'+x+'px;top:'+y+'px;background:'+colors[i%colors.length]+';transform:rotate('+Math.random()*360+'deg);animation-duration:'+(0.8+Math.random()*0.6)+'s;animation-delay:'+(Math.random()*0.2)+'s';
+                el.style.left = (x + (Math.random()-0.5)*80) + 'px';
+                document.body.appendChild(el);
+                setTimeout(() => el.remove(), 2000);
+            }
+        }
+        const _FIRST_DL_KEY = 'fvFirstDlDone';
+        const _origTrack = track;
+        track = function(id, name, url) {
+            _origTrack(id, name, url);
+            if (!localStorage.getItem(_FIRST_DL_KEY)) {
+                localStorage.setItem(_FIRST_DL_KEY, '1');
+                const btn = event && event.currentTarget;
+                const rect = btn ? btn.getBoundingClientRect() : { left: window.innerWidth/2, top: window.innerHeight/2 };
+                fireConfetti(rect.left, rect.top);
+            }
+        };
+
+        // ══ 58: ZIP PROGRESS BAR ══════════════════════════════
+        const _origBulkZip = bulkDownloadZip;
+        bulkDownloadZip = async function() {
+            const items = [...selectedFiles];
+            if (!items.length) return;
+            if (typeof JSZip === 'undefined') {
+                items.forEach(item => window.open(item.url, '_blank'));
+                return;
+            }
+            const bar = document.getElementById('zipProgressBar');
+            const fill = document.getElementById('zipProgressFill');
+            const label = document.getElementById('zipProgressLabel');
+            const detail = document.getElementById('zipProgressDetail');
+            bar.classList.add('open');
+            const zip = new JSZip();
+            let done = 0, failed = 0;
+            for (const { name, url } of items) {
+                detail.textContent = 'Fetching: ' + name;
+                try {
+                    const response = await fetch(url);
+                    const blob = await response.blob();
+                    zip.file(name, blob);
+                } catch(e) { failed++; }
+                done++;
+                const pct = Math.round((done / items.length) * 80);
+                fill.style.width = pct + '%';
+                label.textContent = pct + '%';
+            }
+            detail.textContent = 'Compressing…';
+            fill.style.width = '90%';
+            label.textContent = '90%';
+            const zipBlob = await zip.generateAsync({ type: 'blob' }, meta => {
+                const pct = 90 + Math.round(meta.percent * 0.1);
+                fill.style.width = pct + '%';
+                label.textContent = pct + '%';
+            });
+            fill.style.width = '100%';
+            label.textContent = '100%';
+            detail.textContent = 'Done!';
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(zipBlob);
+            const _zipDate = new Date().toISOString().slice(0,10);
+            const _zipLabel = currentFolder ? currentFolder.replace(/[^a-zA-Z0-9_-]/g,'_') : 'Vault';
+            link.download = 'FileVault_' + _zipLabel + '_' + _zipDate + '.zip';
+            link.click();
+            setTimeout(() => { bar.classList.remove('open'); fill.style.width = '0%'; }, 1500);
+            showToast('Downloaded ' + (items.length - failed) + ' file' + ((items.length-failed)!==1?'s':'') + ' as ZIP' + (failed?' ('+failed+' failed)':'') + '.', failed?'warning':'success');
+        };
+
+        // ══ 59: PREVIEW SLIDESHOW ══════════════════════════════
+        let _previewIdx = -1;
+        function slideshowNav(dir) {
+            if (!_fileRegistry || !_fileRegistry.length) return;
+            _previewIdx = (_previewIdx + dir + _fileRegistry.length) % _fileRegistry.length;
+            previewByIdx(_previewIdx);
+        }
+        // Patch previewByIdx to track current index
+        const _origPreviewByIdx = previewByIdx;
+        previewByIdx = function(idx) {
+            _previewIdx = idx;
+            _origPreviewByIdx(idx);
+        };
+
+        // ══════════════════════════════════════════════════════════
+        // ── 37: PINNED FILES ────────────────────────────────────
+        const PINS_KEY = 'fvPinnedFiles';
+        function getPins() { try { return JSON.parse(localStorage.getItem(PINS_KEY) || '[]'); } catch { return []; } }
+        function savePins(p) { localStorage.setItem(PINS_KEY, JSON.stringify(p)); }
+        function isPinned(url) { return getPins().includes(url); }
+        function togglePin(url, name, btnEl) {
+            let pins = getPins();
+            const wasPinned = pins.includes(url);
+            pins = wasPinned ? pins.filter(u => u !== url) : [url, ...pins];
+            savePins(pins);
+            showToast(wasPinned ? 'Unpinned ' + name : '📌 Pinned ' + name, wasPinned ? 'info' : 'success', 1800);
+            renderFileList(getFilteredFiles());
+        }
+        // Wrap applySort to float pinned files to top
+        const _origApplySortPins = applySort;
+        applySort = function(files) {
+            const pins = getPins();
+            const pinned = files.filter(f => pins.includes(f.url));
+            const rest   = _origApplySortPins(files.filter(f => !pins.includes(f.url)));
+            return [...pinned, ...rest];
+        };
+
+        // ── 38: RECENTLY DOWNLOADED (session) ───────────────────
+        const _recentDL = [];
+        function addRecentDL(name, url) {
+            const i = _recentDL.findIndex(x => x.url === url);
+            if (i !== -1) _recentDL.splice(i, 1);
+            _recentDL.unshift({ name, url, icon: getFileIcon(name) });
+            if (_recentDL.length > 3) _recentDL.pop();
+            const sec  = document.getElementById('recentDLSection');
+            const list = document.getElementById('recentDLList');
+            if (!sec || !list) return;
+            sec.style.display = 'block';
+            list.innerHTML = _recentDL.map(item =>
+                '<a href="' + item.url + '" download class="related-chip" title="' + item.name + '" style="text-decoration:none">' +
+                '<span class="material-symbols-outlined" style="font-size:14px;flex-shrink:0">' + item.icon + '</span>' +
+                '<span style="overflow:hidden;text-overflow:ellipsis">' + item.name + '</span></a>'
+            ).join('');
+        }
+        // Hook into the existing track chain
+        const _origTrackDL = track;
+        track = function(id, name, url) { _origTrackDL(id, name, url); addRecentDL(name, url); };
+
+        // ── 39: RELATED FILES ────────────────────────────────────
+        function renderRelatedFiles(file) {
+            const strip = document.getElementById('relatedFilesStrip');
+            const list  = document.getElementById('relatedList');
+            if (!strip || !list || !file || !file.folder) { if(strip) strip.classList.add('hidden'); return; }
+            const now = new Date();
+            const related = allFiles.filter(f =>
+                f.folder === file.folder && f.url !== file.url &&
+                (!f.expires_at || new Date(f.expires_at) > now)
+            ).slice(0, 8);
+            if (!related.length) { strip.classList.add('hidden'); return; }
+            strip.classList.remove('hidden');
+            list.innerHTML = related.map(f =>
+                '<button class="related-chip" onclick="openPreview(\'' + f.url.replace(/'/g,"\\'") + '\',\'' + f.name.replace(/'/g,"\\'") + '\',\'' + (f.folder||'').replace(/'/g,"\\'") + '\',' + (f.file_size||0) + ')" title="' + f.name + '">' +
+                '<span class="material-symbols-outlined" style="font-size:13px;flex-shrink:0">' + getFileIcon(f.name) + '</span>' +
+                '<span style="overflow:hidden;text-overflow:ellipsis">' + f.name + '</span></button>'
+            ).join('');
+        }
+
+        // ── 42/43/45: SHARE ACTIONS ──────────────────────────────
+        let _shareUrl = '', _shareName = '';
+        function shareViaWhatsApp() {
+            if (!_shareUrl) return;
+            window.open('https://wa.me/?text=' + encodeURIComponent('Check this file from FileVault: ' + _shareName + '\n' + _shareUrl), '_blank');
+        }
+        function shareViaEmail() {
+            if (!_shareUrl) return;
+            window.location.href = 'mailto:?subject=' + encodeURIComponent('FileVault: ' + _shareName) +
+                '&body=' + encodeURIComponent('Hi,\n\nHere is a file:\n\n' + _shareName + '\n' + _shareUrl + '\n\nBest regards');
+        }
+        function shareViaQR() {
+            if (!_shareUrl) return;
+            document.getElementById('qrFileName').textContent = _shareName;
+            document.getElementById('qrImage').src =
+                'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(_shareUrl);
+            document.getElementById('qrModal').classList.add('open');
+        }
+        function closeQR() { document.getElementById('qrModal').classList.remove('open'); }
+
+        // Patch openPreview to set share context + render related
+        const _origOpenPreviewShare = openPreview;
+        openPreview = function(url, name, folder, size) {
+            _origOpenPreviewShare(url, name, folder, size);
+            _shareUrl = url; _shareName = name;
+            const file = allFiles.find(f => f.url === url) || { url, name, folder, file_size: size };
+            renderRelatedFiles(file);
+        };
+
+        // ── 50: BROWSER NOTIFICATIONS ────────────────────────────
+        function updateNotifBtn() {
+            const btn = document.getElementById('notifBtn');
+            if (!btn || !('Notification' in window)) { if(btn) btn.style.display='none'; return; }
+            if (Notification.permission === 'granted') btn.classList.add('granted');
+        }
+        async function requestNotifPermission() {
+            if (!('Notification' in window)) { showToast('Notifications not supported on this browser.', 'warning'); return; }
+            if (Notification.permission === 'granted') { showToast('Notifications already enabled!', 'success', 2000); return; }
+            const result = await Notification.requestPermission();
+            if (result === 'granted') {
+                showToast('✓ Notifications enabled! You will be alerted when new files are uploaded.', 'success', 3500);
+                updateNotifBtn();
+                localStorage.setItem('fvNotifEnabled', '1');
+                startNotifPolling();
+            } else {
+                showToast('Notification permission denied.', 'warning');
+            }
+        }
+        let _notifSince = localStorage.getItem('fvNotifSince') || new Date().toISOString();
+        function startNotifPolling() {
+            if (Notification.permission !== 'granted') return;
+            setInterval(async () => {
+                try {
+                    const { data } = await _supabase.from('files_list').select('file_name,created_at')
+                        .gt('created_at', _notifSince).order('created_at', { ascending: false }).limit(5);
+                    if (data && data.length > 0) {
+                        _notifSince = data[0].created_at;
+                        localStorage.setItem('fvNotifSince', _notifSince);
+                        new Notification('FileVault — New files added!', {
+                            body: data.length === 1 ? data[0].file_name + ' was just uploaded.' : data.length + ' new files were uploaded.',
+                            icon: 'filevault%20logo.png'
+                        });
+                    }
+                } catch(e) {}
+            }, 5 * 60 * 1000);
+        }
+        updateNotifBtn();
+        if (localStorage.getItem('fvNotifEnabled') === '1') startNotifPolling();
+
+        // ── 51: RETURNING USER BANNER ────────────────────────────
+        (function checkLastVisit() {
+            const LAST_KEY = 'fvLastVisitDate';
+            const now = new Date();
+            const lastRaw = localStorage.getItem(LAST_KEY);
+            if (lastRaw) {
+                const diffDays = Math.floor((now - new Date(lastRaw)) / 86400000);
+                if (diffDays >= 1) {
+                    const banner = document.getElementById('returningBanner');
+                    const label  = document.getElementById('returningText');
+                    if (banner && label) {
+                        label.textContent = diffDays === 1
+                            ? "Welcome back! You haven't visited since yesterday."
+                            : 'Welcome back! You haven\'t visited in ' + diffDays + ' day' + (diffDays > 1 ? 's' : '') + '.';
+                        banner.classList.add('visible');
+                        setTimeout(() => banner.classList.remove('visible'), 7000);
+                    }
+                }
+            }
+            localStorage.setItem(LAST_KEY, now.toISOString());
+        })();
+
+        // ── 52: WHAT'S NEW / CHANGELOG ───────────────────────────
+        const WN_SEEN_KEY = 'fvWhatsNewSeen';
+        let _wnNewFiles = [];
+        async function checkWhatsNew() {
+            const lastSeen = localStorage.getItem(WN_SEEN_KEY);
+            if (!lastSeen) { localStorage.setItem(WN_SEEN_KEY, new Date().toISOString()); return; }
+            try {
+                const { data } = await _supabase.from('files_list')
+                    .select('file_name,folder_name,created_at').gt('created_at', lastSeen)
+                    .order('created_at', { ascending: false }).limit(20);
+                if (data && data.length > 0) {
+                    _wnNewFiles = data;
+                    document.getElementById('whatsNewDot').style.display = 'block';
+                }
+            } catch(e) {}
+        }
+        function openWhatsNew() {
+            const list = document.getElementById('whatsNewList');
+            if (!_wnNewFiles.length) {
+                list.innerHTML = '<p style="color:rgba(255,255,255,0.3);font-size:13px;text-align:center;padding:24px 0">No new files since your last visit.</p>';
+            } else {
+                list.innerHTML = _wnNewFiles.map(f =>
+                    '<div class="wn-row">' +
+                    '<span class="material-symbols-outlined" style="font-size:20px;color:var(--accent);flex-shrink:0;margin-top:1px">' + getFileIcon(f.file_name) + '</span>' +
+                    '<div style="min-width:0"><p style="color:rgba(255,255,255,0.85);font-size:13px;font-weight:600;word-break:break-word;margin:0">' + f.file_name + '</p>' +
+                    '<p style="color:#64748b;font-size:10px;margin-top:2px">' + (f.folder_name && f.folder_name !== 'Root' ? f.folder_name + ' · ' : '') + timeAgo(f.created_at) + '</p></div></div>'
+                ).join('');
+            }
+            document.getElementById('whatsNewDot').style.display = 'none';
+            document.getElementById('whatsNewModal').classList.add('open');
+            localStorage.setItem(WN_SEEN_KEY, new Date().toISOString());
+            _wnNewFiles = [];
+        }
+        function closeWhatsNew() { document.getElementById('whatsNewModal').classList.remove('open'); }
+
+        // ══ SETTINGS PANEL TOGGLE ══════════════════════════════
+        function toggleSettings() {
+            document.getElementById('settingsPanel').classList.toggle('open');
+        }
+        document.addEventListener('click', e => {
+            const panel = document.getElementById('settingsPanel');
+            if (panel && panel.classList.contains('open') && !panel.contains(e.target) && !e.target.closest('[onclick="toggleSettings()"]')) {
+                panel.classList.remove('open');
+            }
+        });
+
     </script>
     
+    <!-- ══ Settings Panel (53-56) ══ -->
+    <div id="settingsPanel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <p style="color:white;font-weight:700;font-size:14px">Display Settings</p>
+            <button onclick="toggleSettings()" style="background:none;border:none;cursor:pointer;color:#64748b"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+        </div>
+        <!-- 53: Accent Color -->
+        <div class="setting-row">
+            <span class="setting-label">Accent Color</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <div class="color-swatch active" style="background:#3b82f6" onclick="setAccent('#3b82f6','rgba(59,130,246,0.2)','rgba(59,130,246,0.4)',this)" title="Blue"></div>
+                <div class="color-swatch" style="background:#8b5cf6" onclick="setAccent('#8b5cf6','rgba(139,92,246,0.2)','rgba(139,92,246,0.4)',this)" title="Purple"></div>
+                <div class="color-swatch" style="background:#10b981" onclick="setAccent('#10b981','rgba(16,185,129,0.2)','rgba(16,185,129,0.4)',this)" title="Green"></div>
+                <div class="color-swatch" style="background:#f59e0b" onclick="setAccent('#f59e0b','rgba(245,158,11,0.2)','rgba(245,158,11,0.4)',this)" title="Amber"></div>
+                <div class="color-swatch" style="background:#ef4444" onclick="setAccent('#ef4444','rgba(239,68,68,0.2)','rgba(239,68,68,0.4)',this)" title="Red"></div>
+                <div class="color-swatch" style="background:#06b6d4" onclick="setAccent('#06b6d4','rgba(6,182,212,0.2)','rgba(6,182,212,0.4)',this)" title="Cyan"></div>
+            </div>
+        </div>
+        <!-- 54: Compact Mode -->
+        <div class="setting-row" style="display:flex;align-items:center;justify-content:space-between">
+            <span class="setting-label" style="margin-bottom:0">Compact Mode</span>
+            <button id="compactToggle" onclick="toggleCompact()" style="width:44px;height:24px;border-radius:99px;border:none;cursor:pointer;background:rgba(255,255,255,0.1);position:relative;transition:background .2s">
+                <span style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:white;transition:transform .2s" id="compactThumb"></span>
+            </button>
+        </div>
+        <!-- 55: Card Size Slider -->
+        <div class="setting-row">
+            <span class="setting-label">Card Size</span>
+            <input type="range" id="cardSizeSlider" min="80" max="120" value="100" oninput="setCardSize(this.value)"
+                style="width:100%;accent-color:var(--accent);cursor:pointer">
+        </div>
+        <!-- 56: Background -->
+        <div class="setting-row">
+            <span class="setting-label">Background</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <div class="bg-thumb active" style="background:linear-gradient(135deg,#0f172a,#1e293b)" onclick="setBg('','',this)" title="Default (dark)"></div>
+                <div class="bg-thumb" style="background-image:url('screen.png')" onclick="setBg('screen.png','saturate(0.72) brightness(0.5)',this)" title="Current wallpaper"></div>
+                <div class="bg-thumb" style="background:linear-gradient(135deg,#0d1117,#161b22,#0d1117)" onclick="setBg('__gradient1','',this)" title="Deep space"></div>
+                <div class="bg-thumb" style="background:linear-gradient(135deg,#0f0c29,#302b63,#24243e)" onclick="setBg('__gradient2','',this)" title="Purple night"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ 58: ZIP Progress Bar ══ -->
+    <div id="zipProgressBar">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span style="color:white;font-size:13px;font-weight:700">Building ZIP…</span>
+            <span id="zipProgressLabel" style="color:#94a3b8;font-size:12px">0%</span>
+        </div>
+        <div style="background:rgba(255,255,255,0.06);border-radius:99px;height:6px;overflow:hidden">
+            <div id="zipProgressFill"></div>
+        </div>
+        <p id="zipProgressDetail" style="color:#64748b;font-size:11px;margin-top:8px">Preparing files…</p>
+    </div>
+
     <!-- Preview Modal -->
     <div id="previewModal" onclick="if(event.target===this)closePreview()">
         <div id="previewBox">
@@ -1406,7 +2258,50 @@
                 </div>
             </div>
             <div id="previewBody">
+                <button class="preview-nav left" onclick="slideshowNav(-1)" title="Previous file"><span class="material-symbols-outlined" style="font-size:20px">chevron_left</span></button>
+                <button class="preview-nav right" onclick="slideshowNav(1)" title="Next file"><span class="material-symbols-outlined" style="font-size:20px">chevron_right</span></button>
                 <div style="color:#64748b;font-size:14px">Loading preview…</div>
+            </div>
+            <!-- 42/43/45: Share actions -->
+            <div id="previewShareRow">
+                <button class="share-btn share-btn-wa" onclick="shareViaWhatsApp()"><span class="material-symbols-outlined" style="font-size:14px">chat</span>WhatsApp</button>
+                <button class="share-btn share-btn-mail" onclick="shareViaEmail()"><span class="material-symbols-outlined" style="font-size:14px">mail</span>Email link</button>
+                <button class="share-btn share-btn-qr" onclick="shareViaQR()"><span class="material-symbols-outlined" style="font-size:14px">qr_code</span>QR Code</button>
+            </div>
+            <!-- 39: Related files in same folder -->
+            <div id="relatedFilesStrip" class="hidden">
+                <p style="color:rgba(255,255,255,0.25);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">More in this folder</p>
+                <div id="relatedList" style="display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 43: QR Code Modal -->
+    <div id="qrModal" onclick="if(event.target===this)closeQR()">
+        <div id="qrBox">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <h3 style="color:white;font-weight:700;font-size:15px;margin:0">Scan QR Code</h3>
+                <button onclick="closeQR()" style="background:none;border:none;cursor:pointer;color:#64748b"><span class="material-symbols-outlined" style="font-size:19px">close</span></button>
+            </div>
+            <p id="qrFileName" style="color:#64748b;font-size:11px;margin-bottom:10px;word-break:break-all;text-align:left"></p>
+            <img id="qrImage" src="" alt="QR Code" style="width:220px;height:220px;border-radius:12px;display:block;margin:0 auto;background:white;padding:8px"/>
+            <p style="color:rgba(255,255,255,0.18);font-size:10px;margin-top:10px">Point your phone camera at this code</p>
+        </div>
+    </div>
+
+    <!-- 52: What's New Modal -->
+    <div id="whatsNewModal" onclick="if(event.target===this)closeWhatsNew()">
+        <div id="whatsNewBox">
+            <div style="padding:20px 20px 14px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+                <div>
+                    <p style="color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px">Since your last visit</p>
+                    <h3 style="color:white;font-weight:700;font-size:17px;margin:0">What's New</h3>
+                </div>
+                <button onclick="closeWhatsNew()" style="width:32px;height:32px;background:rgba(255,255,255,.05);border:none;border-radius:10px;cursor:pointer;color:#64748b;display:flex;align-items:center;justify-content:center"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+            </div>
+            <div id="whatsNewList" style="overflow-y:auto;padding:14px 20px;flex:1"></div>
+            <div style="padding:12px 20px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0">
+                <button onclick="closeWhatsNew()" style="width:100%;padding:10px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.25);border-radius:12px;color:#93c5fd;font-weight:700;font-size:13px;cursor:pointer">Got it</button>
             </div>
         </div>
     </div>
@@ -1496,6 +2391,6 @@
     <footer class="text-center text-white/20 text-xs py-4 lg:py-6">Built by <span class="text-white/40 font-semibold">Jonathan Acheampong</span> · FileVault</footer>
     <!-- Mobile bottom padding so content isn't hidden behind nav -->
     <div class="lg:hidden h-16"></div>
-    <script src="chat-widget.js"></script>
+   <script src="chat-widget.js"></script>
 </body>
 </html>
