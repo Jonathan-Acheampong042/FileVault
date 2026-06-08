@@ -1064,16 +1064,26 @@
 
     // XHR-based upload so we get real progress events
     function uploadWithProgress(path, file) {
-        return new Promise((resolve) => {
+        return new Promise(async (resolve) => {
             const SUPABASE_URL = 'https://lvhecpvwpzmstciewziv.supabase.co';
             const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI';
+
+            // Always prefer the live session token; fall back to anon key
+            let authToken = ANON_KEY;
+            try {
+                const { data: { session } } = await _supabase.auth.getSession();
+                if (session?.access_token) authToken = session.access_token;
+            } catch(e) { /* use anon key */ }
+
             const xhr = new XMLHttpRequest();
             const encodedPath = path.split('/').map(encodeURIComponent).join('/');
             xhr.open('POST', `${SUPABASE_URL}/storage/v1/object/vault-files/${encodedPath}`);
-            xhr.setRequestHeader('Authorization', `Bearer ${ANON_KEY}`);
+            xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
             xhr.setRequestHeader('apikey', ANON_KEY);
             xhr.setRequestHeader('x-upsert', 'true');
             xhr.setRequestHeader('Cache-Control', '3600');
+            // Set content-type so Supabase stores the correct MIME type
+            if (file.type) xhr.setRequestHeader('Content-Type', file.type);
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) showProgress(file.name, (e.loaded / e.total) * 100);
             };
@@ -1082,11 +1092,17 @@
                 if (xhr.status >= 200 && xhr.status < 300) {
                     resolve({ error: null });
                 } else {
-                    try { resolve({ error: JSON.parse(xhr.responseText) }); }
-                    catch { resolve({ error: { message: `HTTP ${xhr.status}` } }); }
+                    let errMsg = `HTTP ${xhr.status}`;
+                    try {
+                        const parsed = JSON.parse(xhr.responseText);
+                        errMsg = parsed.message || parsed.error || errMsg;
+                    } catch(e) { /* use default */ }
+                    resolve({ error: { message: errMsg } });
                 }
             };
             xhr.onerror = () => resolve({ error: { message: 'Network error during upload' } });
+            xhr.ontimeout = () => resolve({ error: { message: 'Upload timed out' } });
+            xhr.timeout = 120000; // 2 min timeout
             xhr.send(file);
         });
     }
@@ -1108,6 +1124,20 @@
     // ─── UPLOAD ─────────────────────────────────────────────────
     async function uploadFile() {
         if (!navigator.onLine) { setStatus('✗ Cannot upload while offline.', 'red'); return; }
+
+        // Verify session is still valid before uploading
+        try {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (!session) {
+                setStatus('✗ Session expired. Please log in again.', 'red');
+                setTimeout(() => { window.location.href = 'login.html'; }, 2000);
+                return;
+            }
+        } catch(e) {
+            setStatus('✗ Auth check failed: ' + e.message, 'red');
+            return;
+        }
+
         const fileInput = document.getElementById('fileInput');
         const folderSelect = document.getElementById('folderSelect');
         const btn = document.getElementById('uploadBtn');
@@ -1153,13 +1183,25 @@
 
             const path = folder ? `${folder}/${finalName}` : finalName;
 
-            // STEP 1: Upload with real progress bar
+            // STEP 1: Upload with real progress bar (XHR for progress; SDK as fallback)
             showProgress(finalName, 0, overallLabel);
-            const { error: uploadError } = await uploadWithProgress(path, file);
+            let uploadResult = await uploadWithProgress(path, file);
 
-            if (uploadError) {
+            // If XHR failed (e.g. RLS/auth issue), try Supabase SDK as fallback
+            if (uploadResult.error) {
+                console.warn('XHR upload failed, trying SDK fallback:', uploadResult.error.message);
+                showProgress(finalName, 50, overallLabel + ' (retrying…)');
+                const { error: sdkErr } = await _supabase.storage
+                    .from('vault-files')
+                    .upload(path, file, { upsert: true, cacheControl: '3600' });
+                uploadResult = { error: sdkErr };
+                if (!sdkErr) showProgress(finalName, 100, overallLabel);
+            }
+
+            if (uploadResult.error) {
                 hideProgress();
-                setStatus(`Storage Error for ${file.name}: ${uploadError.message}`, 'red');
+                const errDetail = uploadResult.error.message || JSON.stringify(uploadResult.error);
+                setStatus(`✗ Upload failed for "${file.name}": ${errDetail}`, 'red');
                 errorCount++;
                 continue;
             }
@@ -1192,7 +1234,8 @@
             const { error: dbError } = await _supabase.from('files_list').insert(insertData);
 
             if (dbError) {
-                setStatus(`⚠ ${finalName} uploaded but DB failed: ${dbError.message}`, 'yellow');
+                const dbErrDetail = dbError.message + (dbError.hint ? ` (${dbError.hint})` : '') + (dbError.details ? ` — ${dbError.details}` : '');
+                setStatus(`⚠ "${finalName}" uploaded to storage but DB record failed: ${dbErrDetail}`, 'yellow');
                 errorCount++;
             } else {
                 successCount++;

@@ -269,15 +269,25 @@
 
         /* ── Compact / Dense view ── */
         #fileGrid.compact-view { display:flex !important; flex-direction:column; gap:2px !important; }
-        #fileGrid.compact-view .file-card { padding:8px 12px !important; border-radius:10px !important; }
+        #fileGrid.compact-view .file-card { padding:7px 12px !important; border-radius:10px !important; flex-direction:row !important; align-items:center !important; gap:10px !important; }
+        #fileGrid.compact-view .file-card > div:first-child { display:none !important; } /* hide top row in grid card */
         #fileGrid.compact-view .file-card:hover { transform:none !important; }
-        #fileGrid.compact-view .w-10.h-10 { width:28px !important; height:28px !important; border-radius:8px !important; }
-        #fileGrid.compact-view .w-10.h-10 .material-symbols-outlined { font-size:14px !important; }
-        #fileGrid.compact-view .text-sm.leading-snug { font-size:12px !important; }
-        #fileGrid.compact-view .text-\[10px\] { font-size:9px !important; }
-        #fileGrid.compact-view .desc-tooltip, #fileGrid.compact-view p.italic { display:none !important; }
-        #fileGrid.compact-view .gap-0\.5 { gap:0 !important; }
+        /* Icon: covers both w-10/h-10 and w-12/h-12 */
+        #fileGrid.compact-view .w-10.h-10,
+        #fileGrid.compact-view .w-12.h-12 { width:26px !important; height:26px !important; min-width:26px !important; border-radius:6px !important; flex-shrink:0 !important; }
+        #fileGrid.compact-view .w-10.h-10 .material-symbols-outlined,
+        #fileGrid.compact-view .w-12.h-12 .material-symbols-outlined { font-size:13px !important; }
+        #fileGrid.compact-view .text-sm.leading-snug,
+        #fileGrid.compact-view .text-sm.line-clamp-2 { font-size:11px !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; }
+        #fileGrid.compact-view .text-\[10px\],
+        #fileGrid.compact-view .text-\[11px\] { font-size:9px !important; }
+        #fileGrid.compact-view .desc-tooltip,
+        #fileGrid.compact-view p.italic,
+        #fileGrid.compact-view .mt-1.text-\[11px\] { display:none !important; }
         #fileGrid.compact-view .pin-btn, #fileGrid.compact-view .note-btn { display:none !important; }
+        /* In grid compact, collapse the bottom action bar to inline */
+        #fileGrid.compact-view .border-t.border-white\/5 { border:none !important; padding:0 !important; margin:0 !important; }
+        #fileGrid.compact-view .flex-1.min-w-0 { flex:1 !important; min-width:0 !important; overflow:hidden !important; }
         /* ── File notes ── */
         .note-btn { background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#475569;transition:color .2s,background .2s;font-size:0;line-height:0; }
         .note-btn:hover { color:#f59e0b;background:rgba(245,158,11,.1); }
@@ -498,7 +508,7 @@
                 <input type="date" id="dateFrom" class="date-input" onchange="renderFileList(getFilteredFiles())">
                 <span style="font-size:11px;color:#94a3b8;font-weight:600">To</span>
                 <input type="date" id="dateTo" class="date-input" onchange="renderFileList(getFilteredFiles())">
-                <button onclick="clearDateRange()" style="margin-left:auto;font-size:11px;color:#64748b;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:3px">
+                <button onclick="clearDateRange()" style="margin-left:auto;font-size:11px;color:#94a3b8;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:3px;padding:4px 10px;font-weight:600;transition:all .2s" onmouseover="this.style.background='rgba(239,68,68,0.22)'" onmouseout="this.style.background='rgba(239,68,68,0.12)'">
                     <span class="material-symbols-outlined" style="font-size:14px">close</span>Clear
                 </button>
             </div>
@@ -1224,7 +1234,7 @@
                 if (matchFiles.length) {
                     html += '<div class="sugg-section">Files</div>';
                     matchFiles.forEach(f => {
-                        html += '<div class="sugg-item" data-val="' + f.name.replace(/"/g,'&quot;') + '" onmousedown="pickSuggestion(this)">' +
+                        html += '<div class="sugg-item" data-val="' + f.name.replace(/"/g,'&quot;') + '" data-url="' + (f.url||'').replace(/"/g,'&quot;') + '" onmousedown="pickFileSugg(this)">' +
                             '<span class="material-symbols-outlined" style="font-size:14px;color:#475569">' + getFileIcon(f.name) + '</span>' + f.name +
                         '</div>';
                     });
@@ -1242,6 +1252,18 @@
             inp.value = val;
             filterFiles(val);
             closeSuggestions();
+        }
+        function pickFileSugg(el) {
+            const val = el.dataset.val;
+            const inp = document.getElementById('searchInput');
+            inp.value = val;
+            filterFiles(val);
+            closeSuggestions();
+            // Open preview for the matched file
+            const file = allFiles.find(f => f.name === val);
+            if (file) {
+                setTimeout(() => openPreview(file.url, file.name, file.folder, file.file_size), 80);
+            }
         }
         function pickFolderSugg(el) {
             const folder = el.dataset.folder;
@@ -1290,10 +1312,24 @@
             document.getElementById('dateRangeBar').classList.toggle('open', dateRangeOpen);
             document.getElementById('dateFilterBtn').classList.toggle('bg-primary/20', dateRangeOpen);
             document.getElementById('dateFilterBtn').classList.toggle('text-primary', dateRangeOpen);
+            // Scroll to the date range bar when opened
+            if (dateRangeOpen) {
+                setTimeout(function() {
+                    var bar = document.getElementById('dateRangeBar');
+                    if (bar) bar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Focus the "from" date input
+                    var fromInput = document.getElementById('dateFrom');
+                    if (fromInput) fromInput.focus();
+                }, 60);
+            }
         }
         function clearDateRange() {
             document.getElementById('dateFrom').value = '';
             document.getElementById('dateTo').value = '';
+            // Close the bar and reset button state
+            dateRangeOpen = false;
+            document.getElementById('dateRangeBar').classList.remove('open');
+            document.getElementById('dateFilterBtn').classList.remove('bg-primary/20', 'text-primary');
             renderFileList(getFilteredFiles());
         }
 
@@ -1489,10 +1525,11 @@
         }
 
         function handleCardClick(e, idx) {
-            // Set kb focus to clicked card without overriding button actions
-            if (!e.target.closest('button,a,input')) {
-                setKbFocus(idx);
-            }
+            // If click was on a button, link, or checkbox — let it handle itself
+            if (e.target.closest('button,a,input')) return;
+            setKbFocus(idx);
+            // Open preview on card body click
+            previewByIdx(idx);
         }
 
         // ── Back to top visibility ──
@@ -2151,7 +2188,25 @@
         function openWhatsNew() {
             const list = document.getElementById('whatsNewList');
             if (!_wnNewFiles.length) {
-                list.innerHTML = '<p style="color:rgba(255,255,255,0.3);font-size:13px;text-align:center;padding:24px 0">No new files since your last visit.</p>';
+                // Fallback: show the 10 most recently uploaded files from allFiles
+                const now = new Date();
+                const recent = [...allFiles]
+                    .filter(f => !f.expires_at || new Date(f.expires_at) > now)
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .slice(0, 10);
+                if (recent.length) {
+                    list.innerHTML = '<p style="color:rgba(255,255,255,0.25);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding-bottom:8px">Recent uploads</p>' +
+                        recent.map(f =>
+                            '<div class="wn-row">' +
+                            '<span class="material-symbols-outlined" style="font-size:20px;color:var(--accent);flex-shrink:0;margin-top:1px">' + getFileIcon(f.name) + '</span>' +
+                            '<div style="min-width:0;flex:1"><p style="color:rgba(255,255,255,0.85);font-size:13px;font-weight:600;word-break:break-word;margin:0">' + f.name + '</p>' +
+                            '<p style="color:#64748b;font-size:10px;margin-top:2px">' + (f.folder ? f.folder + ' · ' : '') + timeAgo(f.date) + '</p></div>' +
+                            '<button onclick="openPreview(\'' + f.url.replace(/'/g,"\\'") + '\',\'' + f.name.replace(/'/g,"\\'") + '\',\'' + (f.folder||'').replace(/'/g,"\\'") + '\',' + (f.file_size||0) + ');closeWhatsNew()" style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.22);border-radius:8px;color:#93c5fd;font-size:11px;padding:4px 9px;cursor:pointer;flex-shrink:0;font-weight:600">View</button>' +
+                            '</div>'
+                        ).join('');
+                } else {
+                    list.innerHTML = '<p style="color:rgba(255,255,255,0.3);font-size:13px;text-align:center;padding:24px 0">No files found yet.</p>';
+                }
             } else {
                 list.innerHTML = _wnNewFiles.map(f =>
                     '<div class="wn-row">' +
