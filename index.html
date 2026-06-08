@@ -1413,7 +1413,7 @@
 
         // ── SESSION CACHE ────────────────────────────────────────
         const CACHE_KEY = 'fvFilesCache';
-        const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+        const CACHE_TTL = 60 * 1000; // 60 seconds — short so newly uploaded files appear quickly
         function getCachedFiles() {
             try {
                 const raw = sessionStorage.getItem(CACHE_KEY);
@@ -2134,12 +2134,15 @@
                 showToast('✓ Notifications enabled! You will be alerted when new files are uploaded.', 'success', 3500);
                 updateNotifBtn();
                 localStorage.setItem('fvNotifEnabled', '1');
+                // Sync the since-timestamp with What's New so we don't double-alert on old files
+                localStorage.setItem('fvNotifSince', new Date().toISOString());
                 startNotifPolling();
             } else {
                 showToast('Notification permission denied.', 'warning');
             }
         }
-        let _notifSince = localStorage.getItem('fvNotifSince') || new Date().toISOString();
+        // Use the What's New lastSeen as baseline — so files uploaded before page load are also caught
+        let _notifSince = localStorage.getItem('fvNotifSince') || localStorage.getItem('fvWhatsNewSeen') || new Date().toISOString();
         function startNotifPolling() {
             if (Notification.permission !== 'granted') return;
             setInterval(async () => {
@@ -2153,9 +2156,12 @@
                             body: data.length === 1 ? data[0].file_name + ' was just uploaded.' : data.length + ' new files were uploaded.',
                             icon: 'filevault%20logo.png'
                         });
+                        // Also refresh the file list so the NEW badge appears immediately
+                        sessionStorage.removeItem('fvFilesCache');
+                        fetchFiles();
                     }
                 } catch(e) {}
-            }, 5 * 60 * 1000);
+            }, 2 * 60 * 1000); // Poll every 2 minutes
         }
         updateNotifBtn();
         if (localStorage.getItem('fvNotifEnabled') === '1') startNotifPolling();
@@ -2186,11 +2192,12 @@
         const WN_SEEN_KEY = 'fvWhatsNewSeen';
         let _wnNewFiles = [];
         async function checkWhatsNew() {
-            const lastSeen = localStorage.getItem(WN_SEEN_KEY);
+            let lastSeen = localStorage.getItem(WN_SEEN_KEY);
             if (!lastSeen) {
-                // First ever visit — set 30 days back so recent files are shown
-                localStorage.setItem(WN_SEEN_KEY, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
-                return;
+                // First ever visit — look back 30 days so recent files show up
+                lastSeen = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+                localStorage.setItem(WN_SEEN_KEY, lastSeen);
+                // Don't return — fall through and run the query
             }
             try {
                 const { data } = await _supabase.from('files_list')
