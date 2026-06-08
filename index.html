@@ -99,18 +99,35 @@
         @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
         .skeleton-card {background:rgba(30,41,59,0.25);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:16px;display:flex;align-items:center;gap:12px; }
 
+        /* ── Issue 5: grid card name truncation fix ── */
+        #fileGrid .file-card { min-width:0; }
+        #fileGrid .file-card p.truncate { white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; display:block; }
+
         /* ── File card entrance animation ── */
         @keyframes cardIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
         .file-card-animate { animation:cardIn 0.35s ease-out both; }
 
         /* ── Description tooltip on hover ── */
-        .desc-tooltip { position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.97);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:8px 12px;font-size:11px;color:#cbd5e1;white-space:normal;width:220px;text-align:left;z-index:500;pointer-events:none;opacity:0;transition:opacity .2s;line-height:1.5;box-shadow:0 8px 32px rgba(0,0,0,.5); }
+        .desc-tooltip { position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.97);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:8px 12px;font-size:11px;color:#cbd5e1;white-space:normal;width:220px;text-align:left;z-index:8500;pointer-events:none;opacity:0;transition:opacity .2s;line-height:1.5;box-shadow:0 8px 32px rgba(0,0,0,.5); }
         .desc-tooltip.show { opacity:1; }
         .file-card { position:relative; }
 
         /* ── Mobile toast: bottom-center ── */
         @media (max-width:767px) {
             #toastContainer { top:auto !important;bottom:90px;right:50%;transform:translateX(50%);align-items:center; }
+        }
+
+        /* ── Mobile search expansion (issue 4) ── */
+        @media (max-width:1023px) {
+            #headerIcons { display:flex;align-items:center;gap:6px;transition:opacity .2s;flex-shrink:0; }
+            header.search-active #headerIcons { display:none; }
+            #searchCollapseBtn { display:none;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);cursor:pointer;color:#94a3b8;flex-shrink:0; }
+            header.search-active #searchCollapseBtn { display:flex; }
+            header.search-active #searchInput { border-color:rgba(59,130,246,0.5); }
+        }
+        @media (min-width:1024px) {
+            #headerIcons { display:flex;align-items:center;gap:6px; }
+            #searchCollapseBtn { display:none !important; }
         }
 
         /* ── Search suggestions dropdown ── */
@@ -123,7 +140,12 @@
         /* ── Date range filter ── */
         #dateRangeBar { display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.18);border-radius:14px;margin-bottom:12px; }
         #dateRangeBar.open { display:flex; }
-        .date-input { background:rgba(15,23,42,0.8);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 10px;color:#e2e8f0;font-size:11px;font-family:inherit;color-scheme:dark; }
+        .date-input { background:rgba(15,23,42,0.95) !important;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 10px;color:#e2e8f0 !important;font-size:11px;font-family:inherit;color-scheme:dark;-webkit-text-fill-color:#e2e8f0 !important; }
+        .date-input::-webkit-calendar-picker-indicator { filter:invert(1) brightness(0.7);cursor:pointer;opacity:0.6; }
+        .date-input::-webkit-datetime-edit { color:#e2e8f0 !important; }
+        .date-input::-webkit-datetime-edit-fields-wrapper { background:transparent !important; }
+        .date-input::-webkit-datetime-edit-text { color:#64748b !important; }
+        .date-input::-webkit-inner-spin-button { display:none; }
 
         /* ── Drag-select ── */
         #dragSelectBox { position:fixed;border:1px solid rgba(59,130,246,0.7);background:rgba(59,130,246,0.08);border-radius:4px;pointer-events:none;z-index:8000;display:none; }
@@ -229,6 +251,7 @@
         .pin-btn:hover { color:#f59e0b;background:rgba(245,158,11,.1); }
         .pin-btn.pinned { color:#f59e0b; }
         .badge-pinned { display:inline-flex;align-items:center;font-size:9px;font-weight:800;background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.25);padding:1px 6px;border-radius:99px;vertical-align:middle;margin-left:3px; }
+        #previewPinBtn .material-symbols-outlined { transition: transform 0.25s ease, color 0.2s; }
 
         /* ── 38: Recently downloaded section ── */
         #recentDLSection { display:none;margin-bottom:16px; }
@@ -268,33 +291,40 @@
 
 
         /* ── Compact / Dense view ── */
-        #fileGrid.compact-view { display:flex !important; flex-direction:column; gap:2px !important; }
-        #fileGrid.compact-view .file-card { padding:7px 12px !important; border-radius:10px !important; flex-direction:row !important; align-items:center !important; gap:10px !important; }
-        #fileGrid.compact-view .file-card > div:first-child { display:none !important; } /* hide top row in grid card */
-        #fileGrid.compact-view .file-card:hover { transform:none !important; }
-        /* Icon: covers both w-10/h-10 and w-12/h-12 */
+        #fileGrid.compact-view { display:flex !important; flex-direction:column; gap:1px !important; }
+        /* Make each card a tight horizontal row */
+        #fileGrid.compact-view .file-card { padding:5px 10px !important; border-radius:8px !important; flex-direction:row !important; align-items:center !important; gap:8px !important; min-height:0 !important; }
+        #fileGrid.compact-view .file-card:hover { transform:none !important; background:rgba(30,41,59,0.45) !important; }
+        /* Shrink the file-type icon */
         #fileGrid.compact-view .w-10.h-10,
-        #fileGrid.compact-view .w-12.h-12 { width:26px !important; height:26px !important; min-width:26px !important; border-radius:6px !important; flex-shrink:0 !important; }
+        #fileGrid.compact-view .w-12.h-12 { width:24px !important; height:24px !important; min-width:24px !important; border-radius:5px !important; flex-shrink:0 !important; }
         #fileGrid.compact-view .w-10.h-10 .material-symbols-outlined,
-        #fileGrid.compact-view .w-12.h-12 .material-symbols-outlined { font-size:13px !important; }
-        #fileGrid.compact-view .text-sm.leading-snug,
-        #fileGrid.compact-view .text-sm.line-clamp-2 { font-size:11px !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; }
-        #fileGrid.compact-view .text-\[10px\],
-        #fileGrid.compact-view .text-\[11px\] { font-size:9px !important; }
-        #fileGrid.compact-view .desc-tooltip,
+        #fileGrid.compact-view .w-12.h-12 .material-symbols-outlined { font-size:12px !important; }
+        /* Compact filename */
+        #fileGrid.compact-view p.font-semibold.truncate { font-size:12px !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; line-height:1.3 !important; }
+        /* Hide secondary meta row and description line */
+        #fileGrid.compact-view .mt-0\.5.flex { display:none !important; }
         #fileGrid.compact-view p.italic,
-        #fileGrid.compact-view .mt-1.text-\[11px\] { display:none !important; }
-        #fileGrid.compact-view .pin-btn, #fileGrid.compact-view .note-btn { display:none !important; }
-        /* In grid compact, collapse the bottom action bar to inline */
+        #fileGrid.compact-view .desc-tooltip { display:none !important; }
+        /* Keep text container flexible */
+        #fileGrid.compact-view .flex-1 { flex:1 !important; min-width:0 !important; overflow:hidden !important; }
+        /* Shrink action buttons */
+        #fileGrid.compact-view .pin-btn,
+        #fileGrid.compact-view .note-btn { padding:3px !important; }
+        #fileGrid.compact-view .pin-btn .material-symbols-outlined,
+        #fileGrid.compact-view .note-btn .material-symbols-outlined { font-size:14px !important; }
+        #fileGrid.compact-view button.p-2,
+        #fileGrid.compact-view a.p-2 { padding:4px !important; }
+        #fileGrid.compact-view .material-symbols-outlined.text-xl { font-size:15px !important; }
+        /* Remove bottom border/padding in list view cards */
         #fileGrid.compact-view .border-t.border-white\/5 { border:none !important; padding:0 !important; margin:0 !important; }
-        #fileGrid.compact-view .flex-1.min-w-0 { flex:1 !important; min-width:0 !important; overflow:hidden !important; }
         /* ── File notes ── */
         .note-btn { background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#475569;transition:color .2s,background .2s;font-size:0;line-height:0; }
         .note-btn:hover { color:#f59e0b;background:rgba(245,158,11,.1); }
         .note-btn.has-note { color:#f59e0b; }
         .badge-note { display:inline-block;width:6px;height:6px;border-radius:50%;background:#f59e0b;vertical-align:middle;margin-left:3px;flex-shrink:0; }
         /* Note modal */
-        #noteModal { display:none;position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px; }
+        #noteModal { display:none;position:fixed;inset:0;z-index:10000000;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px; }
         #noteModal.open { display:flex; }
         #noteBox { background:rgba(15,23,42,.98);border:1px solid rgba(255,255,255,.12);border-radius:20px;width:100%;max-width:380px;padding:24px;box-shadow:0 32px 80px rgba(0,0,0,.6); }
     </style>
@@ -339,7 +369,12 @@
                     <!-- injected by JS -->
                 </div>
             </div>
-            <!-- Date range toggle -->
+            <!-- Collapse search btn (mobile only, shown when search active) -->
+            <button id="searchCollapseBtn" onclick="collapseSearch()" title="Close search">
+                <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
+            </button>
+            <!-- Header icon buttons wrapped for mobile hide/show -->
+            <div id="headerIcons">
             <button id="dateFilterBtn" onclick="toggleDateRange()" title="Filter by date" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
                 <span class="material-symbols-outlined" style="font-size:18px">date_range</span>
             </button>
@@ -357,6 +392,7 @@
             <button onclick="toggleSettings()" title="Display settings" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
                 <span class="material-symbols-outlined" style="font-size:18px">palette</span>
             </button>
+            </div>
         </header>
         <main class="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full">
             <!-- Announcement Banner (populated from Supabase) -->
@@ -608,11 +644,15 @@
         // ── Copy file link to clipboard ──
         function copyFileLink(url, e) {
             if (e) e.preventDefault();
-            navigator.clipboard.writeText(url).then(function() {
-                showToast('Link copied to clipboard!', 'success', 2200);
-            }).catch(function() {
-                showToast('Could not copy link.', 'error');
-            });
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(function() {
+                    showToast('🔗 Link copied to clipboard!', 'success', 2200);
+                }).catch(function() {
+                    window.prompt('Copy this file link:', url);
+                });
+            } else {
+                window.prompt('Copy this file link:', url);
+            }
         }
 
         // ── File-type filter ──
@@ -968,11 +1008,11 @@
                 const hoverAttrs = (file.description && !isListView())
                     ? 'onmouseenter="showTip('+_ri+')" onmouseleave="hideTip('+_ri+')"' : '';
                 const staggerStyle = 'animation-delay:' + Math.min(_ci * 40, 400) + 'ms';
-                return '<div class="file-card file-card-animate glass-card p-4 rounded-2xl flex items-center gap-3 group overflow-hidden" data-idx="'+_ri+'" style="' + staggerStyle + '" ' + hoverAttrs + ' onclick="handleCardClick(event,'+_ri+')">' +
+                return '<div class="file-card file-card-animate glass-card p-4 rounded-2xl flex items-center gap-3 group" data-idx="'+_ri+'" style="' + staggerStyle + '" ' + hoverAttrs + ' onclick="handleCardClick(event,'+_ri+')">' +
                     descTooltip +
                     '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="toggleSelect(\'' + safeUrl + '\',\'' + safeName + '\',this,' + (file.file_size||0) + ')" class="w-4 h-4 rounded text-primary cursor-pointer shrink-0">' +
                     '<div class="' + getFileColor(file.name) + ' w-10 h-10 rounded-xl flex items-center justify-center border shrink-0"><span class="material-symbols-outlined text-xl">' + getFileIcon(file.name) + '</span></div>' +
-                    '<div class="flex-1 min-w-0 overflow-hidden">' +
+                    '<div class="flex-1 overflow-hidden" style="min-width:0;flex:1 1 0%">' +
                         '<p class="font-semibold text-white truncate text-sm leading-snug">' + highlightText(file.name, currentSearchTerm) + (isNewFile(file.date) ? ' <span class="badge-new">NEW</span>' : '') + (isPinned(file.url) ? ' <span class="badge-pinned">📌</span>' : '') + ' ' + dlCount + '</p>' +
                         '<div class="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-slate-500">' +
                             '<span class="uppercase truncate max-w-[100px]">' + highlightText(file.folder || 'ROOT', currentSearchTerm) + '</span>' +
@@ -983,8 +1023,6 @@
                         (file.description ? '<p class="mt-0.5 text-[11px] text-slate-400 italic truncate">' + highlightText(file.description, currentSearchTerm) + '</p>' : '') +
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
-                    '<button onclick="togglePin(\'' + safeUrl + '\',\'' + safeName + '\',this);event.stopPropagation()" class="pin-btn' + (isPinned(file.url) ? ' pinned' : '') + '" title="' + (isPinned(file.url) ? 'Unpin' : 'Pin to top') + '"><span class="material-symbols-outlined" style="font-size:18px;display:block">push_pin</span></button>' +
-                    '<button onclick="openNoteModal(\'' + safeUrl + '\',\'' +safeName.replace(/'/g, "\\'") + '\');event.stopPropagation()" class="note-btn' + (getFileNote(file.url) ? ' has-note' : '') + '" title="' + (getFileNote(file.url) ? 'Edit note' : 'Add note') + '"><span class="material-symbols-outlined" style="font-size:18px;display:block">sticky_note_2</span></button>' +
                     '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview">visibility</button>' +
                     '<button onclick="copyFileLink(\'' + safeUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block">link</span></button>' +
                     '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\');event.stopPropagation()" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download">download</a>' +
@@ -1188,10 +1226,26 @@
         }
         function closeSuggestionsDelayed() {
             setTimeout(closeSuggestions, 180);
+            // On mobile, collapse search bar only if input is empty
+            setTimeout(function() {
+                const inp = document.getElementById('searchInput');
+                if (window.innerWidth < 1024 && (!inp || !inp.value)) {
+                    document.querySelector('header').classList.remove('search-active');
+                }
+            }, 200);
         }
         function openSuggestions() {
             const inp = document.getElementById('searchInput');
             buildSuggestions(inp.value);
+            // Issue 4: expand search on mobile, hide icons
+            if (window.innerWidth < 1024) {
+                document.querySelector('header').classList.add('search-active');
+            }
+        }
+        function collapseSearch() {
+            document.querySelector('header').classList.remove('search-active');
+            document.getElementById('searchInput').blur();
+            closeSuggestions();
         }
         function buildSuggestions(term) {
             const box = document.getElementById('searchSuggestions');
@@ -1223,6 +1277,7 @@
                 const tl = term.toLowerCase();
                 const matchFolders = folders.filter(f => f.toLowerCase().includes(tl));
                 const matchFiles = allFiles.filter(f => f.name.toLowerCase().includes(tl)).slice(0, 5);
+                const matchDescs = allFiles.filter(f => f.description && f.description.toLowerCase().includes(tl) && !f.name.toLowerCase().includes(tl)).slice(0, 4);
                 if (matchFolders.length) {
                     html += '<div class="sugg-section">Folders</div>';
                     matchFolders.forEach(f => {
@@ -1236,6 +1291,17 @@
                     matchFiles.forEach(f => {
                         html += '<div class="sugg-item" data-val="' + f.name.replace(/"/g,'&quot;') + '" data-url="' + (f.url||'').replace(/"/g,'&quot;') + '" onmousedown="pickFileSugg(this)">' +
                             '<span class="material-symbols-outlined" style="font-size:14px;color:#475569">' + getFileIcon(f.name) + '</span>' + f.name +
+                        '</div>';
+                    });
+                }
+                if (matchDescs.length) {
+                    html += '<div class="sugg-section">Descriptions</div>';
+                    matchDescs.forEach(f => {
+                        const snippet = f.description.length > 50 ? f.description.substring(0, 50) + '…' : f.description;
+                        html += '<div class="sugg-item" data-val="' + f.name.replace(/"/g,'&quot;') + '" data-url="' + (f.url||'').replace(/"/g,'&quot;') + '" onmousedown="pickFileSugg(this)">' +
+                            '<span class="material-symbols-outlined" style="font-size:14px;color:#8b5cf6">notes</span>' +
+                            '<div style="min-width:0"><div style="font-size:11px;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + f.name + '</div>' +
+                            '<div style="font-size:10px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + snippet.replace(/</g,'&lt;') + '</div></div>' +
                         '</div>';
                     });
                 }
@@ -1990,11 +2056,15 @@
             previewByIdx(_previewIdx);
         }
         // Patch previewByIdx to track current index
-        const _origPreviewByIdx = previewByIdx;
-        previewByIdx = function(idx) {
+        // NOTE: we store the original here but will re-patch after openPreview is wrapped below.
+        // The actual patch is applied after the share-context patch so _shareUrl gets set correctly.
+        let _previewByIdxBase = function(idx) {
             _previewIdx = idx;
-            _origPreviewByIdx(idx);
+            var f = _fileRegistry[idx];
+            if (!f) return;
+            openPreview(f.url, f.name, f.folder, f.file_size);
         };
+        previewByIdx = _previewByIdxBase;
 
         // ══════════════════════════════════════════════════════════
         // ── 37: PINNED FILES ────────────────────────────────────
@@ -2061,37 +2131,109 @@
 
         // ── 42/43/45: SHARE ACTIONS ──────────────────────────────
         let _shareUrl = '', _shareName = '';
+
+        function _requireShareUrl(label) {
+            if (_shareUrl) return true;
+            showToast('Open a file preview first, then use ' + label + '.', 'warning', 2800);
+            return false;
+        }
+
         function shareViaWhatsApp() {
-            if (!_shareUrl) return;
-            window.open('https://wa.me/?text=' + encodeURIComponent('Check this file from FileVault: ' + _shareName + '\n' + _shareUrl), '_blank');
+            if (!_requireShareUrl('WhatsApp')) return;
+            const text = 'Check out this file from FileVault:\n📄 ' + _shareName + '\n' + _shareUrl;
+            const waUrl = 'https://wa.me/?text=' + encodeURIComponent(text);
+            try {
+                const win = window.open(waUrl, '_blank');
+                if (!win) throw new Error('blocked');
+                showToast('Opening WhatsApp…', 'success', 2000);
+            } catch(e) {
+                // popup blocked or unavailable — show prompt fallback
+                window.prompt('Copy this link to share on WhatsApp:', _shareUrl);
+            }
         }
+
         function shareViaEmail() {
-            if (!_shareUrl) return;
-            window.location.href = 'mailto:?subject=' + encodeURIComponent('FileVault: ' + _shareName) +
-                '&body=' + encodeURIComponent('Hi,\n\nHere is a file:\n\n' + _shareName + '\n' + _shareUrl + '\n\nBest regards');
+            if (!_requireShareUrl('Email')) return;
+            const subject = encodeURIComponent('FileVault: ' + _shareName);
+            const body = encodeURIComponent('Hi,\n\nHere is a file for you:\n\n' + _shareName + '\n' + _shareUrl + '\n\nBest regards');
+            // Use a link element to avoid navigating away from the page
+            const a = document.createElement('a');
+            a.href = 'mailto:?subject=' + subject + '&body=' + body;
+            a.target = '_blank';
+            a.rel = 'noopener';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => a.remove(), 300);
+            showToast('✉️ Opening your email client…', 'info', 2500);
         }
+
         function shareViaQR() {
-            if (!_shareUrl) return;
+            if (!_requireShareUrl('QR Code')) return;
             document.getElementById('qrFileName').textContent = _shareName;
-            document.getElementById('qrImage').src =
-                'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(_shareUrl);
+            document.getElementById('qrImage').src = '';
             document.getElementById('qrModal').classList.add('open');
+            // Load QR with a slight delay so the modal renders first
+            setTimeout(() => {
+                document.getElementById('qrImage').src =
+                    'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=' + encodeURIComponent(_shareUrl) + '&color=3b82f6&bgcolor=0f172a';
+            }, 80);
         }
+
         function closeQR() { document.getElementById('qrModal').classList.remove('open'); }
 
-        // Patch openPreview to set share context + render related
+        // Patch openPreview to set share context + render related + update pin/note state
         const _origOpenPreviewShare = openPreview;
         openPreview = function(url, name, folder, size) {
             _origOpenPreviewShare(url, name, folder, size);
             _shareUrl = url; _shareName = name;
             const file = allFiles.find(f => f.url === url) || { url, name, folder, file_size: size };
             renderRelatedFiles(file);
+            // Update pin button state in preview
+            const pinBtn = document.getElementById('previewPinBtn');
+            if (pinBtn) {
+                const pinned = isPinned(url);
+                pinBtn.style.color = pinned ? '#f59e0b' : '#94a3b8';
+                pinBtn.style.background = pinned ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.05)';
+                pinBtn.title = pinned ? 'Unpin this file' : 'Pin this file';
+            }
+            // Update note button state in preview
+            const noteBtn = document.getElementById('previewNoteBtn');
+            if (noteBtn) {
+                const hasNote = !!getFileNote(url);
+                noteBtn.style.color = hasNote ? '#f59e0b' : '#94a3b8';
+                noteBtn.style.background = hasNote ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.05)';
+                noteBtn.title = hasNote ? 'Edit note' : 'Add note';
+            }
         };
+
+        // Preview modal pin/note helpers
+        function previewTogglePin() {
+            if (!_shareUrl) { showToast('No file is open to pin.', 'warning'); return; }
+            let pins = getPins();
+            const wasPinned = pins.includes(_shareUrl);
+            pins = wasPinned ? pins.filter(u => u !== _shareUrl) : [_shareUrl, ...pins];
+            savePins(pins);
+            showToast(wasPinned ? '📌 Unpinned — removed from top.' : '📌 Pinned! File will appear at the top.', wasPinned ? 'info' : 'success', 2200);
+            renderFileList(getFilteredFiles());
+            // Re-sync button state after toggle
+            const pinBtn = document.getElementById('previewPinBtn');
+            if (pinBtn) {
+                const pinned = isPinned(_shareUrl);
+                pinBtn.style.color = pinned ? '#f59e0b' : '#94a3b8';
+                pinBtn.style.background = pinned ? 'rgba(245,158,11,0.18)' : 'rgba(255,255,255,0.05)';
+                pinBtn.title = pinned ? 'Unpin this file' : 'Pin this file';
+                pinBtn.querySelector('.material-symbols-outlined').style.transform = pinned ? 'rotate(-45deg)' : '';
+            }
+        }
+        function previewOpenNote() {
+            if (!_shareUrl) { showToast('No file is open to add a note.', 'warning'); return; }
+            openNoteModal(_shareUrl, _shareName);
+        }
 
 
         // ── FEATURE 4: EMBED LINK ────────────────────────────────
         function copyEmbedLink() {
-            if (!_shareUrl) return;
+            if (!_requireShareUrl('Embed')) return;
             const ext = (_shareName || '').split('.').pop().toLowerCase();
             let snippet;
             if (['jpg','jpeg','png','gif','webp','svg'].includes(ext)) {
@@ -2099,12 +2241,15 @@
             } else {
                 snippet = '<iframe src="' + _shareUrl + '" width="100%" height="600" style="border:none;border-radius:8px" title="' + _shareName + '"></iframe>';
             }
-            navigator.clipboard.writeText(snippet).then(() => {
-                showToast('Embed code copied!', 'success', 2200);
-            }).catch(() => {
-                // Fallback: show in a prompt so user can copy manually
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(snippet).then(() => {
+                    showToast('✓ Embed code copied to clipboard!', 'success', 2500);
+                }).catch(() => {
+                    window.prompt('Copy this embed code:', snippet);
+                });
+            } else {
                 window.prompt('Copy this embed code:', snippet);
-            });
+            }
         }
 
         // ── 50: BROWSER NOTIFICATIONS ────────────────────────────
@@ -2174,10 +2319,14 @@
         let _wnNewFiles = [];
         async function checkWhatsNew() {
             const lastSeen = localStorage.getItem(WN_SEEN_KEY);
-            if (!lastSeen) { localStorage.setItem(WN_SEEN_KEY, new Date().toISOString()); return; }
+            if (!lastSeen) {
+                // First ever visit — set 30 days back so recent files are shown
+                localStorage.setItem(WN_SEEN_KEY, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+                return;
+            }
             try {
                 const { data } = await _supabase.from('files_list')
-                    .select('file_name,folder_name,created_at').gt('created_at', lastSeen)
+                    .select('file_name,folder_name,created_at,download_url,file_size').gt('created_at', lastSeen)
                     .order('created_at', { ascending: false }).limit(20);
                 if (data && data.length > 0) {
                     _wnNewFiles = data;
@@ -2187,9 +2336,9 @@
         }
         function openWhatsNew() {
             const list = document.getElementById('whatsNewList');
+            const now = new Date();
             if (!_wnNewFiles.length) {
-                // Fallback: show the 10 most recently uploaded files from allFiles
-                const now = new Date();
+                // Always show 10 most recent files from allFiles
                 const recent = [...allFiles]
                     .filter(f => !f.expires_at || new Date(f.expires_at) > now)
                     .sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -2201,19 +2350,26 @@
                             '<span class="material-symbols-outlined" style="font-size:20px;color:var(--accent);flex-shrink:0;margin-top:1px">' + getFileIcon(f.name) + '</span>' +
                             '<div style="min-width:0;flex:1"><p style="color:rgba(255,255,255,0.85);font-size:13px;font-weight:600;word-break:break-word;margin:0">' + f.name + '</p>' +
                             '<p style="color:#64748b;font-size:10px;margin-top:2px">' + (f.folder ? f.folder + ' · ' : '') + timeAgo(f.date) + '</p></div>' +
-                            '<button onclick="openPreview(\'' + f.url.replace(/'/g,"\\'") + '\',\'' + f.name.replace(/'/g,"\\'") + '\',\'' + (f.folder||'').replace(/'/g,"\\'") + '\',' + (f.file_size||0) + ');closeWhatsNew()" style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.22);border-radius:8px;color:#93c5fd;font-size:11px;padding:4px 9px;cursor:pointer;flex-shrink:0;font-weight:600">View</button>' +
+                            '<button onclick="openPreview(\'' + f.url.replace(/'/g,"\\'") + '\',\'' + f.name.replace(/'/g,"\\'") + '\',\'' + (f.folder||'').replace(/'/g,"\\'") + '\',' + (f.file_size||0) + ');closeWhatsNew()" style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.22);border-radius:8px;color:#93c5fd;font-size:11px;padding:4px 9px;cursor:pointer;flex-shrink:0;font-weight:600;white-space:nowrap">View</button>' +
                             '</div>'
                         ).join('');
                 } else {
-                    list.innerHTML = '<p style="color:rgba(255,255,255,0.3);font-size:13px;text-align:center;padding:24px 0">No files found yet.</p>';
+                    list.innerHTML = '<p style="color:rgba(255,255,255,0.3);font-size:13px;text-align:center;padding:24px 0">No files uploaded yet.</p>';
                 }
             } else {
-                list.innerHTML = _wnNewFiles.map(f =>
-                    '<div class="wn-row">' +
-                    '<span class="material-symbols-outlined" style="font-size:20px;color:var(--accent);flex-shrink:0;margin-top:1px">' + getFileIcon(f.file_name) + '</span>' +
-                    '<div style="min-width:0"><p style="color:rgba(255,255,255,0.85);font-size:13px;font-weight:600;word-break:break-word;margin:0">' + f.file_name + '</p>' +
-                    '<p style="color:#64748b;font-size:10px;margin-top:2px">' + (f.folder_name && f.folder_name !== 'Root' ? f.folder_name + ' · ' : '') + timeAgo(f.created_at) + '</p></div></div>'
-                ).join('');
+                // New files since last visit
+                list.innerHTML = '<p style="color:rgba(255,255,255,0.25);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding-bottom:8px">New since your last visit</p>' +
+                    _wnNewFiles.map(f => {
+                        const fileObj = allFiles.find(af => af.name === f.file_name) || {};
+                        const previewUrl = fileObj.url || f.download_url || '';
+                        const folder = f.folder_name && f.folder_name !== 'Root' ? f.folder_name : '';
+                        return '<div class="wn-row">' +
+                            '<span class="material-symbols-outlined" style="font-size:20px;color:var(--accent);flex-shrink:0;margin-top:1px">' + getFileIcon(f.file_name) + '</span>' +
+                            '<div style="min-width:0;flex:1"><p style="color:rgba(255,255,255,0.85);font-size:13px;font-weight:600;word-break:break-word;margin:0">' + f.file_name + '</p>' +
+                            '<p style="color:#64748b;font-size:10px;margin-top:2px">' + (folder ? folder + ' · ' : '') + timeAgo(f.created_at) + '</p></div>' +
+                            (previewUrl ? '<button onclick="openPreview(\'' + previewUrl.replace(/'/g,"\\'") + '\',\'' + f.file_name.replace(/'/g,"\\'") + '\',\'' + folder.replace(/'/g,"\\'") + '\',' + (fileObj.file_size||0) + ');closeWhatsNew()" style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.22);border-radius:8px;color:#93c5fd;font-size:11px;padding:4px 9px;cursor:pointer;flex-shrink:0;font-weight:600;white-space:nowrap">View</button>' : '') +
+                            '</div>';
+                    }).join('');
             }
             document.getElementById('whatsNewDot').style.display = 'none';
             document.getElementById('whatsNewModal').classList.add('open');
@@ -2232,10 +2388,20 @@
             if (!grid) return;
             if (compactView) {
                 grid.classList.add('compact-view');
-                if (toggle) { toggle.style.background='rgba(59,130,246,0.2)'; toggle.style.color='var(--accent)'; }
+                if (toggle) {
+                    toggle.style.background = 'rgba(59,130,246,0.25)';
+                    toggle.style.color = 'var(--accent)';
+                    toggle.style.borderColor = 'rgba(59,130,246,0.4)';
+                    toggle.innerHTML = '<span class="material-symbols-outlined" style="font-size:15px">density_small</span> On';
+                }
             } else {
                 grid.classList.remove('compact-view');
-                if (toggle) { toggle.style.background=''; toggle.style.color=''; }
+                if (toggle) {
+                    toggle.style.background = 'rgba(255,255,255,0.05)';
+                    toggle.style.color = '#94a3b8';
+                    toggle.style.borderColor = 'rgba(255,255,255,0.1)';
+                    toggle.innerHTML = '<span class="material-symbols-outlined" style="font-size:15px">density_small</span> Off';
+                }
             }
         }
         function toggleCompactView() {
@@ -2244,7 +2410,7 @@
             applyCompactView();
             showToast(compactView ? 'Compact view on' : 'Compact view off', 'info', 1500);
         }
-        // Apply on every render
+        // Apply on every render (after grid is rebuilt)
         const _origRenderFileList = renderFileList;
         renderFileList = function(files) {
             _origRenderFileList(files);
@@ -2372,6 +2538,12 @@
                     <a id="previewDownload" href="#" download style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(59,130,246,0.2);color:#93c5fd;border-radius:12px;font-size:12px;font-weight:700;text-decoration:none">
                         <span class="material-symbols-outlined" style="font-size:16px">download</span>Download
                     </a>
+                    <button id="previewPinBtn" onclick="previewTogglePin()" title="Pin this file" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:none;border-radius:10px;cursor:pointer;color:#94a3b8;transition:color .2s,background .2s">
+                        <span class="material-symbols-outlined" style="font-size:18px">push_pin</span>
+                    </button>
+                    <button id="previewNoteBtn" onclick="previewOpenNote()" title="Add note" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:none;border-radius:10px;cursor:pointer;color:#94a3b8;transition:color .2s,background .2s">
+                        <span class="material-symbols-outlined" style="font-size:18px">sticky_note_2</span>
+                    </button>
                     <button onclick="closePreview()" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:none;border-radius:10px;cursor:pointer;color:#94a3b8">
                         <span class="material-symbols-outlined" style="font-size:18px">close</span>
                     </button>
@@ -2404,9 +2576,12 @@
                 <h3 style="color:white;font-weight:700;font-size:15px;margin:0">Scan QR Code</h3>
                 <button onclick="closeQR()" style="background:none;border:none;cursor:pointer;color:#64748b"><span class="material-symbols-outlined" style="font-size:19px">close</span></button>
             </div>
-            <p id="qrFileName" style="color:#64748b;font-size:11px;margin-bottom:10px;word-break:break-all;text-align:left"></p>
-            <img id="qrImage" src="" alt="QR Code" style="width:220px;height:220px;border-radius:12px;display:block;margin:0 auto;background:white;padding:8px"/>
-            <p style="color:rgba(255,255,255,0.18);font-size:10px;margin-top:10px">Point your phone camera at this code</p>
+            <p id="qrFileName" style="color:#64748b;font-size:11px;margin-bottom:12px;word-break:break-all;text-align:left"></p>
+            <div style="width:240px;height:240px;border-radius:14px;margin:0 auto;background:white;padding:8px;display:flex;align-items:center;justify-content:center">
+                <img id="qrImage" src="" alt="QR Code" style="width:224px;height:224px;border-radius:8px;display:block"/>
+            </div>
+            <p style="color:rgba(255,255,255,0.22);font-size:10px;margin-top:12px;text-align:center">Point your phone camera at this code to open the file</p>
+            <button onclick="navigator.clipboard.writeText(document.getElementById('qrImage').src).then(()=>showToast('QR image URL copied!','success',2000))" style="margin-top:10px;width:100%;padding:8px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:10px;color:#93c5fd;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Copy QR link</button>
         </div>
     </div>
 
