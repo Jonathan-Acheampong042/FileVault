@@ -193,19 +193,6 @@
         .active-nav::after { background: var(--accent) !important; }
         .type-btn.active,.type-btn:hover { background:var(--accent-light) !important;border-color:var(--accent-border) !important;color:var(--accent) !important; }
 
-        /* ══ 54: COMPACT MODE ══ */
-        html.compact .file-card { padding: 8px 12px !important; border-radius: 12px !important; }
-        html.compact #fileGrid { gap: 6px !important; }
-        html.compact .file-card .w-10 { width: 32px !important; height: 32px !important; }
-        html.compact .file-card .text-sm { font-size: 11px !important; }
-        html.compact .file-card .text-\[10px\] { font-size: 9px !important; }
-
-        /* ══ 55: CARD SIZE ══ */
-        #fileGrid { --card-scale: 1; }
-        .file-card { transform-origin: top left; }
-
-        /* ══ 56: CUSTOM BACKGROUND ══ */
-        .bg-fixed-image { transition: background-image 0.5s ease; }
 
         /* ══ Settings Panel ══ */
         #settingsPanel { display:none;position:fixed;top:60px;right:16px;z-index:99990;width:260px;background:rgba(15,23,42,0.98);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:20px;box-shadow:0 24px 64px rgba(0,0,0,0.6);backdrop-filter:blur(24px); }
@@ -214,8 +201,7 @@
         .setting-label { font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;display:block; }
         .color-swatch { width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .2s;flex-shrink:0; }
         .color-swatch.active { border-color:white;transform:scale(1.15); }
-        .bg-thumb { width:52px;height:36px;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:all .2s;background-size:cover;background-position:center;flex-shrink:0; }
-        .bg-thumb.active { border-color:var(--accent); }
+
 
         /* ══ 57: CONFETTI ══ */
         .confetti-piece { position:fixed;width:8px;height:8px;border-radius:2px;pointer-events:none;z-index:99999;animation:confettiFall 1.2s ease-in forwards; }
@@ -1824,74 +1810,7 @@
         }
         initAccent();
 
-        // ══ 54: COMPACT MODE ══════════════════════════════════
-        let _compact = localStorage.getItem('fvCompact') === '1';
-        function applyCompact() {
-            document.documentElement.classList.toggle('compact', _compact);
-            const thumb = document.getElementById('compactThumb');
-            const btn = document.getElementById('compactToggle');
-            if (thumb) thumb.style.transform = _compact ? 'translateX(20px)' : '';
-            if (btn) btn.style.background = _compact ? 'var(--accent)' : 'rgba(255,255,255,0.1)';
-        }
-        function toggleCompact() {
-            _compact = !_compact;
-            localStorage.setItem('fvCompact', _compact ? '1' : '0');
-            applyCompact();
-        }
-        applyCompact();
 
-        // ══ 55: CARD SIZE ══════════════════════════════════════
-        function setCardSize(val) {
-            const scale = val / 100;
-            document.documentElement.style.setProperty('--card-scale', scale);
-            const grid = document.getElementById('fileGrid');
-            if (grid) {
-                const gap = Math.round(16 * scale) + 'px';
-                grid.style.gap = gap;
-            }
-            document.querySelectorAll('#fileGrid .file-card').forEach(c => {
-                c.style.fontSize = (scale * 100) + '%';
-            });
-            localStorage.setItem('fvCardSize', val);
-        }
-        function initCardSize() {
-            const saved = localStorage.getItem('fvCardSize');
-            if (saved) {
-                const slider = document.getElementById('cardSizeSlider');
-                if (slider) slider.value = saved;
-                setCardSize(saved);
-            }
-        }
-        initCardSize();
-
-        // ══ 56: CUSTOM BACKGROUND ══════════════════════════════
-        function setBg(src, filter, el) {
-            const bgEl = document.querySelector('.bg-fixed-image');
-            document.querySelectorAll('.bg-thumb').forEach(t => t.classList.remove('active'));
-            if (el) el.classList.add('active');
-            if (!bgEl) return;
-            if (src === '__gradient1') {
-                bgEl.style.backgroundImage = 'linear-gradient(135deg,#0d1117,#161b22,#0d1117)';
-                bgEl.style.filter = '';
-            } else if (src === '__gradient2') {
-                bgEl.style.backgroundImage = 'linear-gradient(135deg,#0f0c29,#302b63,#24243e)';
-                bgEl.style.filter = '';
-            } else if (src) {
-                bgEl.style.backgroundImage = "url('" + src + "')";
-                bgEl.style.filter = filter || '';
-            } else {
-                bgEl.style.backgroundImage = 'none';
-                bgEl.style.filter = '';
-            }
-            localStorage.setItem('fvBg', JSON.stringify({ src, filter }));
-        }
-        function initBg() {
-            try {
-                const s = JSON.parse(localStorage.getItem('fvBg'));
-                if (s) setBg(s.src, s.filter, null);
-            } catch(e) {}
-        }
-        initBg();
 
         // ══ 57: CONFETTI ON FIRST DOWNLOAD ════════════════════
         function fireConfetti(x, y) {
@@ -2198,29 +2117,6 @@
                 <div class="color-swatch" style="background:#f59e0b" onclick="setAccent('#f59e0b','rgba(245,158,11,0.2)','rgba(245,158,11,0.4)',this)" title="Amber"></div>
                 <div class="color-swatch" style="background:#ef4444" onclick="setAccent('#ef4444','rgba(239,68,68,0.2)','rgba(239,68,68,0.4)',this)" title="Red"></div>
                 <div class="color-swatch" style="background:#06b6d4" onclick="setAccent('#06b6d4','rgba(6,182,212,0.2)','rgba(6,182,212,0.4)',this)" title="Cyan"></div>
-            </div>
-        </div>
-        <!-- 54: Compact Mode -->
-        <div class="setting-row" style="display:flex;align-items:center;justify-content:space-between">
-            <span class="setting-label" style="margin-bottom:0">Compact Mode</span>
-            <button id="compactToggle" onclick="toggleCompact()" style="width:44px;height:24px;border-radius:99px;border:none;cursor:pointer;background:rgba(255,255,255,0.1);position:relative;transition:background .2s">
-                <span style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:white;transition:transform .2s" id="compactThumb"></span>
-            </button>
-        </div>
-        <!-- 55: Card Size Slider -->
-        <div class="setting-row">
-            <span class="setting-label">Card Size</span>
-            <input type="range" id="cardSizeSlider" min="80" max="120" value="100" oninput="setCardSize(this.value)"
-                style="width:100%;accent-color:var(--accent);cursor:pointer">
-        </div>
-        <!-- 56: Background -->
-        <div class="setting-row">
-            <span class="setting-label">Background</span>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <div class="bg-thumb active" style="background:linear-gradient(135deg,#0f172a,#1e293b)" onclick="setBg('','',this)" title="Default (dark)"></div>
-                <div class="bg-thumb" style="background-image:url('screen.png')" onclick="setBg('screen.png','saturate(0.72) brightness(0.5)',this)" title="Current wallpaper"></div>
-                <div class="bg-thumb" style="background:linear-gradient(135deg,#0d1117,#161b22,#0d1117)" onclick="setBg('__gradient1','',this)" title="Deep space"></div>
-                <div class="bg-thumb" style="background:linear-gradient(135deg,#0f0c29,#302b63,#24243e)" onclick="setBg('__gradient2','',this)" title="Purple night"></div>
             </div>
         </div>
     </div>
