@@ -251,29 +251,14 @@
         .pin-btn:hover { color:#f59e0b;background:rgba(245,158,11,.1); }
         .pin-btn.pinned { color:#f59e0b; }
         .badge-pinned { display:inline-flex;align-items:center;font-size:9px;font-weight:800;background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.25);padding:1px 6px;border-radius:99px;vertical-align:middle;margin-left:3px; }
-        #previewPinBtn .material-symbols-outlined { transition: transform 0.25s ease, color 0.2s; }
-
         /* ── 38: Recently downloaded section ── */
         #recentDLSection { display:none;margin-bottom:16px; }
 
-        /* ── 39: Related files + 42/43/45: Share row in preview ── */
-        #previewShareRow { display:flex;gap:8px;flex-wrap:wrap;padding:10px 18px 12px;flex-shrink:0;border-top:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.1); }
-        .share-btn { display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s; }
-        .share-btn-wa   { background:rgba(37,211,102,0.15);color:#4ade80; }
-        .share-btn-wa:hover   { background:rgba(37,211,102,0.28); }
-        .share-btn-mail { background:rgba(59,130,246,0.15);color:#93c5fd; }
-        .share-btn-mail:hover { background:rgba(59,130,246,0.28); }
-        .share-btn-qr   { background:rgba(139,92,246,0.15);color:#c084fc; }
-        .share-btn-qr:hover   { background:rgba(139,92,246,0.28); }
+        /* ── 39: Related files ── */
         #relatedFilesStrip { border-top:1px solid rgba(255,255,255,0.06);padding:10px 18px 14px;flex-shrink:0;background:rgba(0,0,0,0.1); }
         #relatedFilesStrip.hidden { display:none; }
         .related-chip { display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:9px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .18s;white-space:nowrap;max-width:190px;overflow:hidden;text-overflow:ellipsis; }
         .related-chip:hover { background:rgba(59,130,246,0.15);border-color:rgba(59,130,246,0.3);color:#93c5fd; }
-
-        /* ── 43: QR modal ── */
-        #qrModal { display:none;position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px; }
-        #qrModal.open { display:flex; }
-        #qrBox { background:rgba(15,23,42,.98);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:28px;text-align:center;max-width:300px;width:100%;box-shadow:0 32px 80px rgba(0,0,0,.6); }
 
         /* ── 50: Notification bell ── */
         #notifBtn.granted { color:#4ade80 !important; }
@@ -2056,8 +2041,6 @@
             previewByIdx(_previewIdx);
         }
         // Patch previewByIdx to track current index
-        // NOTE: we store the original here but will re-patch after openPreview is wrapped below.
-        // The actual patch is applied after the share-context patch so _shareUrl gets set correctly.
         let _previewByIdxBase = function(idx) {
             _previewIdx = idx;
             var f = _fileRegistry[idx];
@@ -2129,128 +2112,13 @@
             ).join('');
         }
 
-        // ── 42/43/45: SHARE ACTIONS ──────────────────────────────
-        let _shareUrl = '', _shareName = '';
-
-        function _requireShareUrl(label) {
-            if (_shareUrl) return true;
-            showToast('Open a file preview first, then use ' + label + '.', 'warning', 2800);
-            return false;
-        }
-
-        function shareViaWhatsApp() {
-            if (!_requireShareUrl('WhatsApp')) return;
-            const text = 'Check out this file from FileVault:\n📄 ' + _shareName + '\n' + _shareUrl;
-            const waUrl = 'https://wa.me/?text=' + encodeURIComponent(text);
-            try {
-                const win = window.open(waUrl, '_blank');
-                if (!win) throw new Error('blocked');
-                showToast('Opening WhatsApp…', 'success', 2000);
-            } catch(e) {
-                // popup blocked or unavailable — show prompt fallback
-                window.prompt('Copy this link to share on WhatsApp:', _shareUrl);
-            }
-        }
-
-        function shareViaEmail() {
-            if (!_requireShareUrl('Email')) return;
-            const subject = encodeURIComponent('FileVault: ' + _shareName);
-            const body = encodeURIComponent('Hi,\n\nHere is a file for you:\n\n' + _shareName + '\n' + _shareUrl + '\n\nBest regards');
-            // Use a link element to avoid navigating away from the page
-            const a = document.createElement('a');
-            a.href = 'mailto:?subject=' + subject + '&body=' + body;
-            a.target = '_blank';
-            a.rel = 'noopener';
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(() => a.remove(), 300);
-            showToast('✉️ Opening your email client…', 'info', 2500);
-        }
-
-        function shareViaQR() {
-            if (!_requireShareUrl('QR Code')) return;
-            document.getElementById('qrFileName').textContent = _shareName;
-            document.getElementById('qrImage').src = '';
-            document.getElementById('qrModal').classList.add('open');
-            // Load QR with a slight delay so the modal renders first
-            setTimeout(() => {
-                document.getElementById('qrImage').src =
-                    'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=' + encodeURIComponent(_shareUrl) + '&color=3b82f6&bgcolor=0f172a';
-            }, 80);
-        }
-
-        function closeQR() { document.getElementById('qrModal').classList.remove('open'); }
-
-        // Patch openPreview to set share context + render related + update pin/note state
+        // Patch openPreview to render related files
         const _origOpenPreviewShare = openPreview;
         openPreview = function(url, name, folder, size) {
             _origOpenPreviewShare(url, name, folder, size);
-            _shareUrl = url; _shareName = name;
             const file = allFiles.find(f => f.url === url) || { url, name, folder, file_size: size };
             renderRelatedFiles(file);
-            // Update pin button state in preview
-            const pinBtn = document.getElementById('previewPinBtn');
-            if (pinBtn) {
-                const pinned = isPinned(url);
-                pinBtn.style.color = pinned ? '#f59e0b' : '#94a3b8';
-                pinBtn.style.background = pinned ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.05)';
-                pinBtn.title = pinned ? 'Unpin this file' : 'Pin this file';
-            }
-            // Update note button state in preview
-            const noteBtn = document.getElementById('previewNoteBtn');
-            if (noteBtn) {
-                const hasNote = !!getFileNote(url);
-                noteBtn.style.color = hasNote ? '#f59e0b' : '#94a3b8';
-                noteBtn.style.background = hasNote ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.05)';
-                noteBtn.title = hasNote ? 'Edit note' : 'Add note';
-            }
         };
-
-        // Preview modal pin/note helpers
-        function previewTogglePin() {
-            if (!_shareUrl) { showToast('No file is open to pin.', 'warning'); return; }
-            let pins = getPins();
-            const wasPinned = pins.includes(_shareUrl);
-            pins = wasPinned ? pins.filter(u => u !== _shareUrl) : [_shareUrl, ...pins];
-            savePins(pins);
-            showToast(wasPinned ? '📌 Unpinned — removed from top.' : '📌 Pinned! File will appear at the top.', wasPinned ? 'info' : 'success', 2200);
-            renderFileList(getFilteredFiles());
-            // Re-sync button state after toggle
-            const pinBtn = document.getElementById('previewPinBtn');
-            if (pinBtn) {
-                const pinned = isPinned(_shareUrl);
-                pinBtn.style.color = pinned ? '#f59e0b' : '#94a3b8';
-                pinBtn.style.background = pinned ? 'rgba(245,158,11,0.18)' : 'rgba(255,255,255,0.05)';
-                pinBtn.title = pinned ? 'Unpin this file' : 'Pin this file';
-                pinBtn.querySelector('.material-symbols-outlined').style.transform = pinned ? 'rotate(-45deg)' : '';
-            }
-        }
-        function previewOpenNote() {
-            if (!_shareUrl) { showToast('No file is open to add a note.', 'warning'); return; }
-            openNoteModal(_shareUrl, _shareName);
-        }
-
-
-        // ── FEATURE 4: EMBED LINK ────────────────────────────────
-        function copyEmbedLink() {
-            if (!_requireShareUrl('Embed')) return;
-            const ext = (_shareName || '').split('.').pop().toLowerCase();
-            let snippet;
-            if (['jpg','jpeg','png','gif','webp','svg'].includes(ext)) {
-                snippet = '<img src="' + _shareUrl + '" alt="' + _shareName + '" style="max-width:100%">';
-            } else {
-                snippet = '<iframe src="' + _shareUrl + '" width="100%" height="600" style="border:none;border-radius:8px" title="' + _shareName + '"></iframe>';
-            }
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(snippet).then(() => {
-                    showToast('✓ Embed code copied to clipboard!', 'success', 2500);
-                }).catch(() => {
-                    window.prompt('Copy this embed code:', snippet);
-                });
-            } else {
-                window.prompt('Copy this embed code:', snippet);
-            }
-        }
 
         // ── 50: BROWSER NOTIFICATIONS ────────────────────────────
         function updateNotifBtn() {
@@ -2538,12 +2406,6 @@
                     <a id="previewDownload" href="#" download style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(59,130,246,0.2);color:#93c5fd;border-radius:12px;font-size:12px;font-weight:700;text-decoration:none">
                         <span class="material-symbols-outlined" style="font-size:16px">download</span>Download
                     </a>
-                    <button id="previewPinBtn" onclick="previewTogglePin()" title="Pin this file" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:none;border-radius:10px;cursor:pointer;color:#94a3b8;transition:color .2s,background .2s">
-                        <span class="material-symbols-outlined" style="font-size:18px">push_pin</span>
-                    </button>
-                    <button id="previewNoteBtn" onclick="previewOpenNote()" title="Add note" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:none;border-radius:10px;cursor:pointer;color:#94a3b8;transition:color .2s,background .2s">
-                        <span class="material-symbols-outlined" style="font-size:18px">sticky_note_2</span>
-                    </button>
                     <button onclick="closePreview()" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:none;border-radius:10px;cursor:pointer;color:#94a3b8">
                         <span class="material-symbols-outlined" style="font-size:18px">close</span>
                     </button>
@@ -2554,34 +2416,11 @@
                 <button class="preview-nav right" onclick="slideshowNav(1)" title="Next file"><span class="material-symbols-outlined" style="font-size:20px">chevron_right</span></button>
                 <div style="color:#64748b;font-size:14px">Loading preview…</div>
             </div>
-            <!-- 42/43/45: Share actions -->
-            <div id="previewShareRow">
-                <button class="share-btn share-btn-wa" onclick="shareViaWhatsApp()"><span class="material-symbols-outlined" style="font-size:14px">chat</span>WhatsApp</button>
-                <button class="share-btn share-btn-mail" onclick="shareViaEmail()"><span class="material-symbols-outlined" style="font-size:14px">mail</span>Email link</button>
-                <button class="share-btn share-btn-qr" onclick="shareViaQR()"><span class="material-symbols-outlined" style="font-size:14px">qr_code</span>QR Code</button>
-                <button class="share-btn" onclick="copyEmbedLink()" style="background:rgba(100,116,139,0.15);color:#94a3b8" onmouseover="this.style.background='rgba(100,116,139,0.28)'" onmouseout="this.style.background='rgba(100,116,139,0.15)'"><span class="material-symbols-outlined" style="font-size:14px">code</span>Embed</button>
-            </div>
             <!-- 39: Related files in same folder -->
             <div id="relatedFilesStrip" class="hidden">
                 <p style="color:rgba(255,255,255,0.25);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">More in this folder</p>
                 <div id="relatedList" style="display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none"></div>
             </div>
-        </div>
-    </div>
-
-    <!-- 43: QR Code Modal -->
-    <div id="qrModal" onclick="if(event.target===this)closeQR()">
-        <div id="qrBox">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-                <h3 style="color:white;font-weight:700;font-size:15px;margin:0">Scan QR Code</h3>
-                <button onclick="closeQR()" style="background:none;border:none;cursor:pointer;color:#64748b"><span class="material-symbols-outlined" style="font-size:19px">close</span></button>
-            </div>
-            <p id="qrFileName" style="color:#64748b;font-size:11px;margin-bottom:12px;word-break:break-all;text-align:left"></p>
-            <div style="width:240px;height:240px;border-radius:14px;margin:0 auto;background:white;padding:8px;display:flex;align-items:center;justify-content:center">
-                <img id="qrImage" src="" alt="QR Code" style="width:224px;height:224px;border-radius:8px;display:block"/>
-            </div>
-            <p style="color:rgba(255,255,255,0.22);font-size:10px;margin-top:12px;text-align:center">Point your phone camera at this code to open the file</p>
-            <button onclick="navigator.clipboard.writeText(document.getElementById('qrImage').src).then(()=>showToast('QR image URL copied!','success',2000))" style="margin-top:10px;width:100%;padding:8px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:10px;color:#93c5fd;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Copy QR link</button>
         </div>
     </div>
 
