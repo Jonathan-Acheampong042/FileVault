@@ -265,6 +265,28 @@
         #whatsNewBox { background:rgba(15,23,42,.97);border:1px solid rgba(255,255,255,.1);border-radius:20px;width:100%;max-width:440px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,.6); }
         .wn-row { display:flex;gap:11px;align-items:flex-start;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05); }
         .wn-row:last-child { border-bottom:none; }
+
+
+        /* ── Compact / Dense view ── */
+        #fileGrid.compact-view { display:flex !important; flex-direction:column; gap:2px !important; }
+        #fileGrid.compact-view .file-card { padding:8px 12px !important; border-radius:10px !important; }
+        #fileGrid.compact-view .file-card:hover { transform:none !important; }
+        #fileGrid.compact-view .w-10.h-10 { width:28px !important; height:28px !important; border-radius:8px !important; }
+        #fileGrid.compact-view .w-10.h-10 .material-symbols-outlined { font-size:14px !important; }
+        #fileGrid.compact-view .text-sm.leading-snug { font-size:12px !important; }
+        #fileGrid.compact-view .text-\[10px\] { font-size:9px !important; }
+        #fileGrid.compact-view .desc-tooltip, #fileGrid.compact-view p.italic { display:none !important; }
+        #fileGrid.compact-view .gap-0\.5 { gap:0 !important; }
+        #fileGrid.compact-view .pin-btn, #fileGrid.compact-view .note-btn { display:none !important; }
+        /* ── File notes ── */
+        .note-btn { background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#475569;transition:color .2s,background .2s;font-size:0;line-height:0; }
+        .note-btn:hover { color:#f59e0b;background:rgba(245,158,11,.1); }
+        .note-btn.has-note { color:#f59e0b; }
+        .badge-note { display:inline-block;width:6px;height:6px;border-radius:50%;background:#f59e0b;vertical-align:middle;margin-left:3px;flex-shrink:0; }
+        /* Note modal */
+        #noteModal { display:none;position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px; }
+        #noteModal.open { display:flex; }
+        #noteBox { background:rgba(15,23,42,.98);border:1px solid rgba(255,255,255,.12);border-radius:20px;width:100%;max-width:380px;padding:24px;box-shadow:0 32px 80px rgba(0,0,0,.6); }
     </style>
 </head>
 <body class="overflow-x-hidden">
@@ -439,7 +461,7 @@
             <div id="fileGridSection" class="flex flex-wrap justify-between items-center mb-4 pb-4 border-b gap-3">
                 <div class="flex items-center gap-4">
                     <h3 class="text-lg font-bold text-white">Files</h3>
-                    <span id="fileCount" class="px-2.5 py-0.5 rounded-lg bg-white/5 text-[10px] text-slate-400 font-bold">0</span><span id="activeFolderLabel" style="display:none;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#3b82f6;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.25);padding:3px 10px;border-radius:99px;cursor:pointer" onclick="filterByFolder(null,null)" title="Clear folder filter"></span>
+                    <span id="fileCount" class="px-2.5 py-0.5 rounded-lg bg-white/5 text-[10px] text-slate-400 font-bold">0</span><span id="vaultSizeBadge" style="display:none;align-items:center;gap:3px;font-size:10px;font-weight:600;color:#64748b;margin-left:4px" title="Total size of visible files"><span class="material-symbols-outlined" style="font-size:11px">database</span><span id="vaultSizeText"></span></span><span id="activeFolderLabel" style="display:none;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#3b82f6;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.25);padding:3px 10px;border-radius:99px;cursor:pointer" onclick="filterByFolder(null,null)" title="Clear folder filter"></span>
                 </div>
                 <div class="flex items-center gap-2">
                     <button id="userSelectAllBtn" onclick="userSelectAll()" class="inline-flex items-center gap-1.5 px-3 h-10 rounded-xl bg-white/5 hover:bg-primary/20 text-slate-400 hover:text-primary text-xs font-bold transition" title="Select all files">
@@ -732,8 +754,24 @@
             return new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
         }
         
+        // ── Per-folder sort memory ──
+        const FOLDER_SORT_KEY = 'fvFolderSort';
+        function getFolderSortMap() { try { return JSON.parse(localStorage.getItem(FOLDER_SORT_KEY) || '{}'); } catch { return {}; } }
+        function saveFolderSort(folder, type) {
+            const map = getFolderSortMap();
+            map[folder || '__root__'] = type;
+            localStorage.setItem(FOLDER_SORT_KEY, JSON.stringify(map));
+        }
+        function loadFolderSort(folder) {
+            const map = getFolderSortMap();
+            return map[folder || '__root__'] || null;
+        }
         function sortFiles(type) {
             currentSort = type;
+            saveFolderSort(currentFolder, type);
+            // Sync dropdown UI
+            const sel = document.getElementById('sortSelect');
+            if (sel) sel.value = type;
             renderFileList(getFilteredFiles());
         }
         
@@ -873,6 +911,20 @@
         
         function renderFileList(files) {
             document.getElementById('fileCount').innerText = files.length;
+            // ── Vault size display ──
+            (function() {
+                const now = new Date();
+                const visible = files.filter(f => !f.expires_at || new Date(f.expires_at) > now);
+                const totalBytes = visible.reduce((s, f) => s + (f.file_size || 0), 0);
+                const badge = document.getElementById('vaultSizeBadge');
+                const txt   = document.getElementById('vaultSizeText');
+                if (badge && txt && totalBytes > 0) {
+                    txt.textContent = formatFileSize(totalBytes);
+                    badge.style.display = 'inline-flex';
+                } else if (badge) {
+                    badge.style.display = 'none';
+                }
+            })();
             const now = new Date();
             const fileGrid = document.getElementById('fileGrid');
             fileGrid.className = viewType === 'list' ? 'space-y-3 sm:space-y-4' : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6';
@@ -922,6 +974,7 @@
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
                     '<button onclick="togglePin(\'' + safeUrl + '\',\'' + safeName + '\',this);event.stopPropagation()" class="pin-btn' + (isPinned(file.url) ? ' pinned' : '') + '" title="' + (isPinned(file.url) ? 'Unpin' : 'Pin to top') + '"><span class="material-symbols-outlined" style="font-size:18px;display:block">push_pin</span></button>' +
+                    '<button onclick="openNoteModal(\'' + safeUrl + '\',\'' + safeName.replace(/\'/, \'\\\'\'\') + '\');event.stopPropagation()" class="note-btn' + (getFileNote(file.url) ? ' has-note' : '') + '" title="' + (getFileNote(file.url) ? 'Edit note' : 'Add note') + '"><span class="material-symbols-outlined" style="font-size:18px;display:block">sticky_note_2</span></button>' +
                     '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview">visibility</button>' +
                     '<button onclick="copyFileLink(\'' + safeUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block">link</span></button>' +
                     '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\');event.stopPropagation()" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download">download</a>' +
@@ -1038,6 +1091,13 @@
             sessionStorage.setItem('fvLastFolder', folder || '');
             pushFolderToURL(folder);
             _clearAllFolderHighlights();
+            // ── Load saved sort for this folder ──
+            const savedSort = loadFolderSort(folder);
+            if (savedSort && savedSort !== currentSort) {
+                currentSort = savedSort;
+                const sel = document.getElementById('sortSelect');
+                if (sel) sel.value = currentSort;
+            }
 
             if (folder) {
                 // Remove active-nav from My Vault
@@ -1991,6 +2051,25 @@
             renderRelatedFiles(file);
         };
 
+
+        // ── FEATURE 4: EMBED LINK ────────────────────────────────
+        function copyEmbedLink() {
+            if (!_shareUrl) return;
+            const ext = (_shareName || '').split('.').pop().toLowerCase();
+            let snippet;
+            if (['jpg','jpeg','png','gif','webp','svg'].includes(ext)) {
+                snippet = '<img src="' + _shareUrl + '" alt="' + _shareName + '" style="max-width:100%">';
+            } else {
+                snippet = '<iframe src="' + _shareUrl + '" width="100%" height="600" style="border:none;border-radius:8px" title="' + _shareName + '"></iframe>';
+            }
+            navigator.clipboard.writeText(snippet).then(() => {
+                showToast('Embed code copied!', 'success', 2200);
+            }).catch(() => {
+                // Fallback: show in a prompt so user can copy manually
+                window.prompt('Copy this embed code:', snippet);
+            });
+        }
+
         // ── 50: BROWSER NOTIFICATIONS ────────────────────────────
         function updateNotifBtn() {
             const btn = document.getElementById('notifBtn');
@@ -2088,6 +2167,62 @@
         }
         function closeWhatsNew() { document.getElementById('whatsNewModal').classList.remove('open'); }
 
+
+
+        // ── FEATURE 5: COMPACT VIEW ─────────────────────────────
+        let compactView = localStorage.getItem('fvCompactView') === '1';
+        function applyCompactView() {
+            const grid = document.getElementById('fileGrid');
+            const toggle = document.getElementById('compactToggle');
+            if (!grid) return;
+            if (compactView) {
+                grid.classList.add('compact-view');
+                if (toggle) { toggle.style.background='rgba(59,130,246,0.2)'; toggle.style.color='var(--accent)'; }
+            } else {
+                grid.classList.remove('compact-view');
+                if (toggle) { toggle.style.background=''; toggle.style.color=''; }
+            }
+        }
+        function toggleCompactView() {
+            compactView = !compactView;
+            localStorage.setItem('fvCompactView', compactView ? '1' : '0');
+            applyCompactView();
+            showToast(compactView ? 'Compact view on' : 'Compact view off', 'info', 1500);
+        }
+        // Apply on every render
+        const _origRenderFileList = renderFileList;
+        renderFileList = function(files) {
+            _origRenderFileList(files);
+            applyCompactView();
+        };
+        applyCompactView();
+
+        // ── FEATURE 3: FILE NOTES ───────────────────────────────
+        const NOTES_KEY = 'fvFileNotes';
+        function getNotesMap() { try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '{}'); } catch { return {}; } }
+        function getFileNote(url) { return getNotesMap()[url] || ''; }
+        function saveFileNote(url, text) {
+            const m = getNotesMap();
+            if (text.trim()) { m[url] = text.trim(); } else { delete m[url]; }
+            localStorage.setItem(NOTES_KEY, JSON.stringify(m));
+        }
+        let _noteUrl = '', _noteName = '';
+        function openNoteModal(url, name) {
+            _noteUrl = url; _noteName = name;
+            document.getElementById('noteFileName').textContent = name;
+            document.getElementById('noteTextarea').value = getFileNote(url);
+            document.getElementById('noteModal').classList.add('open');
+            setTimeout(() => document.getElementById('noteTextarea').focus(), 120);
+        }
+        function closeNoteModal() { document.getElementById('noteModal').classList.remove('open'); }
+        function saveNote() {
+            const text = document.getElementById('noteTextarea').value;
+            saveFileNote(_noteUrl, text);
+            closeNoteModal();
+            showToast(text.trim() ? '📝 Note saved!' : 'Note removed.', 'success', 1800);
+            renderFileList(getFilteredFiles());
+        }
+
         // ══ SETTINGS PANEL TOGGLE ══════════════════════════════
         function toggleSettings() {
             document.getElementById('settingsPanel').classList.toggle('open');
@@ -2107,6 +2242,17 @@
             <p style="color:white;font-weight:700;font-size:14px">Display Settings</p>
             <button onclick="toggleSettings()" style="background:none;border:none;cursor:pointer;color:#64748b"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
         </div>
+        <!-- 55: Compact View -->
+        <div class="setting-row" style="margin-bottom:12px">
+            <span class="setting-label">View Density</span>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+                <span style="font-size:12px;color:#cbd5e1">Compact / Dense</span>
+                <button id="compactToggle" onclick="toggleCompactView()" title="Toggle compact view"
+                    style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:;color:rgba(255,255,255,0.5);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
+                    <span class="material-symbols-outlined" style="font-size:15px">density_small</span> Toggle
+                </button>
+            </div>
+        </div>
         <!-- 53: Accent Color -->
         <div class="setting-row">
             <span class="setting-label">Accent Color</span>
@@ -2117,6 +2263,29 @@
                 <div class="color-swatch" style="background:#f59e0b" onclick="setAccent('#f59e0b','rgba(245,158,11,0.2)','rgba(245,158,11,0.4)',this)" title="Amber"></div>
                 <div class="color-swatch" style="background:#ef4444" onclick="setAccent('#ef4444','rgba(239,68,68,0.2)','rgba(239,68,68,0.4)',this)" title="Red"></div>
                 <div class="color-swatch" style="background:#06b6d4" onclick="setAccent('#06b6d4','rgba(6,182,212,0.2)','rgba(6,182,212,0.4)',this)" title="Cyan"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ── File Note Modal ── -->
+    <div id="noteModal" onclick="if(event.target===this)closeNoteModal()">
+        <div id="noteBox">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+                <div>
+                    <p style="color:rgba(255,255,255,0.4);font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px">Personal Note</p>
+                    <p id="noteFileName" style="color:white;font-weight:700;font-size:13px;margin:0;word-break:break-word;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></p>
+                </div>
+                <button onclick="closeNoteModal()" style="background:none;border:none;cursor:pointer;color:#64748b"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+            </div>
+            <textarea id="noteTextarea" placeholder="Write a personal reminder, comment, or note… (only you can see this)" rows="4"
+                style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px;color:white;font-size:13px;font-family:inherit;resize:vertical;outline:none;line-height:1.55;box-sizing:border-box"
+                onfocus="this.style.borderColor='rgba(59,130,246,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
+                onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter')saveNote()"></textarea>
+            <p style="color:rgba(255,255,255,0.18);font-size:10px;margin:6px 0 16px">Saved locally in your browser only · Ctrl+Enter to save</p>
+            <div style="display:flex;gap:8px">
+                <button onclick="closeNoteModal()" style="flex:1;padding:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:rgba(255,255,255,0.6);font-weight:700;font-size:13px;cursor:pointer">Cancel</button>
+                <button onclick="saveNote()" style="flex:2;padding:10px;background:linear-gradient(135deg,var(--accent),#8b5cf6);border:none;border-radius:12px;color:white;font-weight:700;font-size:13px;cursor:pointer">Save Note</button>
             </div>
         </div>
     </div>
@@ -2163,6 +2332,7 @@
                 <button class="share-btn share-btn-wa" onclick="shareViaWhatsApp()"><span class="material-symbols-outlined" style="font-size:14px">chat</span>WhatsApp</button>
                 <button class="share-btn share-btn-mail" onclick="shareViaEmail()"><span class="material-symbols-outlined" style="font-size:14px">mail</span>Email link</button>
                 <button class="share-btn share-btn-qr" onclick="shareViaQR()"><span class="material-symbols-outlined" style="font-size:14px">qr_code</span>QR Code</button>
+                <button class="share-btn" onclick="copyEmbedLink()" style="background:rgba(100,116,139,0.15);color:#94a3b8" onmouseover="this.style.background='rgba(100,116,139,0.28)'" onmouseout="this.style.background='rgba(100,116,139,0.15)'"><span class="material-symbols-outlined" style="font-size:14px">code</span>Embed</button>
             </div>
             <!-- 39: Related files in same folder -->
             <div id="relatedFilesStrip" class="hidden">

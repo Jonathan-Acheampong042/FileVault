@@ -165,6 +165,7 @@ HEADER:
 - "Manager Portal" title with a role badge (🔧 Manager or 🛡️ Admin) shown after login.
 - Sync dot: green = synced, yellow = warning, red = error / offline.
 - Sync label: shows "Online", "Checking sync…", or "Offline - Limited Mode".
+- High Contrast toggle button (contrast icon) — toggles high contrast mode for better visibility. Saved across sessions.
 - "Logout" button (top-right) — signs out and redirects to login.html.
 
 KEYBOARD SHORTCUTS:
@@ -173,47 +174,66 @@ KEYBOARD SHORTCUTS:
 
 ─── FOLDERS SECTION ───
 - Displays all folders as cards in a grid.
-- Each folder card has: edit (pencil) icon to rename, delete (trash) icon to remove.
+- Each folder card shows: folder name, file count, and a "+N new" badge if new files were added since your last visit.
+- Each folder card has: pencil icon to rename, trash icon to delete the folder.
+- Clicking a folder name filters the Library to show only that folder's files.
 - "New Folder" button (top-right of section) — creates a new folder via a prompt.
+
+─── MOST DOWNLOADED SECTION ───
+- Appears automatically above the Library when any files have been downloaded.
+- Shows a ranked list (top 5) of the most downloaded files with download counts and a visual progress bar.
+- Updates every time the Library is refreshed.
 
 ─── PUBLISH NEW FILE SECTION ───
 - Folder dropdown — select which folder to publish the file into, or leave as "No folder (root)".
-- "New Folder" icon button — creates a folder without leaving the upload form.
+- "New Folder" icon button — creates a new folder without leaving the upload form.
 - Description field (optional) — short note about the file(s).
 - Expiry field (optional) — number of days until the file link expires (e.g. 7). Leave blank for no expiry.
-- File upload zone — drag & drop files here, or click to open the file picker.
-  - Ctrl/Cmd+Click in the file picker to select multiple files at once.
+- File upload zone — drag & drop files here, or click to open the file picker. Supports multiple files at once.
+  - Ctrl/Cmd+Click in the file picker to select multiple files.
+- Duplicate detection — if a file with the same name already exists in that folder, you are asked whether to replace it or keep both.
+- Upload progress bar — shows real-time per-file upload percentage and an overall progress label when uploading multiple files.
 - "Upload & Share" button — uploads selected file(s) and syncs them to both Storage and the Database automatically.
 
 ─── LIBRARY FILES SECTION ───
 Sort & View controls:
-- Sort dropdown — Newest First, Oldest First, Name A-Z, Size.
+- Sort dropdown — Newest First, Oldest First, Name A-Z, Size (largest first).
 - Grid view button / List view button — toggle layout.
-- "Repair Sync" button — scans Storage for files missing from the Database and adds the missing records. Use when sync status shows a mismatch.
+- "Repair Sync" button — scans Storage for files missing from the Database and re-adds them. Use when sync status shows a mismatch.
 - "Refresh" button — reloads the file list from the database.
 
-Bulk actions (appear when files are checked):
-- Count label showing how many files are selected.
-- "Download ZIP" button — downloads all selected files as a ZIP.
-- "Delete All" button — permanently deletes all selected files.
+Bulk actions bar (appears when one or more files are checked):
+- Count label — shows how many files are selected and total size.
+- "ZIP" button — downloads all selected files as a single ZIP archive.
+- "Move" button — opens the Bulk Move modal to move all selected files to a chosen folder at once.
+- "Delete All" button — permanently deletes all selected files from both Storage and the Database.
 - Close (×) button — deselects all.
 
+Bulk Move Modal:
+- Opens when you click "Move" in the bulk actions bar.
+- Shows how many files are being moved.
+- Folder dropdown — choose the destination folder (or Root).
+- "Move Files" button — executes the move.
+- "Cancel" button — closes without moving.
+
 Tabs inside Library:
-- "Database View" (tab-db) — shows files recorded in the Supabase database.
-- "Storage View" (tab-storage) — shows files actually stored in Supabase Storage; useful for spotting orphaned files not in the DB.
+- "Database View" (tab-db) — shows files recorded in the Supabase database. This is the main view.
+- "Storage View" (tab-storage) — shows files actually stored in Supabase Storage; useful for spotting orphaned files not recorded in the DB.
 - "Downloads" tracker (tab-tracker) — bar chart showing download counts per file.
 
-File card action icons (hover over a file card):
-- Eye icon — preview the file.
-- Pencil (rename) icon — rename the file.
-- Move (drive_file_move) icon — move the file to a different folder.
-- Notes (edit description) icon — edit the file's description.
-- Trash (delete) icon — permanently delete the file.
+File card action icons (visible on each file card):
+- Eye icon — opens a full preview of the file.
+- Pencil (rename) icon — renames the file.
+- Move (drive_file_move) icon — moves the file to a different folder.
+- Notes icon — edits the file description.
+- Trash icon — permanently deletes the file from both Storage and the Database.
+- Expiry progress bar — a thin coloured bar at the bottom of each file card showing time remaining before expiry. Green = plenty of time, amber = getting close, red = expiring soon.
+- Checkbox — tick to select the file for bulk actions.
 
 ─── SYNC STATUS PANEL ───
-- "Database Records" count — how many files are in the DB.
-- "Storage Files" count — how many files are in Storage.
-- "Status" — "Synced" if counts match, "Mismatch" if they differ.
+- "Database Records" count — how many files are recorded in the DB.
+- "Storage Files" count — how many files are physically in Storage.
+- "Status" — shows "Synced" if counts match, "Mismatch" if they differ.
 - Fix mismatches with the "Repair Sync" button in the Library section.
 
 ─── FILE REQUEST LINK SECTION ───
@@ -224,9 +244,11 @@ File card action icons (hover over a file card):
 ─── COMMON ISSUES ───
 - Files not showing on the user page: check Supabase RLS policies — the files_list table needs USING (true) with no role restriction.
 - Sync mismatch: click "Repair Sync" in the Library Files section.
-- Expired files hidden: check the expires_at column in files_list — it must be a timestamptz column.
+- Expired files hidden on user page: check the expires_at column in files_list — it must be a timestamptz column.
 - Download count not updating: make sure the increment_download_count(file_id uuid) RPC function exists in Supabase.
-- Offline mode: the sync dot turns red and a warning toast appears. Some features are unavailable until back online.`;
+- Duplicate file on upload: the system will prompt you to replace or keep both — choose based on your need.
+- Offline mode: the sync dot turns red and a warning toast appears. Uploads and deletes are unavailable until back online.
+- High contrast not persisting: it is saved in localStorage — clearing browser data will reset it.`;
 
 
 const SYSTEM_PROMPT_LOGIN = `You are the FileVault AI assistant helping a user on the LOGIN PAGE (login.html).
