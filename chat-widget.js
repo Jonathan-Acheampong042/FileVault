@@ -27,42 +27,125 @@ STRICT RULES:
 
 === USER PAGE FEATURES (index.html) ===
 
-HEADER:
-- Search bar — press Ctrl/Cmd+F or click it to search files, folders, and descriptions.
+HEADER BAR:
+- Search bar — tap or press Ctrl/Cmd+F to search files, folders, and descriptions. On mobile, tapping the search bar expands it to full width and hides the other icons so there's more room to type. Tap away to collapse.
+- Search suggestions — a dropdown appears as you type, showing matching folders and file names. Also shows recent search history when empty.
+- Date filter button (calendar icon) — opens a From/To date picker to filter files by upload date. Click again to close. Click "Clear" to remove the filter.
+- Install button (phone icon) — appears when the browser supports installing FileVault as an app. Click it to install FileVault on your device (works like a native app, works offline).
+- Notifications bell — click to enable browser notifications. You'll get an alert when new files are uploaded. The bell turns green when enabled.
+- What's New button (sparkles icon) — shows files added since your last visit. A red dot appears on it when there are new files.
+- Keyboard shortcuts button (?) — opens a panel listing all keyboard shortcuts.
+- Display settings button (palette icon) — opens a panel to change the accent color of the UI.
 
-FOLDERS SECTION:
-- Folder pills — click "All" to show every file, or click a specific folder pill to filter files to that folder only.
+INSTALL BANNER:
+- A banner may appear below the welcome message prompting you to install FileVault on your phone. Click "Install" to install it as a PWA (works offline). Click x to dismiss for the session.
+
+ANNOUNCEMENT BANNER:
+- If the manager has posted an announcement, it appears at the top of the main content. Click x to dismiss it.
+
+RETURNING USER BANNER:
+- If you haven't visited in a day or more, a "Welcome back!" message briefly appears showing how many days since your last visit.
+
+FOLDERS SECTION (grid cards):
+- Shows all folders as clickable cards. Each card shows the folder name, file count, and colored dots for each file type inside.
+- Click a folder card to filter all files to that folder.
+
+FOLDER PILLS (horizontal scroll bar):
+- "All" pill — shows every file across all folders.
+- Individual folder pills — click to filter files to that folder only. The active folder is highlighted.
+
+FILE TYPE FILTER PILLS (below folder pills):
+- All types, PDF, PPTX, DOCX, XLSX, Images — click to filter the file grid by type.
+- Each pill shows a count badge of how many files of that type exist.
 
 FILE CONTROLS (above the file grid):
+- "Select All" button — selects all visible file cards. Click again to deselect all.
 - Grid view button — switches files to a grid layout.
 - List view button — switches files to a list layout.
 - Sort dropdown — options: Newest, Oldest, Name A-Z.
+- Active folder label — shows the current folder filter as a badge. Click it to clear the folder filter and return to All.
 
 FILE CARDS:
-- Eye (visibility) icon — opens a preview of the file without downloading.
+- NEW badge — green pulsing badge on files uploaded within the last 7 days.
+- Pinned badge — appears on files you have pinned; pinned files always float to the top of the list.
+- Download count badge — shows how many times a file has been downloaded.
+- Checkbox — tick to select the file for bulk actions.
+- Pin icon — click to pin or unpin a file. Pinned files stay at the top regardless of sort order.
+- Eye (visibility) icon — opens a full preview of the file (PDF rendered inline, images shown, other types offer "Open in new tab").
+- Link icon — copies the file's direct download link to your clipboard.
 - Download icon — downloads the file directly.
-- Expiry badge — if a file is close to expiring, a badge like "3d left" appears on the card.
-- Expired files — hidden automatically; they will not appear in the list.
+- Expiry countdown — if a file expires soon, a badge like "Exp: 3d" appears.
+- Expiry progress bar — a thin colored bar under the file meta shows how much time is left (green to amber to red).
+- Description — if the file has a description, it shows as a short italic line. Hover (desktop) to see the full description in a tooltip.
 
-BULK SELECT:
-- Tick the checkbox on one or more file cards to select them.
-- A bulk bar appears at the bottom with: a "ZIP" download button (downloads all selected files as a ZIP) and a close (×) button to deselect all.
+SWIPE GESTURES (mobile):
+- Swipe a file card left to reveal three quick-action buttons: Preview, Copy link, Save (download).
+
+BULK SELECT & ZIP DOWNLOAD:
+- Tick one or more checkboxes to select files.
+- The bulk bar appears showing the count and total size selected.
+- "ZIP" button — downloads all selected files bundled into a single ZIP archive. A progress bar appears during download.
+- x button — clears the selection.
+- "Select All" / "Deselect" button above the grid also selects or deselects everything visible.
+
+FILE PREVIEW MODAL:
+- Opens when you click the eye icon on a file card.
+- PDFs open inline. Images are shown full-size (pinch to zoom on mobile).
+- Arrow buttons navigate to the previous/next file without closing the modal.
+- Download button in the header downloads the current file.
+- Share row at the bottom: WhatsApp, Email link, QR Code buttons to share the file link.
+- "More in this folder" strip — shows other files from the same folder as quick-jump chips.
+- Close with the x button or press Esc.
+
+DATE RANGE FILTER BAR:
+- Appears below the file grid controls when the date filter button is active.
+- Set a "From" and "To" date to show only files uploaded within that range.
+- Click "Clear" to remove the filter.
+
+DRAG-SELECT (desktop):
+- Click and drag on an empty area of the file grid to draw a selection box and select multiple files at once.
+
+KEYBOARD SHORTCUTS:
+- Ctrl/Cmd+F — focus the search bar.
+- Arrow keys — navigate between file cards.
+- Enter — preview the focused card.
+- Space — toggle the checkbox on the focused card.
+- ? — open the keyboard shortcuts panel.
+- Esc — close any open modal or preview.
 
 RECENT UPLOADS SECTION:
-- Shows the 4 newest non-expired files for quick access.
+- Shows the 4 most recently uploaded non-expired files for quick access.
+
+MOST DOWNLOADED SECTION:
+- Appears when any file has been downloaded at least once.
+- Shows the top 5 most-downloaded files with a bar chart of relative download counts.
 
 NEED HELP? SECTION:
-- Displays contact info: email, WhatsApp, and phone number.
-- "Contact Support" button links to support contact.
+- Contact info: email, WhatsApp, and phone number for Jonathan Acheampong.
+- "Contact Support" button opens an email compose window.
+
+PULL TO REFRESH (mobile):
+- Pull down from the top of the page to force a refresh of the file list.
+
+BACK TO TOP BUTTON:
+- A blue circular button appears at the bottom-right after scrolling down. Click it to scroll back to the top.
+
+WHAT'S NEW MODAL:
+- Lists all files added since your last visit, grouped with their folder and upload time.
+- Click "Got it" or x to close. The red dot on the What's New button is cleared.
+
+DISPLAY SETTINGS PANEL:
+- Opened via the palette icon in the header.
+- Accent Color — pick from 6 colors (Blue, Purple, Green, Amber, Red, Cyan) to change the UI highlight color. Your choice is saved.
 
 SIDEBAR (desktop only):
 - "My Vault" link — shows all files.
-- Folder links — click to jump to a specific folder.
+- Folder links — click to jump to a specific folder. The active folder is highlighted.
 - "Admin" link at the bottom — takes admins/managers to the login page.
 
 MOBILE BOTTOM NAV:
 - Vault — shows all files.
-- Search — focuses the search bar.
+- Search — focuses the search bar and scrolls to the top.
 - Admin Login — link to login page.
 
 IMPORTANT: Users do NOT log in or create accounts. This page is for browsing and downloading only.`;
