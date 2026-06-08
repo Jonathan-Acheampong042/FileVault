@@ -1114,21 +1114,23 @@
     async function checkDuplicate(fileName, folder) {
         const folderName = folder || 'Root';
 
-        // Check DB — escape special ilike chars so filenames with % or _ work correctly
-        const escapedName = fileName.replace(/[%_]/g, '\\$&');
-        const { data: dbData } = await _supabase
+        // Use exact .eq() match — avoids ilike issues with special chars like _ and %
+        // which are wildcards in SQL LIKE patterns
+        const { data: dbData, error: dbErr } = await _supabase
             .from('files_list').select('id')
+            .eq('file_name', fileName)
             .eq('folder_name', folderName)
-            .ilike('file_name', escapedName)
             .limit(1);
 
-        // Also check storage bucket directly for files not yet in DB
+        // Also check storage bucket directly (catches files not yet in DB)
         const storageFolder = folder || '';
         const { data: storageList } = await _supabase.storage
             .from('vault-files').list(storageFolder, { limit: 500 });
         const existsInStorage = (storageList || []).some(f =>
-            f.name.toLowerCase() === fileName.toLowerCase()
+            f.name === fileName  // exact match — storage is case-sensitive
         );
+
+        if (dbErr) console.warn('Duplicate DB check error (non-fatal):', dbErr.message);
 
         const exists = (dbData && dbData.length > 0) || existsInStorage;
         if (!exists) return 'new';
@@ -1212,15 +1214,18 @@
                 showProgress(finalName, 50, overallLabel + ' (retrying…)');
                 const { error: sdkErr } = await _supabase.storage
                     .from('vault-files')
-                    .upload(path, file, { upsert: true, cacheControl: '3600' });
+                    .upload(path, file, { upsert: true, cacheControl: '3600', contentType: file.type || 'application/octet-stream' });
+                if (sdkErr) console.error('SDK fallback error:', sdkErr);
                 uploadResult = { error: sdkErr };
                 if (!sdkErr) showProgress(finalName, 100, overallLabel);
             }
 
             if (uploadResult.error) {
                 hideProgress();
-                const errDetail = uploadResult.error.message || JSON.stringify(uploadResult.error);
-                setStatus(`✗ Upload failed for "${file.name}": ${errDetail}`, 'red');
+                const errDetail = uploadResult.error.message || uploadResult.error.error || JSON.stringify(uploadResult.error);
+                const errStatus = uploadResult.error.statusCode || uploadResult.error.status || '';
+                console.error('Upload error full object:', uploadResult.error);
+                setStatus(`✗ Upload failed for "${file.name}" [${errStatus}]: ${errDetail}`, 'red');
                 errorCount++;
                 continue;
             }
