@@ -2099,6 +2099,7 @@
             compactView = !compactView;
             localStorage.setItem('fvCompactView', compactView ? '1' : '0');
             applyCompactView();
+            renderFileList(getFilteredFiles());
             showToast(compactView ? 'Compact view on' : 'Compact view off', 'info', 1500);
         }
         // Apply on every render (after grid is rebuilt)
@@ -2160,8 +2161,8 @@
             <div style="display:flex;align-items:center;justify-content:space-between">
                 <span style="font-size:12px;color:#cbd5e1">Compact / Dense</span>
                 <button id="compactToggle" onclick="toggleCompactView()" title="Toggle compact view"
-                    style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
-                    <span class="material-symbols-outlined" style="font-size:15px">density_small</span> Off
+                    style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background-color:rgba(255,255,255,0.5);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
+                    <span class="material-symbols-outlined" style="font-size:15px">density_small</span> Toggle
                 </button>
             </div>
         </div>
