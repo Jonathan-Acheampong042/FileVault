@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+    <link rel="icon" href="filevault%20logo.png">
+    <title>FileVault | Request a File</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <script>
+        tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] } } } }
+    </script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0; }
+        .bg-fixed-image { position: fixed; inset: 0; background-image: url('screen.png'); background-size: cover; background-position: center; z-index: -2; filter: saturate(0.72) brightness(0.5); }
+        .bg-overlay { position: fixed; inset: 0; background: radial-gradient(circle at top left, rgba(59,130,246,0.15), transparent 24%), radial-gradient(circle at bottom right, rgba(139,92,246,0.14), transparent 20%), linear-gradient(180deg, rgba(8,12,27,0.88), rgba(4,7,18,0.96)); z-index: -1; pointer-events: none; }
+        .glass-card { background: rgba(30,41,59,0.35); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 8px 32px rgba(0,0,0,0.25); }
+        input, textarea, select { background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 12px !important; color: white !important; font-family: inherit !important; transition: border-color .2s !important; outline: none !important; }
+        input:focus, textarea:focus, select:focus { border-color: rgba(59,130,246,0.5) !important; background: rgba(255,255,255,0.08) !important; }
+        input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.25) !important; }
+        label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .08em; display: block; margin-bottom: 7px; }
+        .form-group { margin-bottom: 18px; }
+        .submit-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: none; border-radius: 14px; color: white; font-weight: 800; font-size: 15px; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity .2s, transform .15s; }
+        .submit-btn:hover { opacity: .92; transform: translateY(-1px); }
+        .submit-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+        #toast { position: fixed; top: 20px; right: 20px; z-index: 9999; padding: 14px 20px; border-radius: 14px; font-size: 13px; font-weight: 700; color: white; backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 8px 32px rgba(0,0,0,.4); display: none; align-items: center; gap: 10px; min-width: 240px; }
+        #toast.success { background: rgba(16,185,129,0.2); border-color: rgba(16,185,129,0.35); display: flex; }
+        #toast.error { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.35); display: flex; }
+        :focus-visible { outline: 2px solid #3b82f6 !important; outline-offset: 2px !important; border-radius: 8px; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+        .card-in { animation: fadeInUp .45s ease-out both; }
+        .back-link { display: inline-flex; align-items: center; gap: 6px; color: #64748b; font-size: 13px; font-weight: 600; text-decoration: none; transition: color .2s; margin-bottom: 24px; }
+        .back-link:hover { color: #93c5fd; }
+        .char-count { font-size: 10px; color: #475569; text-align: right; margin-top: 3px; }
+        .field-note { font-size: 11px; color: #475569; margin-top: 4px; }
+    </style>
+</head>
+<body>
+    <div class="bg-fixed-image" aria-hidden="true"></div>
+    <div class="bg-overlay" aria-hidden="true"></div>
+
+    <main class="min-h-screen flex items-start justify-center px-4 pt-12 pb-16">
+        <div class="w-full max-w-lg card-in">
+            <a href="index.html" class="back-link" aria-label="Back to FileVault">
+                <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">arrow_back</span>
+                Back to Vault
+            </a>
+
+            <div class="glass-card rounded-3xl p-6 sm:p-8">
+                <!-- Header -->
+                <div class="flex items-center gap-4 mb-6">
+                    <div style="width:44px;height:44px;border-radius:14px;overflow:hidden;flex-shrink:0">
+                        <img src="filevault%20logo.png" alt="FileVault" style="width:100%;height:100%;object-fit:contain"/>
+                    </div>
+                    <div>
+                        <h1 style="color:white;font-weight:800;font-size:20px;margin:0;line-height:1.2">Request a File</h1>
+                        <p style="color:#64748b;font-size:12px;margin:2px 0 0">Tell us what material you need — we'll upload it.</p>
+                    </div>
+                </div>
+
+                <form id="requestForm" novalidate>
+                    <!-- File Name -->
+                    <div class="form-group">
+                        <label for="req_filename">File / Material Name <span style="color:#ef4444">*</span></label>
+                        <input type="text" id="req_filename" name="filename" placeholder="e.g. UGBS 301 Lecture 5 Slides" maxlength="160"
+                            style="width:100%;padding:12px 14px;font-size:14px"
+                            oninput="updateCount('req_filename','fn_count',160)"
+                            required aria-required="true"/>
+                        <div class="char-count" aria-live="polite"><span id="fn_count">0</span> / 160</div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-group">
+                        <label for="req_desc">Description <span style="color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+                        <textarea id="req_desc" name="description" placeholder="Add any detail — topic, chapter, date, lecturer name…" rows="3" maxlength="400"
+                            style="width:100%;padding:12px 14px;font-size:14px;resize:vertical"
+                            oninput="updateCount('req_desc','desc_count',400)"></textarea>
+                        <div class="char-count" aria-live="polite"><span id="desc_count">0</span> / 400</div>
+                    </div>
+
+                    <!-- Reason -->
+                    <div class="form-group">
+                        <label for="req_reason">Why do you need it? <span style="color:#ef4444">*</span></label>
+                        <textarea id="req_reason" name="reason" placeholder="e.g. Missed class due to illness. Preparing for exams." rows="2" maxlength="300"
+                            style="width:100%;padding:12px 14px;font-size:14px;resize:vertical"
+                            oninput="updateCount('req_reason','reason_count',300)"
+                            required aria-required="true"></textarea>
+                        <div class="char-count" aria-live="polite"><span id="reason_count">0</span> / 300</div>
+                    </div>
+
+                    <!-- Folder / Course (optional) -->
+                    <div class="form-group">
+                        <label for="req_folder">Course / Folder <span style="color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+                        <input type="text" id="req_folder" name="folder" placeholder="e.g. UGBS 301 or Business Analytics"
+                            style="width:100%;padding:12px 14px;font-size:14px" maxlength="80"/>
+                        <p class="field-note">Leave blank if you're unsure.</p>
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit" id="submitBtn" class="submit-btn" aria-label="Submit file request">
+                        <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">send</span>
+                        Submit Request
+                    </button>
+                </form>
+
+                <!-- Success state (hidden initially) -->
+                <div id="successState" style="display:none;text-align:center;padding:24px 0">
+                    <span class="material-symbols-outlined" style="font-size:56px;color:#34d399;display:block;margin-bottom:12px">check_circle</span>
+                    <h2 style="color:white;font-weight:800;font-size:18px;margin:0 0 8px">Request Submitted!</h2>
+                    <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0 0 20px">Your request has been sent to the manager. Once they upload the file, it'll appear in the Vault.</p>
+                    <a href="index.html" style="display:inline-flex;align-items:center;gap:6px;padding:10px 22px;background:rgba(59,130,246,0.2);color:#93c5fd;border-radius:12px;font-size:13px;font-weight:700;text-decoration:none">
+                        <span class="material-symbols-outlined" style="font-size:16px" aria-hidden="true">folder_shared</span> Back to Vault
+                    </a>
+                </div>
+            </div>
+
+            <p style="text-align:center;color:rgba(255,255,255,0.15);font-size:11px;margin-top:20px">
+                Requests are reviewed by the manager. This is not a guaranteed upload.
+            </p>
+            <p style="text-align:center;color:rgba(255,255,255,0.15);font-size:11px;margin-top:20px">
+                Built by Jonathan Acheampong | FileVault
+            </p>
+        </div>
+    </main>
+
+    <div id="toast" role="alert" aria-live="assertive">
+        <span class="material-symbols-outlined" style="font-size:18px;flex-shrink:0" id="toastIcon" aria-hidden="true">check_circle</span>
+        <span id="toastMsg"></span>
+    </div>
+
+    <script>
+        const _supabase = supabase.createClient(
+            'https://lvhecpvwpzmstciewziv.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI'
+        );
+
+        function updateCount(inputId, countId, max) {
+            const el = document.getElementById(inputId);
+            const cnt = document.getElementById(countId);
+            if (el && cnt) cnt.textContent = el.value.length;
+        }
+
+        function showToast(msg, type) {
+            const t = document.getElementById('toast');
+            const m = document.getElementById('toastMsg');
+            const icon = document.getElementById('toastIcon');
+            t.className = type;
+            m.textContent = msg;
+            icon.textContent = type === 'success' ? 'check_circle' : 'error';
+            clearTimeout(t._timer);
+            t._timer = setTimeout(() => { t.style.display = 'none'; t.className = ''; }, 4000);
+        }
+
+        document.getElementById('requestForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const filename = document.getElementById('req_filename').value.trim();
+            const reason = document.getElementById('req_reason').value.trim();
+
+            if (!filename) {
+                document.getElementById('req_filename').focus();
+                showToast('Please enter the file name.', 'error');
+                return;
+            }
+            if (!reason) {
+                document.getElementById('req_reason').focus();
+                showToast('Please provide a reason.', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;animation:spin .8s linear infinite">refresh</span> Submitting…';
+
+            try {
+                const { error } = await _supabase.from('upload_requests').insert({
+                    filename: filename,
+                    description: document.getElementById('req_desc').value.trim() || null,
+                    reason: reason,
+                    folder: document.getElementById('req_folder').value.trim() || null,
+                    status: 'pending'
+                });
+                if (error) throw error;
+                document.getElementById('requestForm').style.display = 'none';
+                document.getElementById('successState').style.display = 'block';
+            } catch (err) {
+                console.error(err);
+                showToast('Submission failed: ' + (err.message || 'Unknown error'), 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">send</span> Submit Request';
+            }
+        });
+    </script>
+    <style>
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+    </style>
+</body>
+</html>

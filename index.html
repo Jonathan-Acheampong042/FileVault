@@ -188,6 +188,26 @@
         html.high-contrast .sidebar-glass { background:#000 !important; border-right:2px solid #fff !important; }
         html.high-contrast .file-card { background:#111 !important; border:2px solid #fff !important; }
         html.high-contrast .text-slate-400, html.high-contrast .text-slate-500 { color:#ccc !important; }
+        html.high-contrast header { background:#000 !important; border-bottom:2px solid #fff !important; }
+        html.high-contrast a, html.high-contrast button { outline-color:#fff !important; }
+        html.high-contrast .toast { background:#111 !important; border:2px solid #fff !important; color:#fff !important; }
+        html.high-contrast #settingsPanel { background:#000 !important; border:2px solid #fff !important; }
+        html.high-contrast .type-btn { background:#111 !important; border:1px solid #888 !important; color:#eee !important; }
+        html.high-contrast .type-btn.active { background:#333 !important; border-color:#fff !important; color:#fff !important; }
+        html.high-contrast .folder-btn { background:#111 !important; border:1px solid #888 !important; color:#eee !important; }
+        html.high-contrast nav.lg\:hidden { background:#000 !important; border-top:2px solid #fff !important; }
+
+        /* ── Font size control ── */
+        html.fs-small  { font-size: 13px; }
+        html.fs-medium { font-size: 16px; }
+        html.fs-large  { font-size: 19px; }
+        .fs-btn { display:inline-flex;align-items:center;justify-content:center;width:32px;height:28px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#94a3b8;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;font-size:12px; }
+        .fs-btn.active, .fs-btn:hover { background:var(--accent-light);border-color:var(--accent-border);color:var(--accent); }
+
+        /* ── File rating badge ── */
+        .rating-badge { display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#f59e0b;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:99px;padding:1px 7px;cursor:pointer;transition:all .2s; }
+        .rating-badge:hover { background:rgba(245,158,11,0.2); }
+        .rating-badge.liked { background:rgba(245,158,11,0.22);border-color:rgba(245,158,11,0.45);color:#fbbf24; }
         /* ── 31: New-since-last-visit badge ── */
         .folder-new-badge { display:inline-flex;align-items:center;font-size:8px;font-weight:800;background:rgba(16,185,129,0.2);color:#34d399;border:1px solid rgba(52,211,153,0.35);padding:1px 5px;border-radius:99px;margin-left:4px;vertical-align:middle; }
 
@@ -358,6 +378,9 @@
             </div>
         </nav>
         <div class="px-4 mt-auto pt-8 border-t border-white/5">
+            <a class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 text-sm hover:text-primary" href="upload-request.html">
+                <span class="material-symbols-outlined">upload_file</span> Request a File
+            </a>
             <a class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-red-400/80 text-sm" href="login.html">
                 <span class="material-symbols-outlined">logout</span> Admin
             </a>
@@ -385,18 +408,18 @@
             </button>
             <!-- Header icon buttons wrapped for mobile hide/show -->
             <div id="headerIcons">
-            <button id="pushBellBtn" onclick="togglePushSubscription()" title="Enable push notifications" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
-                <span id="pushBellIcon" class="material-symbols-outlined" style="font-size:18px">notifications</span>
+            <button id="pushBellBtn" onclick="togglePushSubscription()" title="Enable push notifications" aria-label="Enable push notifications" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
+                <span id="pushBellIcon" class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">notifications</span>
             </button>
-            <button id="themeToggleBtn" onclick="toggleTheme()" title="Toggle light/dark mode" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
-                <span id="themeToggleIcon" class="material-symbols-outlined" style="font-size:18px">light_mode</span>
+            <button id="themeToggleBtn" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle light/dark mode" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
+                <span id="themeToggleIcon" class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">light_mode</span>
             </button>
-            <button id="pwaInstallBtn" onclick="installPWA()" title="Install FileVault app" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition items-center justify-center">
-                <span class="material-symbols-outlined text-lg">install_mobile</span>
+            <button id="pwaInstallBtn" onclick="installPWA()" title="Install FileVault app" aria-label="Install FileVault app" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition items-center justify-center">
+                <span class="material-symbols-outlined text-lg" aria-hidden="true">install_mobile</span>
             </button>
-            <button onclick="openShortcuts()" title="Keyboard shortcuts" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center font-bold text-sm">?</button>
-            <button onclick="toggleSettings()" title="Display settings" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
-                <span class="material-symbols-outlined" style="font-size:18px">palette</span>
+            <button onclick="openShortcuts()" title="Keyboard shortcuts" aria-label="Open keyboard shortcuts" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center font-bold text-sm">?</button>
+            <button onclick="toggleSettings()" title="Display settings" aria-label="Open display settings" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
+                <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">palette</span>
             </button>
             </div>
         </header>
@@ -997,6 +1020,8 @@
                 const sizeLabel = file.file_size ? formatFileSize(file.file_size) : null;
                 const dlCount = (file.download_count && file.download_count > 0)
                     ? '<span title="' + file.download_count + ' download' + (file.download_count !== 1 ? 's' : '') + '" style="display:inline-flex;align-items:center;gap:2px;font-size:9px;background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.2);border-radius:99px;padding:1px 6px;font-weight:700;vertical-align:middle"><span class="material-symbols-outlined" style="font-size:10px">download</span>' + file.download_count + '</span>' : '';
+                const ratingId = file.id || '';
+                const ratingHtml = ratingId ? '<button class="rating-badge" data-rating-id="' + ratingId + '" onclick="toggleRating(\'' + ratingId + '\',this);event.stopPropagation()" aria-label="Like this file">👍</button>' : '';
                 const descTooltip = (file.description && !isListView())
                     ? '<div class="desc-tooltip" id="tt-'+_ri+'">' + file.description.replace(/</g,'&lt;') + '</div>' : '';
                 const hoverAttrs = (file.description && !isListView())
@@ -1017,13 +1042,17 @@
                         (file.description ? '<p class="mt-0.5 text-[11px] text-slate-400 italic truncate">' + highlightText(file.description, currentSearchTerm) + '</p>' : '') +
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
-                    '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview">visibility</button>' +
-                    '<button onclick="copyFileLink(\'' + safeUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block">link</span></button>' +
-                    '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\');event.stopPropagation()" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download">download</a>' +
+                    ratingHtml +
+                    '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview" aria-label="Preview ' + file.name + '">visibility</button>' +
+                    '<button onclick="copyFileLink(\'' + safeUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link" aria-label="Copy link for ' + file.name + '"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block" aria-hidden="true">link</span></button>' +
+                    '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\');event.stopPropagation()" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download" aria-label="Download ' + file.name + '">download</a>' +
                     '</div></div>';
             });
             renderVirtualScroll(cardHtmlArray);
             clearKbFocus();
+            // Load ratings for visible files (non-blocking)
+            const visibleIds = files.filter(f => f.id && !(f.expires_at && new Date(f.expires_at) <= now)).map(f => f.id);
+            if (visibleIds.length) setTimeout(() => loadRatings(visibleIds), 200);
         }
         
         function toggleSelect(url, name, checkbox, size) {
@@ -1838,12 +1867,106 @@
 
         // ═══ 36: HIGH CONTRAST ════════════════════════════════
         function initHighContrast() {
-            if (localStorage.getItem('fvHighContrast') === '1') document.documentElement.classList.add('high-contrast');
+            if (localStorage.getItem('fvHighContrast') === '1') {
+                document.documentElement.classList.add('high-contrast');
+                _updateHighContrastBtn(true);
+            }
         }
         function toggleHighContrast() {
             const on = document.documentElement.classList.toggle('high-contrast');
             localStorage.setItem('fvHighContrast', on ? '1' : '0');
+            _updateHighContrastBtn(on);
             showToast('High contrast ' + (on ? 'enabled' : 'disabled'), 'info', 1800);
+        }
+        function _updateHighContrastBtn(on) {
+            const btn = document.getElementById('highContrastToggle');
+            const lbl = document.getElementById('highContrastLabel');
+            if (!btn) return;
+            if (on) {
+                btn.style.background = 'rgba(255,255,255,0.2)';
+                btn.style.color = '#fff';
+                btn.style.borderColor = 'rgba(255,255,255,0.4)';
+            } else {
+                btn.style.background = '';
+                btn.style.color = '';
+                btn.style.borderColor = '';
+            }
+            if (lbl) lbl.textContent = on ? 'On' : 'Off';
+        }
+
+        // ═══ FONT SIZE CONTROL ════════════════════════════════
+        function setFontSize(size) {
+            document.documentElement.classList.remove('fs-small','fs-medium','fs-large');
+            document.documentElement.classList.add('fs-' + size);
+            localStorage.setItem('fvFontSize', size);
+            document.querySelectorAll('.fs-btn').forEach(b => {
+                b.classList.remove('active');
+                b.setAttribute('aria-pressed', 'false');
+            });
+            const btn = document.getElementById('fs-' + size);
+            if (btn) { btn.classList.add('active'); btn.setAttribute('aria-pressed', 'true'); }
+        }
+        function initFontSize() {
+            const saved = localStorage.getItem('fvFontSize') || 'medium';
+            setFontSize(saved);
+        }
+        initFontSize();
+
+        // ═══ FILE RATINGS (Supabase) ══════════════════════════
+        // Ratings are stored in `file_ratings` table: { file_id, user_key, created_at }
+        // user_key = a random local ID (no login required from students)
+        function _getUserKey() {
+            let k = localStorage.getItem('fvUserKey');
+            if (!k) { k = 'u_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('fvUserKey', k); }
+            return k;
+        }
+        const _ratingsCache = {}; // fileId -> { count, liked }
+        async function loadRatings(fileIds) {
+            if (!fileIds.length) return;
+            try {
+                const { data } = await _supabase.from('file_ratings').select('file_id').in('file_id', fileIds);
+                if (!data) return;
+                const userKey = _getUserKey();
+                const { data: myRatings } = await _supabase.from('file_ratings').select('file_id').in('file_id', fileIds).eq('user_key', userKey);
+                const mySet = new Set((myRatings || []).map(r => r.file_id));
+                fileIds.forEach(id => {
+                    const count = data.filter(r => r.file_id === id).length;
+                    _ratingsCache[id] = { count, liked: mySet.has(id) };
+                });
+                // Update all visible rating badges
+                document.querySelectorAll('[data-rating-id]').forEach(el => {
+                    const id = el.dataset.ratingId;
+                    if (_ratingsCache[id]) _applyRatingBadge(el, id);
+                });
+            } catch(e) {}
+        }
+        function _applyRatingBadge(el, fileId) {
+            const r = _ratingsCache[fileId];
+            if (!r) return;
+            el.textContent = (r.liked ? '👍 ' : '👍') + (r.count || '');
+            el.setAttribute('aria-label', (r.liked ? 'Unlike' : 'Like') + ' — ' + (r.count || 0) + ' likes');
+            el.classList.toggle('liked', r.liked);
+        }
+        async function toggleRating(fileId, btnEl) {
+            if (!fileId) return;
+            const userKey = _getUserKey();
+            const cached = _ratingsCache[fileId] || { count: 0, liked: false };
+            // Optimistic update
+            const newLiked = !cached.liked;
+            const newCount = cached.count + (newLiked ? 1 : -1);
+            _ratingsCache[fileId] = { count: Math.max(0, newCount), liked: newLiked };
+            _applyRatingBadge(btnEl, fileId);
+            try {
+                if (newLiked) {
+                    await _supabase.from('file_ratings').upsert({ file_id: fileId, user_key: userKey }, { onConflict: 'file_id,user_key' });
+                } else {
+                    await _supabase.from('file_ratings').delete().eq('file_id', fileId).eq('user_key', userKey);
+                }
+            } catch(e) {
+                // Revert optimistic on failure
+                _ratingsCache[fileId] = cached;
+                _applyRatingBadge(btnEl, fileId);
+            }
         }
 
         // ═══ PATCH renderFileList: swipe tray + expiry bar ════
@@ -2448,20 +2571,40 @@
     </script>
     
     <!-- ══ Settings Panel (53-56) ══ -->
-    <div id="settingsPanel">
+    <div id="settingsPanel" role="dialog" aria-label="Display settings" aria-modal="true">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
             <p style="color:white;font-weight:700;font-size:14px">Display Settings</p>
-            <button onclick="toggleSettings()" style="background:none;border:none;cursor:pointer;color:#64748b"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+            <button onclick="toggleSettings()" aria-label="Close display settings" style="background:none;border:none;cursor:pointer;color:#64748b"><span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">close</span></button>
         </div>
         <!-- Theme toggle -->
         <div class="setting-row" style="margin-bottom:12px">
             <span class="setting-label">Theme</span>
             <div style="display:flex;align-items:center;justify-content:space-between">
                 <span style="font-size:12px;color:#cbd5e1">Light / Dark mode</span>
-                <button onclick="toggleTheme()" title="Toggle light/dark mode"
+                <button onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle light/dark mode"
                     style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
-                    <span class="material-symbols-outlined" style="font-size:15px">contrast</span> Toggle
+                    <span class="material-symbols-outlined" style="font-size:15px" aria-hidden="true">contrast</span> Toggle
                 </button>
+            </div>
+        </div>
+        <!-- High Contrast -->
+        <div class="setting-row" style="margin-bottom:12px">
+            <span class="setting-label">High Contrast</span>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+                <span style="font-size:12px;color:#cbd5e1">Accessibility mode</span>
+                <button id="highContrastToggle" onclick="toggleHighContrast()" aria-label="Toggle high contrast mode"
+                    style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
+                    <span class="material-symbols-outlined" style="font-size:15px" aria-hidden="true">contrast</span> <span id="highContrastLabel">Off</span>
+                </button>
+            </div>
+        </div>
+        <!-- Font Size -->
+        <div class="setting-row" style="margin-bottom:12px">
+            <span class="setting-label">Font Size</span>
+            <div style="display:flex;align-items:center;gap:6px">
+                <button class="fs-btn" id="fs-small" onclick="setFontSize('small')" aria-label="Small font size" aria-pressed="false">A</button>
+                <button class="fs-btn" id="fs-medium" onclick="setFontSize('medium')" aria-label="Medium font size" aria-pressed="true" style="font-size:15px">A</button>
+                <button class="fs-btn" id="fs-large" onclick="setFontSize('large')" aria-label="Large font size" aria-pressed="false" style="font-size:18px">A</button>
             </div>
         </div>
         <!-- 55: Compact View -->
@@ -2469,9 +2612,9 @@
             <span class="setting-label">View Density</span>
             <div style="display:flex;align-items:center;justify-content:space-between">
                 <span style="font-size:12px;color:#cbd5e1">Compact / Dense</span>
-                <button id="compactToggle" onclick="toggleCompactView()" title="Toggle compact view"
+                <button id="compactToggle" onclick="toggleCompactView()" title="Toggle compact view" aria-label="Toggle compact view"
                     style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background-color:rgba(255,255,255,0.5);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
-                    <span class="material-symbols-outlined" style="font-size:15px">density_small</span> Toggle
+                    <span class="material-symbols-outlined" style="font-size:15px" aria-hidden="true">density_small</span> Toggle
                 </button>
             </div>
         </div>
@@ -2479,12 +2622,12 @@
         <div class="setting-row">
             <span class="setting-label">Accent Color</span>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <div class="color-swatch active" style="background:#3b82f6" onclick="setAccent('#3b82f6','rgba(59,130,246,0.2)','rgba(59,130,246,0.4)',this)" title="Blue"></div>
-                <div class="color-swatch" style="background:#8b5cf6" onclick="setAccent('#8b5cf6','rgba(139,92,246,0.2)','rgba(139,92,246,0.4)',this)" title="Purple"></div>
-                <div class="color-swatch" style="background:#10b981" onclick="setAccent('#10b981','rgba(16,185,129,0.2)','rgba(16,185,129,0.4)',this)" title="Green"></div>
-                <div class="color-swatch" style="background:#f59e0b" onclick="setAccent('#f59e0b','rgba(245,158,11,0.2)','rgba(245,158,11,0.4)',this)" title="Amber"></div>
-                <div class="color-swatch" style="background:#ef4444" onclick="setAccent('#ef4444','rgba(239,68,68,0.2)','rgba(239,68,68,0.4)',this)" title="Red"></div>
-                <div class="color-swatch" style="background:#06b6d4" onclick="setAccent('#06b6d4','rgba(6,182,212,0.2)','rgba(6,182,212,0.4)',this)" title="Cyan"></div>
+                <div class="color-swatch active" style="background:#3b82f6" onclick="setAccent('#3b82f6','rgba(59,130,246,0.2)','rgba(59,130,246,0.4)',this)" title="Blue" role="radio" aria-label="Blue accent" aria-checked="true" tabindex="0"></div>
+                <div class="color-swatch" style="background:#8b5cf6" onclick="setAccent('#8b5cf6','rgba(139,92,246,0.2)','rgba(139,92,246,0.4)',this)" title="Purple" role="radio" aria-label="Purple accent" aria-checked="false" tabindex="0"></div>
+                <div class="color-swatch" style="background:#10b981" onclick="setAccent('#10b981','rgba(16,185,129,0.2)','rgba(16,185,129,0.4)',this)" title="Green" role="radio" aria-label="Green accent" aria-checked="false" tabindex="0"></div>
+                <div class="color-swatch" style="background:#f59e0b" onclick="setAccent('#f59e0b','rgba(245,158,11,0.2)','rgba(245,158,11,0.4)',this)" title="Amber" role="radio" aria-label="Amber accent" aria-checked="false" tabindex="0"></div>
+                <div class="color-swatch" style="background:#ef4444" onclick="setAccent('#ef4444','rgba(239,68,68,0.2)','rgba(239,68,68,0.4)',this)" title="Red" role="radio" aria-label="Red accent" aria-checked="false" tabindex="0"></div>
+                <div class="color-swatch" style="background:#06b6d4" onclick="setAccent('#06b6d4','rgba(6,182,212,0.2)','rgba(6,182,212,0.4)',this)" title="Cyan" role="radio" aria-label="Cyan accent" aria-checked="false" tabindex="0"></div>
             </div>
         </div>
     </div>
@@ -2617,21 +2760,25 @@
         <span class="material-symbols-outlined" style="font-size:20px">keyboard_arrow_up</span>
     </button>
 
-    <div id="toastContainer"></div>
+    <div id="toastContainer" role="status" aria-live="polite" aria-atomic="false"></div>
 
     <!-- Mobile Bottom Navigation -->
     <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-40 glass-card border-t border-white/10 flex items-center justify-around px-2 py-2 pb-safe" style="padding-bottom:max(8px,env(safe-area-inset-bottom))">
-        <a href="#" onclick="filterByFolder(null,this)" class="flex flex-col items-center gap-0.5 px-3 py-1 text-primary">
-            <span class="material-symbols-outlined text-xl">folder_shared</span>
+        <a href="#" onclick="filterByFolder(null,this)" class="flex flex-col items-center gap-0.5 px-3 py-1 text-primary" aria-label="All files">
+            <span class="material-symbols-outlined text-xl" aria-hidden="true">folder_shared</span>
             <span class="text-[9px] font-bold uppercase">Vault</span>
         </a>
-        <button onclick="document.getElementById('searchInput').focus();window.scrollTo({top:0,behavior:'smooth'})" class="flex flex-col items-center gap-0.5 px-3 py-1 text-slate-400">
-            <span class="material-symbols-outlined text-xl">search</span>
+        <button onclick="document.getElementById('searchInput').focus();window.scrollTo({top:0,behavior:'smooth'})" class="flex flex-col items-center gap-0.5 px-3 py-1 text-slate-400" aria-label="Search files">
+            <span class="material-symbols-outlined text-xl" aria-hidden="true">search</span>
             <span class="text-[9px] font-bold uppercase">Search</span>
         </button>
-        <a href="login.html" class="flex flex-col items-center gap-0.5 px-3 py-1 text-slate-400">
-            <span class="material-symbols-outlined text-xl">login</span>
-            <span class="text-[9px] font-bold uppercase">Admin Login</span>
+        <a href="upload-request.html" class="flex flex-col items-center gap-0.5 px-3 py-1 text-slate-400" aria-label="Request a file">
+            <span class="material-symbols-outlined text-xl" aria-hidden="true">upload_file</span>
+            <span class="text-[9px] font-bold uppercase">Request</span>
+        </a>
+        <a href="login.html" class="flex flex-col items-center gap-0.5 px-3 py-1 text-slate-400" aria-label="Admin login">
+            <span class="material-symbols-outlined text-xl" aria-hidden="true">login</span>
+            <span class="text-[9px] font-bold uppercase">Admin</span>
         </a>
     </nav>
     <footer class="text-center text-white/20 text-xs py-4 lg:py-6">Built by <span class="text-white/40 font-semibold">Jonathan Acheampong</span> · FileVault</footer>
