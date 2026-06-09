@@ -993,6 +993,7 @@
 
             // Filter by folder if selected
             let filteredData = data || [];
+            allFiles = data || []; // keep full list for popular/ratings/badges
             if (currentFolder) {
                 filteredData = filteredData.filter(row => row.folder_name === currentFolder);
             }
@@ -1853,6 +1854,17 @@
         renderMainFolders();
         populateRequestFolderSelect();
         await loadManagerFiles();
+
+        // Load dashboard stats now that auth is confirmed
+        loadDashboardStats();
+
+        // Show pending requests badge
+        try {
+            const { data: reqData } = await _supabase.from('upload_requests').select('id').eq('status', 'pending');
+            const reqCount = (reqData || []).length;
+            const badge = document.getElementById('requestsBadge');
+            if (badge) badge.style.display = reqCount > 0 ? 'block' : 'none';
+        } catch(e) {}
     }
 
     // Keyboard shortcuts
@@ -2028,29 +2040,15 @@
             if (el('dashTotalFiles')) el('dashTotalFiles').textContent = totalFiles;
             if (el('dashTotalFolders')) el('dashTotalFolders').textContent = 'across ' + folders.size + ' folder' + (folders.size !== 1 ? 's' : '');
             if (el('dashDownloadsWeek')) el('dashDownloadsWeek').textContent = totalDL.toLocaleString();
-            if (el('dashStorage')) el('dashStorage').textContent = totalBytes > 0 ? formatFileSize(totalBytes) : '—';
+            if (el('dashStorage')) el('dashStorage').textContent = totalBytes > 0 ? formatFileSize(totalBytes) : '0 B';
             if (el('dashExpiring')) {
-                el('dashExpiring').textContent = expiringCount;
+                el('dashExpiring').textContent = expiringCount > 0 ? expiringCount : '0';
                 if (expiringCount > 0) el('dashExpiring').style.color = '#f59e0b';
             }
         } catch (err) {
             console.warn('Dashboard stats failed:', err.message);
         }
     }
-
-    // Patch checkAccess to also load dashboard after auth
-    const _origCheckAccess = checkAccess;
-    checkAccess = async function() {
-        await _origCheckAccess();
-        loadDashboardStats();
-        // Show pending requests badge on load
-        try {
-            const { data } = await _supabase.from('upload_requests').select('id').eq('status', 'pending');
-            const count = (data || []).length;
-            const badge = document.getElementById('requestsBadge');
-            if (badge) badge.style.display = count > 0 ? 'block' : 'none';
-        } catch(e) {}
-    };
     </script>
     <section id="mgrPopularSection" class="glass-card p-4 sm:p-6 rounded-2xl border border-white/10 mb-4" style="display:none;max-width:896px;margin:0 auto 16px">
         <h4 class="text-white/60 font-bold mb-4 flex items-center gap-2 text-sm"><span class="material-symbols-outlined text-amber-400">trending_up</span> Most Downloaded</h4>

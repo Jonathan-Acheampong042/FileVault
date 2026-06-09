@@ -12,7 +12,8 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // ── Web Push setup ──────────────────────────────────────────
 // Generate VAPID keys once: npx web-push generate-vapid-keys
-// Then set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in your .env
+// Then set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in your .env (local)
+// and in your Render dashboard under Environment Variables (production).
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     webpush.setVapidDetails(
         'mailto:acheampongjonathan21@gmail.com',
@@ -107,4 +108,11 @@ app.post('/api/chat', async (req, res) => {
 app.get('/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+        console.warn('\n⚠️  PUSH NOTIFICATIONS DISABLED: VAPID keys not set.');
+        console.warn('   Run: npx web-push generate-vapid-keys');
+        console.warn('   Then add VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY to your environment.\n');
+    }
+});

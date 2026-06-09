@@ -2332,7 +2332,14 @@
             try {
                 const res = await fetch(_CHAT_API_URL.replace('/api/chat', '/api/push/vapid-public-key'));
                 const { key } = await res.json();
-                if (!key) return; // Push not configured on server yet
+                if (!key) {
+                    // Mark bell as unavailable
+                    const btn = document.getElementById('pushBellBtn');
+                    const icon = document.getElementById('pushBellIcon');
+                    if (btn) { btn.title = 'Push notifications not configured on server'; btn.style.opacity = '0.4'; }
+                    if (icon) icon.textContent = 'notifications_off';
+                    return;
+                }
                 window._vapidPublicKey = key;
             } catch(e) { return; } // server offline
             // Check if already subscribed
@@ -2380,7 +2387,7 @@
                 return;
             }
             if (!window._vapidPublicKey) {
-                showToast('Push not configured on server yet.', 'warning', 3000);
+                showToast('Push notifications require VAPID keys on the server. Set VAPID_PUBLIC_KEY & VAPID_PRIVATE_KEY in your Render environment variables.', 'warning', 6000);
                 return;
             }
             try {
