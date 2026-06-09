@@ -137,16 +137,6 @@
         .sugg-item:hover,.sugg-item.focused { background:rgba(59,130,246,0.12);color:#93c5fd; }
         .sugg-section { font-size:9px;font-weight:800;letter-spacing:.1em;color:#475569;padding:8px 14px 3px;text-transform:uppercase; }
 
-        /* ── Date range filter ── */
-        #dateRangeBar { display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.18);border-radius:14px;margin-bottom:12px; }
-        #dateRangeBar.open { display:flex; }
-        .date-input { background:rgba(15,23,42,0.95) !important;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 10px;color:#e2e8f0 !important;font-size:11px;font-family:inherit;color-scheme:dark;-webkit-text-fill-color:#e2e8f0 !important; }
-        .date-input::-webkit-calendar-picker-indicator { filter:invert(1) brightness(0.7);cursor:pointer;opacity:0.6; }
-        .date-input::-webkit-datetime-edit { color:#e2e8f0 !important; }
-        .date-input::-webkit-datetime-edit-fields-wrapper { background:transparent !important; }
-        .date-input::-webkit-datetime-edit-text { color:#64748b !important; }
-        .date-input::-webkit-inner-spin-button { display:none; }
-
         /* ── Drag-select ── */
         #dragSelectBox { position:fixed;border:1px solid rgba(59,130,246,0.7);background:rgba(59,130,246,0.08);border-radius:4px;pointer-events:none;z-index:8000;display:none; }
 
@@ -260,49 +250,41 @@
         .related-chip { display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:9px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .18s;white-space:nowrap;max-width:190px;overflow:hidden;text-overflow:ellipsis; }
         .related-chip:hover { background:rgba(59,130,246,0.15);border-color:rgba(59,130,246,0.3);color:#93c5fd; }
 
-        /* ── 50: Notification bell ── */
-        #notifBtn.granted { color:#4ade80 !important; }
-
         /* ── 51: Returning user banner ── */
         #returningBanner { display:none; }
         #returningBanner.visible { display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:11px 16px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.22);border-radius:14px;animation:fadeIn .4s ease; }
 
-        /* ── 52: What's New modal ── */
-        #whatsNewModal { display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px; }
-        #whatsNewModal.open { display:flex; }
-        #whatsNewBox { background:rgba(15,23,42,.97);border:1px solid rgba(255,255,255,.1);border-radius:20px;width:100%;max-width:440px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,.6); }
-        .wn-row { display:flex;gap:11px;align-items:flex-start;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05); }
-        .wn-row:last-child { border-bottom:none; }
-
 
         /* ── Compact / Dense view ── */
         #fileGrid.compact-view { display:flex !important; flex-direction:column; gap:1px !important; }
-        /* Make each card a tight horizontal row */
-        #fileGrid.compact-view .file-card { padding:5px 10px !important; border-radius:8px !important; flex-direction:row !important; align-items:center !important; gap:8px !important; min-height:0 !important; }
+        /* Card itself: no padding (swipe-inner handles it), just tight radius */
+        #fileGrid.compact-view .file-card { padding:0 !important; border-radius:8px !important; min-height:0 !important; overflow:hidden; }
         #fileGrid.compact-view .file-card:hover { transform:none !important; background:rgba(30,41,59,0.45) !important; }
+        /* swipe-inner is the real row — target it for padding/gap */
+        #fileGrid.compact-view .swipe-inner { padding:5px 10px !important; gap:8px !important; align-items:center !important; }
         /* Shrink the file-type icon */
-        #fileGrid.compact-view .w-10.h-10,
-        #fileGrid.compact-view .w-12.h-12 { width:24px !important; height:24px !important; min-width:24px !important; border-radius:5px !important; flex-shrink:0 !important; }
-        #fileGrid.compact-view .w-10.h-10 .material-symbols-outlined,
-        #fileGrid.compact-view .w-12.h-12 .material-symbols-outlined { font-size:12px !important; }
+        #fileGrid.compact-view .swipe-inner .w-10,
+        #fileGrid.compact-view .swipe-inner .w-12 { width:24px !important; height:24px !important; min-width:24px !important; border-radius:5px !important; flex-shrink:0 !important; }
+        #fileGrid.compact-view .swipe-inner .w-10 .material-symbols-outlined,
+        #fileGrid.compact-view .swipe-inner .w-12 .material-symbols-outlined { font-size:12px !important; }
         /* Compact filename */
-        #fileGrid.compact-view p.font-semibold.truncate { font-size:12px !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; line-height:1.3 !important; }
+        #fileGrid.compact-view .swipe-inner p.font-semibold { font-size:12px !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; line-height:1.3 !important; }
         /* Hide secondary meta row and description line */
-        #fileGrid.compact-view .mt-0\.5.flex { display:none !important; }
-        #fileGrid.compact-view p.italic,
-        #fileGrid.compact-view .desc-tooltip { display:none !important; }
+        #fileGrid.compact-view .swipe-inner .mt-0\.5.flex { display:none !important; }
+        #fileGrid.compact-view .swipe-inner p.italic,
+        #fileGrid.compact-view .swipe-inner .desc-tooltip { display:none !important; }
         /* Keep text container flexible */
-        #fileGrid.compact-view .flex-1 { flex:1 !important; min-width:0 !important; overflow:hidden !important; }
+        #fileGrid.compact-view .swipe-inner .flex-1 { flex:1 !important; min-width:0 !important; overflow:hidden !important; }
         /* Shrink action buttons */
-        #fileGrid.compact-view .pin-btn,
-        #fileGrid.compact-view .note-btn { padding:3px !important; }
-        #fileGrid.compact-view .pin-btn .material-symbols-outlined,
-        #fileGrid.compact-view .note-btn .material-symbols-outlined { font-size:14px !important; }
-        #fileGrid.compact-view button.p-2,
-        #fileGrid.compact-view a.p-2 { padding:4px !important; }
-        #fileGrid.compact-view .material-symbols-outlined.text-xl { font-size:15px !important; }
+        #fileGrid.compact-view .swipe-inner .pin-btn,
+        #fileGrid.compact-view .swipe-inner .note-btn { padding:3px !important; }
+        #fileGrid.compact-view .swipe-inner .pin-btn .material-symbols-outlined,
+        #fileGrid.compact-view .swipe-inner .note-btn .material-symbols-outlined { font-size:14px !important; }
+        #fileGrid.compact-view .swipe-inner button.p-2,
+        #fileGrid.compact-view .swipe-inner a.p-2 { padding:4px !important; }
+        #fileGrid.compact-view .swipe-inner .material-symbols-outlined.text-xl { font-size:15px !important; }
         /* Remove bottom border/padding in list view cards */
-        #fileGrid.compact-view .border-t.border-white\/5 { border:none !important; padding:0 !important; margin:0 !important; }
+        #fileGrid.compact-view .swipe-inner .border-t.border-white\/5 { border:none !important; padding:0 !important; margin:0 !important; }
         /* ── File notes ── */
         .note-btn { background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#475569;transition:color .2s,background .2s;font-size:0;line-height:0; }
         .note-btn:hover { color:#f59e0b;background:rgba(245,158,11,.1); }
@@ -360,18 +342,8 @@
             </button>
             <!-- Header icon buttons wrapped for mobile hide/show -->
             <div id="headerIcons">
-            <button id="dateFilterBtn" onclick="toggleDateRange()" title="Filter by date" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
-                <span class="material-symbols-outlined" style="font-size:18px">date_range</span>
-            </button>
             <button id="pwaInstallBtn" onclick="installPWA()" title="Install FileVault app" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition items-center justify-center">
                 <span class="material-symbols-outlined text-lg">install_mobile</span>
-            </button>
-            <button id="notifBtn" onclick="requestNotifPermission()" title="Enable file notifications" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
-                <span class="material-symbols-outlined" style="font-size:18px">notifications</span>
-            </button>
-            <button onclick="openWhatsNew()" title="What's new since last visit" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center" style="position:relative">
-                <span class="material-symbols-outlined" style="font-size:18px">new_releases</span>
-                <span id="whatsNewDot" style="display:none;position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#ef4444;border:1.5px solid #020617"></span>
             </button>
             <button onclick="openShortcuts()" title="Keyboard shortcuts" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center font-bold text-sm">?</button>
             <button onclick="toggleSettings()" title="Display settings" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
@@ -521,17 +493,6 @@
                     <span class="material-symbols-outlined text-sm">download</span> ZIP
                 </button>
                 <button onclick="clearSelection()" class="material-symbols-outlined text-slate-400 cursor-pointer">close</button>
-            </div>
-            <!-- Date range filter bar -->
-            <div id="dateRangeBar">
-                <span class="material-symbols-outlined text-primary" style="font-size:16px;flex-shrink:0">event</span>
-                <span style="font-size:11px;color:#94a3b8;font-weight:600">From</span>
-                <input type="date" id="dateFrom" class="date-input" onchange="renderFileList(getFilteredFiles())">
-                <span style="font-size:11px;color:#94a3b8;font-weight:600">To</span>
-                <input type="date" id="dateTo" class="date-input" onchange="renderFileList(getFilteredFiles())">
-                <button onclick="clearDateRange()" style="margin-left:auto;font-size:11px;color:#94a3b8;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:3px;padding:4px 10px;font-weight:600;transition:all .2s" onmouseover="this.style.background='rgba(239,68,68,0.22)'" onmouseout="this.style.background='rgba(239,68,68,0.12)'">
-                    <span class="material-symbols-outlined" style="font-size:14px">close</span>Clear
-                </button>
             </div>
             <!-- Drag-select box -->
             <div id="dragSelectBox"></div>
@@ -700,11 +661,6 @@
                     return n.endsWith('.' + currentTypeFilter);
                 });
             }
-            // Date range filter
-            const fromVal = document.getElementById('dateFrom') && document.getElementById('dateFrom').value;
-            const toVal = document.getElementById('dateTo') && document.getElementById('dateTo').value;
-            if (fromVal) { const d = new Date(fromVal); filtered = filtered.filter(f => new Date(f.date) >= d); }
-            if (toVal) { const d = new Date(toVal); d.setHours(23,59,59,999); filtered = filtered.filter(f => new Date(f.date) <= d); }
             return applySort(filtered);
         }
 
@@ -1355,35 +1311,6 @@
             }
             items.forEach((it, i) => it.classList.toggle('focused', i === suggFocusIdx));
         }
-
-        // ── DATE RANGE FILTER ───────────────────────────────────
-        let dateRangeOpen = false;
-        function toggleDateRange() {
-            dateRangeOpen = !dateRangeOpen;
-            document.getElementById('dateRangeBar').classList.toggle('open', dateRangeOpen);
-            document.getElementById('dateFilterBtn').classList.toggle('bg-primary/20', dateRangeOpen);
-            document.getElementById('dateFilterBtn').classList.toggle('text-primary', dateRangeOpen);
-            // Scroll to the date range bar when opened
-            if (dateRangeOpen) {
-                setTimeout(function() {
-                    var bar = document.getElementById('dateRangeBar');
-                    if (bar) bar.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    // Focus the "from" date input
-                    var fromInput = document.getElementById('dateFrom');
-                    if (fromInput) fromInput.focus();
-                }, 60);
-            }
-        }
-        function clearDateRange() {
-            document.getElementById('dateFrom').value = '';
-            document.getElementById('dateTo').value = '';
-            // Close the bar and reset button state
-            dateRangeOpen = false;
-            document.getElementById('dateRangeBar').classList.remove('open');
-            document.getElementById('dateFilterBtn').classList.remove('bg-primary/20', 'text-primary');
-            renderFileList(getFilteredFiles());
-        }
-
         // ── TIMEAGO ─────────────────────────────────────────────
         function timeAgo(dateStr) {
             const diff = Date.now() - new Date(dateStr).getTime();
@@ -1932,7 +1859,6 @@
         initHighContrast();
         initPullToRefresh();
         initPinchZoom();
-        checkWhatsNew();
 
         // ══ 53: ACCENT COLOR ══════════════════════════════════
         function setAccent(color, light, border, el) {
@@ -2119,53 +2045,6 @@
             const file = allFiles.find(f => f.url === url) || { url, name, folder, file_size: size };
             renderRelatedFiles(file);
         };
-
-        // ── 50: BROWSER NOTIFICATIONS ────────────────────────────
-        function updateNotifBtn() {
-            const btn = document.getElementById('notifBtn');
-            if (!btn || !('Notification' in window)) { if(btn) btn.style.display='none'; return; }
-            if (Notification.permission === 'granted') btn.classList.add('granted');
-        }
-        async function requestNotifPermission() {
-            if (!('Notification' in window)) { showToast('Notifications not supported on this browser.', 'warning'); return; }
-            if (Notification.permission === 'granted') { showToast('Notifications already enabled!', 'success', 2000); return; }
-            const result = await Notification.requestPermission();
-            if (result === 'granted') {
-                showToast('✓ Notifications enabled! You will be alerted when new files are uploaded.', 'success', 3500);
-                updateNotifBtn();
-                localStorage.setItem('fvNotifEnabled', '1');
-                // Sync the since-timestamp with What's New so we don't double-alert on old files
-                localStorage.setItem('fvNotifSince', new Date().toISOString());
-                startNotifPolling();
-            } else {
-                showToast('Notification permission denied.', 'warning');
-            }
-        }
-        // Use the What's New lastSeen as baseline — so files uploaded before page load are also caught
-        let _notifSince = localStorage.getItem('fvNotifSince') || localStorage.getItem('fvWhatsNewSeen') || new Date().toISOString();
-        function startNotifPolling() {
-            if (Notification.permission !== 'granted') return;
-            setInterval(async () => {
-                try {
-                    const { data } = await _supabase.from('files_list').select('file_name,created_at')
-                        .gt('created_at', _notifSince).order('created_at', { ascending: false }).limit(5);
-                    if (data && data.length > 0) {
-                        _notifSince = data[0].created_at;
-                        localStorage.setItem('fvNotifSince', _notifSince);
-                        new Notification('FileVault — New files added!', {
-                            body: data.length === 1 ? data[0].file_name + ' was just uploaded.' : data.length + ' new files were uploaded.',
-                            icon: 'filevault%20logo.png'
-                        });
-                        // Also refresh the file list so the NEW badge appears immediately
-                        sessionStorage.removeItem('fvFilesCache');
-                        fetchFiles();
-                    }
-                } catch(e) {}
-            }, 2 * 60 * 1000); // Poll every 2 minutes
-        }
-        updateNotifBtn();
-        if (localStorage.getItem('fvNotifEnabled') === '1') startNotifPolling();
-
         // ── 51: RETURNING USER BANNER ────────────────────────────
         (function checkLastVisit() {
             const LAST_KEY = 'fvLastVisitDate';
@@ -2187,74 +2066,6 @@
             }
             localStorage.setItem(LAST_KEY, now.toISOString());
         })();
-
-        // ── 52: WHAT'S NEW / CHANGELOG ───────────────────────────
-        const WN_SEEN_KEY = 'fvWhatsNewSeen';
-        let _wnNewFiles = [];
-        async function checkWhatsNew() {
-            let lastSeen = localStorage.getItem(WN_SEEN_KEY);
-            if (!lastSeen) {
-                // First ever visit — look back 30 days so recent files show up
-                lastSeen = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-                localStorage.setItem(WN_SEEN_KEY, lastSeen);
-                // Don't return — fall through and run the query
-            }
-            try {
-                const { data } = await _supabase.from('files_list')
-                    .select('file_name,folder_name,created_at,download_url,file_size').gt('created_at', lastSeen)
-                    .order('created_at', { ascending: false }).limit(20);
-                if (data && data.length > 0) {
-                    _wnNewFiles = data;
-                    document.getElementById('whatsNewDot').style.display = 'block';
-                }
-            } catch(e) {}
-        }
-        function openWhatsNew() {
-            const list = document.getElementById('whatsNewList');
-            const now = new Date();
-            if (!_wnNewFiles.length) {
-                // Always show 10 most recent files from allFiles
-                const recent = [...allFiles]
-                    .filter(f => !f.expires_at || new Date(f.expires_at) > now)
-                    .sort((a, b) => new Date(b.date) - new Date(a.date))
-                    .slice(0, 10);
-                if (recent.length) {
-                    list.innerHTML = '<p style="color:rgba(255,255,255,0.25);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding-bottom:8px">Recent uploads</p>' +
-                        recent.map(f =>
-                            '<div class="wn-row">' +
-                            '<span class="material-symbols-outlined" style="font-size:20px;color:var(--accent);flex-shrink:0;margin-top:1px">' + getFileIcon(f.name) + '</span>' +
-                            '<div style="min-width:0;flex:1"><p style="color:rgba(255,255,255,0.85);font-size:13px;font-weight:600;word-break:break-word;margin:0">' + f.name + '</p>' +
-                            '<p style="color:#64748b;font-size:10px;margin-top:2px">' + (f.folder ? f.folder + ' · ' : '') + timeAgo(f.date) + '</p></div>' +
-                            '<button onclick="openPreview(\'' + f.url.replace(/'/g,"\\'") + '\',\'' + f.name.replace(/'/g,"\\'") + '\',\'' + (f.folder||'').replace(/'/g,"\\'") + '\',' + (f.file_size||0) + ');closeWhatsNew()" style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.22);border-radius:8px;color:#93c5fd;font-size:11px;padding:4px 9px;cursor:pointer;flex-shrink:0;font-weight:600;white-space:nowrap">View</button>' +
-                            '</div>'
-                        ).join('');
-                } else {
-                    list.innerHTML = '<p style="color:rgba(255,255,255,0.3);font-size:13px;text-align:center;padding:24px 0">No files uploaded yet.</p>';
-                }
-            } else {
-                // New files since last visit
-                list.innerHTML = '<p style="color:rgba(255,255,255,0.25);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding-bottom:8px">New since your last visit</p>' +
-                    _wnNewFiles.map(f => {
-                        const fileObj = allFiles.find(af => af.name === f.file_name) || {};
-                        const previewUrl = fileObj.url || f.download_url || '';
-                        const folder = f.folder_name && f.folder_name !== 'Root' ? f.folder_name : '';
-                        return '<div class="wn-row">' +
-                            '<span class="material-symbols-outlined" style="font-size:20px;color:var(--accent);flex-shrink:0;margin-top:1px">' + getFileIcon(f.file_name) + '</span>' +
-                            '<div style="min-width:0;flex:1"><p style="color:rgba(255,255,255,0.85);font-size:13px;font-weight:600;word-break:break-word;margin:0">' + f.file_name + '</p>' +
-                            '<p style="color:#64748b;font-size:10px;margin-top:2px">' + (folder ? folder + ' · ' : '') + timeAgo(f.created_at) + '</p></div>' +
-                            (previewUrl ? '<button onclick="openPreview(\'' + previewUrl.replace(/'/g,"\\'") + '\',\'' + f.file_name.replace(/'/g,"\\'") + '\',\'' + folder.replace(/'/g,"\\'") + '\',' + (fileObj.file_size||0) + ');closeWhatsNew()" style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.22);border-radius:8px;color:#93c5fd;font-size:11px;padding:4px 9px;cursor:pointer;flex-shrink:0;font-weight:600;white-space:nowrap">View</button>' : '') +
-                            '</div>';
-                    }).join('');
-            }
-            document.getElementById('whatsNewDot').style.display = 'none';
-            document.getElementById('whatsNewModal').classList.add('open');
-            localStorage.setItem(WN_SEEN_KEY, new Date().toISOString());
-            _wnNewFiles = [];
-        }
-        function closeWhatsNew() { document.getElementById('whatsNewModal').classList.remove('open'); }
-
-
-
         // ── FEATURE 5: COMPACT VIEW ─────────────────────────────
         let compactView = localStorage.getItem('fvCompactView') === '1';
         function applyCompactView() {
@@ -2278,6 +2089,11 @@
                     toggle.innerHTML = '<span class="material-symbols-outlined" style="font-size:15px">density_small</span> Off';
                 }
             }
+            // Re-apply after swipe-tray patch settles (it wraps DOM at 50ms)
+            setTimeout(function() {
+                if (compactView) grid.classList.add('compact-view');
+                else grid.classList.remove('compact-view');
+            }, 80);
         }
         function toggleCompactView() {
             compactView = !compactView;
@@ -2430,24 +2246,6 @@
             </div>
         </div>
     </div>
-
-    <!-- 52: What's New Modal -->
-    <div id="whatsNewModal" onclick="if(event.target===this)closeWhatsNew()">
-        <div id="whatsNewBox">
-            <div style="padding:20px 20px 14px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-                <div>
-                    <p style="color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px">Since your last visit</p>
-                    <h3 style="color:white;font-weight:700;font-size:17px;margin:0">What's New</h3>
-                </div>
-                <button onclick="closeWhatsNew()" style="width:32px;height:32px;background:rgba(255,255,255,.05);border:none;border-radius:10px;cursor:pointer;color:#64748b;display:flex;align-items:center;justify-content:center"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
-            </div>
-            <div id="whatsNewList" style="overflow-y:auto;padding:14px 20px;flex:1"></div>
-            <div style="padding:12px 20px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0">
-                <button onclick="closeWhatsNew()" style="width:100%;padding:10px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.25);border-radius:12px;color:#93c5fd;font-weight:700;font-size:13px;cursor:pointer">Got it</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Keyboard Shortcut Modal -->
     <div id="shortcutModal" onclick="if(event.target===this)closeShortcuts()">
         <div id="shortcutBox">
@@ -2467,10 +2265,6 @@
             <div class="sc-row">
                 <span style="color:#cbd5e1;font-size:13px">Preview focused card</span>
                 <span class="sc-key"><kbd>Enter</kbd></span>
-            </div>
-            <div class="sc-row">
-                <span style="color:#cbd5e1;font-size:13px">Filter by date</span>
-                <span style="color:#64748b;font-size:12px">Calendar 🗓 button</span>
             </div>
             <div class="sc-row">
                 <span style="color:#cbd5e1;font-size:13px">Share folder link</span>
