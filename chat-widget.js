@@ -358,7 +358,7 @@ function initChatWidget() {
                         <span class="material-symbols-outlined" style="color:white;font-size:16px">send</span>
                     </button>
                 </div>
-                <p style="color:rgba(255,255,255,0.18);font-size:9px;text-align:center;margin:6px 0 0;line-height:1">Shift+Enter for new line</p>
+                <p style="color:rgba(255,255,255,0.18);font-size:9px;text-align:center;margin:6px 0 0;line-height:1">Shift+Enter for new line · <button onclick="openQuiz()" style="background:none;border:none;cursor:pointer;color:rgba(59,130,246,0.6);font-size:9px;font-family:inherit;padding:0;text-decoration:underline" title="Generate a quiz from your vault files">🎯 Quiz me</button></p>
             </div>
         </div>
 
@@ -538,6 +538,253 @@ async function sendChatMessage() {
 // Just init — never hide the widget. If auth fails, the page redirects anyway.
 function showChatWidget() {
     // kept for backward compatibility — no longer needed
+}
+
+// ─── QUIZ / SELF-TEST FEATURE ─────────────────────────────────
+// Generates multiple-choice questions from file names + context
+// using the same AI backend. Works on the user page only.
+
+var _quizState = null; // { questions: [{q, options, answer, explanation}], idx, score }
+
+function openQuiz() {
+    // Only available on user page
+    if (CURRENT_PAGE !== 'user') {
+        showToast('Quiz is available on the main FileVault page.', 'info', 2500);
+        return;
+    }
+    // Build context from visible files
+    const files = typeof allFiles !== 'undefined' ? allFiles : [];
+    if (!files.length) {
+        showToast('No files in the vault yet — quiz needs some content!', 'warning', 3000);
+        return;
+    }
+    const folder = typeof currentFolder !== 'undefined' ? currentFolder : null;
+    const visible = folder ? files.filter(f => f.folder === folder) : files;
+    const sample = visible.slice(0, 20).map(f => (f.name || '') + (f.description ? ' — ' + f.description : '') + (f.folder ? ' [' + f.folder + ']' : '')).join('\n');
+
+    // Show quiz modal / loading state
+    _showQuizModal();
+    _setQuizLoading(true);
+
+    const prompt = `You are a helpful academic quiz generator for university students.
+
+Based on the following list of study materials available in FileVault, generate a 5-question multiple-choice quiz to help students test themselves.
+
+FILE LIST:
+${sample}
+
+RULES:
+- Each question should be based on topics that can be inferred from the file names/descriptions (e.g. course content, subject area, key concepts).
+- If file names reference specific courses (e.g. "UGBS 301 Lecture 5"), create questions about plausible topics in those lectures.
+- 4 answer options per question labeled A, B, C, D.
+- Mark the correct answer clearly.
+- Provide a short explanation (1–2 sentences) for each answer.
+- Respond ONLY with valid JSON, no markdown, no preamble.
+
+JSON FORMAT:
+{
+  "title": "Short quiz title",
+  "questions": [
+    {
+      "q": "Question text?",
+      "options": {"A": "...", "B": "...", "C": "...", "D": "..."},
+      "answer": "B",
+      "explanation": "Short explanation."
+    }
+  ]
+}`;
+
+    fetch(CHAT_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: prompt, history: [], systemPrompt: 'You are a JSON-only quiz generator. Output only valid JSON.' })
+    })
+    .then(r => r.json())
+    .then(data => {
+        _setQuizLoading(false);
+        const raw = (data.text || '').replace(/```json|```/g, '').trim();
+        let parsed;
+        try { parsed = JSON.parse(raw); } catch(e) {
+            _setQuizError('Could not parse quiz. Try again!');
+            return;
+        }
+        if (!parsed.questions || !parsed.questions.length) {
+            _setQuizError('Quiz returned empty. Try again!');
+            return;
+        }
+        _quizState = { title: parsed.title || 'FileVault Quiz', questions: parsed.questions, idx: 0, score: 0, answered: false, selectedOption: null };
+        _renderQuizQuestion();
+    })
+    .catch(err => {
+        _setQuizLoading(false);
+        _setQuizError('Network error: ' + err.message);
+    });
+}
+
+function _showQuizModal() {
+    let modal = document.getElementById('fvQuizModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'fvQuizModal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px';
+        modal.innerHTML = `
+        <div id="fvQuizBox" style="background:rgba(15,23,42,0.98);border:1px solid rgba(255,255,255,0.1);border-radius:20px;width:100%;max-width:520px;padding:28px;box-shadow:0 32px 80px rgba(0,0,0,.7);font-family:inherit;color:#e2e8f0;position:relative">
+            <button onclick="closeQuiz()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;width:32px;height:32px;cursor:pointer;color:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:18px" title="Close">×</button>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+                <span style="font-size:24px">🎯</span>
+                <div>
+                    <p id="fvQuizTitle" style="font-weight:800;font-size:16px;color:white;margin:0"></p>
+                    <p id="fvQuizProgress" style="font-size:11px;color:#64748b;margin:2px 0 0"></p>
+                </div>
+            </div>
+            <div id="fvQuizContent" style="min-height:180px"></div>
+            <div id="fvQuizActions" style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end"></div>
+        </div>`;
+        document.body.appendChild(modal);
+    }
+    modal.style.display = 'flex';
+}
+
+function closeQuiz() {
+    const modal = document.getElementById('fvQuizModal');
+    if (modal) modal.style.display = 'none';
+    _quizState = null;
+}
+
+function _setQuizLoading(on) {
+    const content = document.getElementById('fvQuizContent');
+    const title = document.getElementById('fvQuizTitle');
+    const progress = document.getElementById('fvQuizProgress');
+    const actions = document.getElementById('fvQuizActions');
+    if (!content) return;
+    if (on) {
+        if (title) title.textContent = 'Generating Quiz…';
+        if (progress) progress.textContent = 'Analysing your vault files';
+        if (actions) actions.innerHTML = '';
+        content.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;padding:32px 0;gap:14px">
+            <div style="display:flex;gap:6px">
+                <span style="width:10px;height:10px;border-radius:50%;background:rgba(59,130,246,0.7);animation:fvBounce 1.2s ease-in-out infinite"></span>
+                <span style="width:10px;height:10px;border-radius:50%;background:rgba(59,130,246,0.7);animation:fvBounce 1.2s ease-in-out 0.2s infinite"></span>
+                <span style="width:10px;height:10px;border-radius:50%;background:rgba(59,130,246,0.7);animation:fvBounce 1.2s ease-in-out 0.4s infinite"></span>
+            </div>
+            <p style="color:#64748b;font-size:13px">AI is building your quiz…</p>
+        </div>`;
+    }
+}
+
+function _setQuizError(msg) {
+    const content = document.getElementById('fvQuizContent');
+    const actions = document.getElementById('fvQuizActions');
+    if (content) content.innerHTML = '<p style="color:#ef4444;font-size:13px;text-align:center;padding:32px 0">' + msg + '</p>';
+    if (actions) actions.innerHTML = '<button onclick="openQuiz()" style="padding:10px 20px;background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.3);border-radius:12px;color:#93c5fd;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Try Again</button>';
+}
+
+function _renderQuizQuestion() {
+    if (!_quizState) return;
+    const { title, questions, idx, score } = _quizState;
+    const q = questions[idx];
+    const total = questions.length;
+    const titleEl = document.getElementById('fvQuizTitle');
+    const progressEl = document.getElementById('fvQuizProgress');
+    const content = document.getElementById('fvQuizContent');
+    const actions = document.getElementById('fvQuizActions');
+    if (!q || !content) return;
+    if (titleEl) titleEl.textContent = title;
+    if (progressEl) progressEl.textContent = 'Question ' + (idx + 1) + ' of ' + total + '  ·  Score: ' + score + '/' + total;
+    _quizState.answered = false;
+    _quizState.selectedOption = null;
+
+    const optHtml = Object.entries(q.options).map(([k, v]) =>
+        `<button data-opt="${k}" onclick="_quizSelectOption('${k}')" style="width:100%;text-align:left;padding:11px 14px;border-radius:11px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:#e2e8f0;font-size:13px;cursor:pointer;font-family:inherit;margin-bottom:7px;transition:all .15s;display:flex;align-items:flex-start;gap:10px">
+            <span style="min-width:20px;font-weight:800;color:#94a3b8">${k}.</span><span>${escapeHtml(v)}</span>
+        </button>`
+    ).join('');
+
+    content.innerHTML = `
+        <p style="font-size:15px;font-weight:700;color:white;margin:0 0 16px;line-height:1.45">${escapeHtml(q.q)}</p>
+        <div id="fvQuizOptions">${optHtml}</div>
+        <div id="fvQuizFeedback" style="display:none;margin-top:12px;padding:12px 14px;border-radius:12px;font-size:13px;line-height:1.5"></div>`;
+
+    actions.innerHTML = '<button id="fvQuizNextBtn" onclick="_quizNext()" style="padding:10px 22px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border:none;border-radius:12px;color:white;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;display:none">' +
+        (idx + 1 < total ? 'Next →' : 'See Results') + '</button>';
+}
+
+function _quizSelectOption(opt) {
+    if (!_quizState || _quizState.answered) return;
+    _quizState.answered = true;
+    _quizState.selectedOption = opt;
+    const q = _quizState.questions[_quizState.idx];
+    const correct = opt === q.answer;
+    if (correct) _quizState.score++;
+    // Style option buttons
+    document.querySelectorAll('#fvQuizOptions button').forEach(btn => {
+        const k = btn.dataset.opt;
+        btn.style.cursor = 'default';
+        if (k === q.answer) {
+            btn.style.background = 'rgba(34,197,94,0.15)';
+            btn.style.borderColor = 'rgba(34,197,94,0.4)';
+            btn.style.color = '#4ade80';
+            btn.querySelector('span:first-child').style.color = '#4ade80';
+        } else if (k === opt && !correct) {
+            btn.style.background = 'rgba(239,68,68,0.12)';
+            btn.style.borderColor = 'rgba(239,68,68,0.35)';
+            btn.style.color = '#fca5a5';
+        } else {
+            btn.style.opacity = '0.4';
+        }
+    });
+    const feedback = document.getElementById('fvQuizFeedback');
+    if (feedback) {
+        feedback.style.display = 'block';
+        feedback.style.background = correct ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)';
+        feedback.style.borderColor = correct ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.25)';
+        feedback.style.border = '1px solid ' + (correct ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.25)');
+        feedback.innerHTML = (correct ? '✅ <strong>Correct!</strong> ' : '❌ <strong>Incorrect.</strong> The answer is <strong>' + q.answer + '</strong>. ') + escapeHtml(q.explanation || '');
+    }
+    const nextBtn = document.getElementById('fvQuizNextBtn');
+    if (nextBtn) nextBtn.style.display = 'inline-flex';
+}
+
+function _quizNext() {
+    if (!_quizState) return;
+    const total = _quizState.questions.length;
+    if (_quizState.idx + 1 >= total) {
+        _renderQuizResults();
+    } else {
+        _quizState.idx++;
+        _renderQuizQuestion();
+    }
+}
+
+function _renderQuizResults() {
+    if (!_quizState) return;
+    const { score, questions } = _quizState;
+    const total = questions.length;
+    const pct = Math.round((score / total) * 100);
+    const grade = pct >= 80 ? '🏆 Excellent!' : pct >= 60 ? '👍 Good effort!' : '📚 Keep studying!';
+    const content = document.getElementById('fvQuizContent');
+    const actions = document.getElementById('fvQuizActions');
+    if (content) {
+        content.innerHTML = `
+        <div style="text-align:center;padding:16px 0">
+            <p style="font-size:44px;margin:0 0 8px">${pct >= 80 ? '🏆' : pct >= 60 ? '🎉' : '📚'}</p>
+            <p style="font-size:28px;font-weight:800;color:white;margin:0 0 4px">${score}/${total}</p>
+            <p style="font-size:15px;font-weight:700;color:${pct >= 80 ? '#4ade80' : pct >= 60 ? '#fbbf24' : '#f87171'};margin:0 0 8px">${grade}</p>
+            <div style="background:rgba(255,255,255,0.06);border-radius:99px;height:8px;overflow:hidden;margin:12px 0">
+                <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#3b82f6,#8b5cf6);border-radius:99px;transition:width 0.5s ease"></div>
+            </div>
+            <p style="color:#64748b;font-size:12px">${pct}% score</p>
+        </div>`;
+    }
+    const titleEl = document.getElementById('fvQuizTitle');
+    if (titleEl) titleEl.textContent = 'Quiz Complete!';
+    const progressEl = document.getElementById('fvQuizProgress');
+    if (progressEl) progressEl.textContent = 'Well done';
+    if (actions) {
+        actions.innerHTML = `
+        <button onclick="closeQuiz()" style="padding:10px 18px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#94a3b8;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Close</button>
+        <button onclick="openQuiz()" style="padding:10px 18px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border:none;border-radius:12px;color:white;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">New Quiz</button>`;
+    }
 }
 
 if (document.readyState === 'loading') {

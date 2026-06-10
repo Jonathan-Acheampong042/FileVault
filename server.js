@@ -79,6 +79,48 @@ app.post('/api/push/notify', async (req, res) => {
     res.json({ ok: true, sent, failed, total: pushSubscriptions.size });
 });
 
+// Notify a single subscriber by endpoint — used when manager approves a request
+app.post('/api/push/notify-one', async (req, res) => {
+    const { endpoint, title, body, url } = req.body;
+    if (!endpoint) return res.status(400).json({ error: 'endpoint required' });
+    if (!process.env.VAPID_PUBLIC_KEY) {
+        return res.status(503).json({ error: 'Push not configured' });
+    }
+    // Find the matching subscription in our in-memory store
+    let targetSub = null;
+    for (const [, sub] of pushSubscriptions) {
+        if (sub.endpoint === endpoint) { targetSub = sub; break; }
+    }
+    if (!targetSub) {
+        // Endpoint registered via upload-request.html without subscribing through the main page
+        // Reconstruct a minimal subscription object (keys supplied by client)
+        const { keys } = req.body;
+        if (keys && keys.p256dh && keys.auth) {
+            targetSub = { endpoint, keys };
+        } else {
+            return res.status(404).json({ error: 'Subscription not found. Student may need to enable push on FileVault.' });
+        }
+    }
+    const payload = JSON.stringify({
+        title: title || 'FileVault',
+        body: body || 'Your file request has been fulfilled.',
+        url: url || '/',
+        icon: '/filevault%20logo.png',
+        badge: '/filevault%20logo.png'
+    });
+    try {
+        await webpush.sendNotification(targetSub, payload);
+        res.json({ ok: true });
+    } catch (err) {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+            for (const [k, sub] of pushSubscriptions) {
+                if (sub.endpoint === endpoint) { pushSubscriptions.delete(k); break; }
+            }
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/chat', async (req, res) => {
     try {
         const { message, history, systemPrompt } = req.body;

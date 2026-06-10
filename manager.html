@@ -777,9 +777,11 @@
             });
             if (dbErr) throw dbErr;
 
-            // 4. Mark request approved
+            // 4. Mark request approved + send targeted push to requester
             if (_activeReqId) {
                 await _supabase.from('upload_requests').update({ status: 'approved' }).eq('id', _activeReqId);
+                // Fire targeted push to the student who submitted the request
+                _sendApprovalPush(_activeReqId, safeName, folder);
             }
 
             showMgrToast('✓ File uploaded & request approved!', 'success');
@@ -1910,6 +1912,35 @@
 
     // Initialize online status
     updateOnlineStatus();
+
+    // ── TARGETED PUSH: notify the student who requested a file ──
+    async function _sendApprovalPush(requestId, fileName, folder) {
+        try {
+            // Fetch the subscriber_endpoint stored on the request row
+            const { data: reqRow } = await _supabase
+                .from('upload_requests')
+                .select('subscriber_endpoint, filename')
+                .eq('id', requestId)
+                .single();
+            if (!reqRow || !reqRow.subscriber_endpoint) return; // student had no push
+            const endpoint = reqRow.subscriber_endpoint;
+            const _PUSH_API = (window.location.hostname === 'localhost'
+                ? 'http://localhost:3000'
+                : 'https://project-one-187u.onrender.com');
+            await fetch(_PUSH_API + '/api/push/notify-one', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    endpoint,
+                    title: '✅ Your file request was approved!',
+                    body: (fileName || reqRow.filename || 'Your file') + ' is now in the Vault' + (folder ? ' (' + folder + ')' : '') + '.',
+                    url: '/index.html' + (folder ? '?folder=' + encodeURIComponent(folder) : '')
+                })
+            });
+        } catch(e) {
+            console.warn('Approval push failed (non-critical):', e.message);
+        }
+    }
 
     checkAccess();
 

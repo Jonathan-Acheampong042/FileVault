@@ -137,6 +137,51 @@
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI'
         );
 
+        const _PUSH_API = window.location.hostname === 'localhost'
+            ? 'http://localhost:3000'
+            : 'https://project-one-187u.onrender.com';
+
+        // ── Capture push subscription so manager can ping you on approval ──
+        var _reqPushEndpoint = null;
+        var _reqPushKeys = null;
+
+        async function _captureRequestPushSub() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+            try {
+                const res = await fetch(_PUSH_API + '/api/push/vapid-public-key');
+                const { key } = await res.json();
+                if (!key) return;
+                // Register service worker if not already
+                let reg;
+                try { reg = await navigator.serviceWorker.register('/Sw.js'); }
+                catch(e) { reg = await navigator.serviceWorker.ready; }
+                reg = await navigator.serviceWorker.ready;
+                // Get existing or create new subscription
+                let sub = await reg.pushManager.getSubscription();
+                if (!sub) {
+                    const perm = await Notification.requestPermission();
+                    if (perm !== 'granted') return;
+                    const padding = '='.repeat((4 - key.length % 4) % 4);
+                    const base64 = (key + padding).replace(/-/g, '+').replace(/_/g, '/');
+                    const rawData = atob(base64);
+                    const appKey = new Uint8Array(rawData.length);
+                    for (let i = 0; i < rawData.length; ++i) appKey[i] = rawData.charCodeAt(i);
+                    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey });
+                    // Register on server
+                    await fetch(_PUSH_API + '/api/push/subscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ subscription: sub.toJSON() })
+                    });
+                }
+                _reqPushEndpoint = sub.endpoint;
+                _reqPushKeys = sub.toJSON().keys || null;
+            } catch(e) { /* non-critical */ }
+        }
+
+        // Silently try to get push subscription on page load
+        window.addEventListener('load', () => { _captureRequestPushSub().catch(() => {}); });
+
         function updateCount(inputId, countId, max) {
             const el = document.getElementById(inputId);
             const cnt = document.getElementById(countId);
@@ -180,7 +225,9 @@
                     description: document.getElementById('req_desc').value.trim() || null,
                     reason: reason,
                     folder: document.getElementById('req_folder').value.trim() || null,
-                    status: 'pending'
+                    status: 'pending',
+                    subscriber_endpoint: _reqPushEndpoint || null,
+                    subscriber_keys: _reqPushKeys ? JSON.stringify(_reqPushKeys) : null
                 });
                 if (error) throw error;
                 document.getElementById('requestForm').style.display = 'none';

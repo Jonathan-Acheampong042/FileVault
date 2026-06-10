@@ -1096,6 +1096,7 @@
                     ? '<span title="' + file.download_count + ' download' + (file.download_count !== 1 ? 's' : '') + '" style="display:inline-flex;align-items:center;gap:2px;font-size:9px;background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.2);border-radius:99px;padding:1px 6px;font-weight:700;vertical-align:middle"><span class="material-symbols-outlined" style="font-size:10px">download</span>' + file.download_count + '</span>' : '';
                 const ratingId = file.id || '';
                 const ratingHtml = ratingId ? '<button class="rating-badge" data-rating-id="' + ratingId + '" onclick="toggleRating(\'' + ratingId + '\',this);event.stopPropagation()" aria-label="Like this file">👍</button>' : '';
+                const socialPinHtml = ratingId ? '<button class="rating-badge" data-social-pin-id="' + ratingId + '" onclick="toggleSocialPin(\'' + ratingId + '\',this);event.stopPropagation()" aria-label="Pin this file" style="border:1px solid rgba(255,255,255,0.08);border-radius:8px;background:none;cursor:pointer;color:#64748b;font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:3px;font-family:inherit;transition:all .2s">📌</button>' : '';
                 const descTooltip = (file.description && !isListView())
                     ? '<div class="desc-tooltip" id="tt-'+_ri+'">' + file.description.replace(/</g,'&lt;') + '</div>' : '';
                 const hoverAttrs = (file.description && !isListView())
@@ -1117,6 +1118,7 @@
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
                     ratingHtml +
+                    socialPinHtml +
                     '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview" aria-label="Preview ' + file.name + '">visibility</button>' +
                     '<button onclick="copyFileLink(\'' + safeUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link" aria-label="Copy link for ' + file.name + '"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block" aria-hidden="true">link</span></button>' +
                     '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\');event.stopPropagation()" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download" aria-label="Download ' + file.name + '">download</a>' +
@@ -2428,7 +2430,9 @@
         });
 
         // ══ WEB PUSH NOTIFICATIONS ═════════════════════════════
-        let _pushSubscription = null;
+        // NOTE: declared at script scope (not inside an async block) so
+        // togglePushSubscription() can safely read it before initPush() resolves.
+        var _pushSubscription = null;
 
         async function initPush() {
             if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
@@ -2667,6 +2671,181 @@
             }
         };
 
+        // ══════════════════════════════════════════════════════════
+        // ── SOCIAL PINS (Supabase-backed) ───────────────────────
+        // Table: social_pins (file_id TEXT, user_key TEXT, created_at)
+        // Unique constraint: (file_id, user_key)
+        // ──────────────────────────────────────────────────────────
+        const _socialPinsCache = {}; // fileId -> { count, myPin }
+
+        async function loadSocialPins(fileIds) {
+            if (!fileIds || !fileIds.length) return;
+            try {
+                const userKey = _getUserKey();
+                const [{ data: allPinsData }, { data: myPinsData }] = await Promise.all([
+                    _supabase.from('social_pins').select('file_id').in('file_id', fileIds),
+                    _supabase.from('social_pins').select('file_id').in('file_id', fileIds).eq('user_key', userKey)
+                ]);
+                const mySet = new Set((myPinsData || []).map(p => p.file_id));
+                fileIds.forEach(id => {
+                    const count = (allPinsData || []).filter(p => p.file_id === id).length;
+                    _socialPinsCache[id] = { count, myPin: mySet.has(id) };
+                });
+                _applySocialPinBadges();
+            } catch(e) {}
+        }
+
+        function _applySocialPinBadges() {
+            document.querySelectorAll('[data-social-pin-id]').forEach(el => {
+                const id = el.dataset.socialPinId;
+                const r = _socialPinsCache[id];
+                if (!r) return;
+                el.innerHTML = '📌' + (r.count > 0 ? ' <span style="font-size:10px;font-weight:700;color:' + (r.myPin ? '#34d399' : '#94a3b8') + '">' + r.count + '</span>' : '');
+                el.title = r.count + ' student' + (r.count !== 1 ? 's' : '') + ' pinned this' + (r.myPin ? ' (including you)' : '');
+                el.classList.toggle('social-pinned', r.myPin);
+                el.style.color = r.myPin ? '#34d399' : '#64748b';
+                el.style.borderColor = r.myPin ? 'rgba(52,211,153,0.35)' : 'rgba(255,255,255,0.08)';
+                el.style.background = r.myPin ? 'rgba(52,211,153,0.1)' : 'none';
+            });
+        }
+
+        async function toggleSocialPin(fileId, btnEl) {
+            if (!fileId) return;
+            const userKey = _getUserKey();
+            const cached = _socialPinsCache[fileId] || { count: 0, myPin: false };
+            const newPin = !cached.myPin;
+            _socialPinsCache[fileId] = { count: Math.max(0, cached.count + (newPin ? 1 : -1)), myPin: newPin };
+            _applySocialPinBadges();
+            showToast(newPin ? '📌 Pinned! ' + (_socialPinsCache[fileId].count) + ' student' + (_socialPinsCache[fileId].count !== 1 ? 's' : '') + ' pinned this' : 'Unpinned.', newPin ? 'success' : 'info', 2000);
+            try {
+                if (newPin) {
+                    await _supabase.from('social_pins').upsert({ file_id: fileId, user_key: userKey }, { onConflict: 'file_id,user_key' });
+                } else {
+                    await _supabase.from('social_pins').delete().eq('file_id', fileId).eq('user_key', userKey);
+                }
+            } catch(e) {
+                _socialPinsCache[fileId] = cached;
+                _applySocialPinBadges();
+            }
+        }
+
+        // Patch renderFileList to load social pins for visible files
+        const _origRFLSocialPins = renderFileList;
+        renderFileList = function(files) {
+            _origRFLSocialPins(files);
+            const ids = (files || []).filter(f => f.id && !(f.expires_at && new Date(f.expires_at) <= new Date())).map(f => String(f.id));
+            if (ids.length) setTimeout(() => loadSocialPins(ids), 350);
+        };
+
+        // ── FILE COMMENTS (Supabase) ─────────────────────────────
+        // Table: file_comments (id UUID, file_id TEXT, user_key TEXT, message TEXT, created_at TIMESTAMPTZ)
+        // Shown at the bottom of the preview modal (no login required)
+        // ──────────────────────────────────────────────────────────
+        var _commentsFileId = null;
+
+        async function loadComments(fileId) {
+            if (!fileId) return;
+            const list = document.getElementById('commentsList');
+            const countEl = document.getElementById('commentsCount');
+            if (!list) return;
+            list.innerHTML = '<div style="text-align:center;color:#475569;font-size:12px;padding:12px">Loading…</div>';
+            try {
+                const { data, error } = await _supabase
+                    .from('file_comments')
+                    .select('id, user_key, message, created_at')
+                    .eq('file_id', fileId)
+                    .order('created_at', { ascending: true });
+                if (error) throw error;
+                const rows = data || [];
+                if (countEl) countEl.textContent = rows.length > 0 ? rows.length : '';
+                if (!rows.length) {
+                    list.innerHTML = '<div style="text-align:center;color:#475569;font-size:12px;padding:12px 0">No notes yet — be the first!</div>';
+                    return;
+                }
+                const myKey = _getUserKey();
+                list.innerHTML = rows.map(r => {
+                    const isMe = r.user_key === myKey;
+                    const ago = timeAgo(r.created_at);
+                    const msgHtml = String(r.message).replace(/</g,'&lt;').replace(/\n/g,'<br>');
+                    return '<div style="display:flex;flex-direction:column;gap:3px;padding:9px 12px;border-radius:11px;background:' +
+                        (isMe ? 'rgba(59,130,246,0.1)' : 'rgba(255,255,255,0.04)') +
+                        ';border:1px solid ' + (isMe ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.06)') + '">' +
+                        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
+                            '<span style="font-size:10px;font-weight:800;color:' + (isMe ? '#93c5fd' : '#94a3b8') + ';letter-spacing:.04em">' + (isMe ? 'You' : 'Student') + '</span>' +
+                            '<div style="display:flex;align-items:center;gap:6px">' +
+                                '<span style="font-size:10px;color:#475569">' + ago + '</span>' +
+                                (isMe ? '<button onclick="deleteComment(\'' + r.id + '\',\'' + fileId + '\')" style="background:none;border:none;cursor:pointer;color:#475569;font-size:10px;padding:0 2px;line-height:1;font-family:inherit" title="Delete my note">✕</button>' : '') +
+                            '</div>' +
+                        '</div>' +
+                        '<p style="font-size:13px;color:#e2e8f0;margin:0;line-height:1.5">' + msgHtml + '</p>' +
+                    '</div>';
+                }).join('');
+            } catch(e) {
+                list.innerHTML = '<div style="text-align:center;color:#ef4444;font-size:12px;padding:12px 0">Could not load comments.</div>';
+            }
+        }
+
+        async function submitComment() {
+            const input = document.getElementById('commentInput');
+            const btn = document.getElementById('commentSubmitBtn');
+            if (!input || !_commentsFileId) return;
+            const msg = input.value.trim();
+            if (!msg) return;
+            input.disabled = true; btn.disabled = true;
+            try {
+                const { error } = await _supabase.from('file_comments').insert({
+                    file_id: _commentsFileId,
+                    user_key: _getUserKey(),
+                    message: msg
+                });
+                if (error) throw error;
+                input.value = '';
+                await loadComments(_commentsFileId);
+            } catch(e) {
+                showToast('Could not post note: ' + e.message, 'error', 3000);
+            } finally {
+                input.disabled = false; btn.disabled = false;
+                input.focus();
+            }
+        }
+
+        async function deleteComment(commentId, fileId) {
+            try {
+                await _supabase.from('file_comments').delete().eq('id', commentId).eq('user_key', _getUserKey());
+                await loadComments(fileId);
+            } catch(e) {}
+        }
+
+        // Patch openPreview to wire up comments panel
+        const _origOpenPreviewComments = openPreview;
+        openPreview = function(url, name, folder, size) {
+            _origOpenPreviewComments(url, name, folder, size);
+            const file = allFiles.find(f => f.url === url);
+            _commentsFileId = file ? String(file.id || '') : '';
+            const section = document.getElementById('commentsSection');
+            if (section) section.style.display = _commentsFileId ? 'block' : 'none';
+            if (_commentsFileId) loadComments(_commentsFileId);
+            // Reload social pin count for this file too
+            if (_commentsFileId) {
+                const spBtn = document.getElementById('previewSocialPinBtn');
+                if (spBtn) {
+                    spBtn.dataset.socialPinId = _commentsFileId;
+                    const r = _socialPinsCache[_commentsFileId];
+                    if (r) {
+                        spBtn.innerHTML = '📌 ' + r.count;
+                        spBtn.style.color = r.myPin ? '#34d399' : '#94a3b8';
+                        spBtn.style.background = r.myPin ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.05)';
+                        spBtn.style.borderColor = r.myPin ? 'rgba(52,211,153,0.3)' : 'rgba(255,255,255,0.1)';
+                    } else {
+                        spBtn.innerHTML = '📌 Pin';
+                        spBtn.style.color = '#94a3b8';
+                        loadSocialPins([_commentsFileId]);
+                    }
+                    spBtn.onclick = function() { toggleSocialPin(_commentsFileId, spBtn); event.stopPropagation(); };
+                }
+            }
+        };
+
         // ══ PRELOAD ADJACENT FILES IN PREVIEW ══════════════════
         function _preloadFile(url, name) {
             if (!url) return;
@@ -2819,6 +2998,30 @@
             <div id="relatedFilesStrip" class="hidden">
                 <p style="color:rgba(255,255,255,0.25);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">More in this folder</p>
                 <div id="relatedList" style="display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none"></div>
+            </div>
+            <!-- Comments + Social Pin panel -->
+            <div id="commentsSection" style="display:none;border-top:1px solid rgba(255,255,255,0.07);padding:14px 18px 10px">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                    <div style="display:flex;align-items:center;gap:7px">
+                        <span class="material-symbols-outlined" style="font-size:16px;color:#94a3b8">chat_bubble</span>
+                        <span style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em">Notes &amp; Comments</span>
+                        <span id="commentsCount" style="font-size:10px;font-weight:800;color:#64748b;background:rgba(255,255,255,0.06);border-radius:99px;padding:1px 7px"></span>
+                    </div>
+                    <button id="previewSocialPinBtn" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Pin this file for everyone to see">
+                        📌 Pin
+                    </button>
+                </div>
+                <div id="commentsList" style="display:flex;flex-direction:column;gap:7px;max-height:180px;overflow-y:auto;margin-bottom:10px;padding-right:2px"></div>
+                <div style="display:flex;gap:8px;align-items:flex-end">
+                    <textarea id="commentInput" placeholder="Leave a note for other students…" rows="2"
+                        style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:11px;padding:9px 12px;color:white;font-size:13px;font-family:inherit;resize:none;outline:none;line-height:1.4;transition:border-color .2s;box-sizing:border-box"
+                        onfocus="this.style.borderColor='rgba(59,130,246,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
+                        onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){submitComment();return false}"></textarea>
+                    <button id="commentSubmitBtn" onclick="submitComment()"
+                        style="padding:9px 14px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border:none;border-radius:11px;color:white;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0"
+                        title="Post (Ctrl+Enter)">Post</button>
+                </div>
+                <p style="color:rgba(255,255,255,0.18);font-size:10px;margin:5px 0 0">Visible to all students · Ctrl+Enter to post</p>
             </div>
         </div>
     </div>
