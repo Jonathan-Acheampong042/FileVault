@@ -1023,7 +1023,7 @@
                     });
                 }
                 renderAll(allFiles);
-                setCachedFiles(allFiles);
+                if (allFiles.length > 0) setCachedFiles(allFiles);
                 // Restore last folder from sessionStorage
                 const _savedFolder = sessionStorage.getItem('fvLastFolder');
                 if (_savedFolder && allFiles.some(f => f.folder === _savedFolder)) {
@@ -1211,8 +1211,8 @@
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
                     ratingHtml +
                     '<button onclick="togglePin(\'' + safeUrl + '\',\'' + safeName + '\',this);event.stopPropagation()" class="pin-btn' + (isPinned(file.url) ? ' pinned' : '') + '" title="Pin" aria-label="Pin"><span class="material-symbols-outlined" style="font-size:18px;display:block">push_pin</span></button>' +
-                    '<button onclick="toggleBookmark(\'' + safeUrl + '\',\'' + safeName + '\',\'' + (file.folder||\'\') + '\');event.stopPropagation()" class="bookmark-btn' + (isBookmarked(file.url) ? ' bookmarked' : '') + '" title="Save" aria-label="Bookmark"><span class="material-symbols-outlined" style="font-size:18px;display:block">bookmark</span></button>' +
-                    '<button onclick="toggleReadlist(\'' + safeUrl + '\',\'' + safeName + '\',\'' + (file.folder||\'\') + '\');event.stopPropagation()" class="readlist-btn' + (inReadlist(file.url) ? ' in-readlist' : '') + '" title="Later" aria-label="Read later"><span class="material-symbols-outlined" style="font-size:18px;display:block">schedule</span></button>' +
+                    '<button onclick="toggleBookmark(\'' + safeUrl + '\',\'' + safeName + '\',\'' + (file.folder||'').replace(/'/g,"\'") + '\');event.stopPropagation()" class="bookmark-btn' + (isBookmarked(file.url) ? ' bookmarked' : '') + '" title="Save" aria-label="Bookmark"><span class="material-symbols-outlined" style="font-size:18px;display:block">bookmark</span></button>' +
+                    '<button onclick="toggleReadlist(\'' + safeUrl + '\',\'' + safeName + '\',\'' + (file.folder||'').replace(/'/g,"\'") + '\');event.stopPropagation()" class="readlist-btn' + (inReadlist(file.url) ? ' in-readlist' : '') + '" title="Later" aria-label="Read later"><span class="material-symbols-outlined" style="font-size:18px;display:block">schedule</span></button>' +
                     (file.id ? '<button onclick="openNoteModal(\'' + safeUrl + '\',\'' + safeName + '\');event.stopPropagation()" class="note-btn' + (getFileNote(file.url) ? ' has-note' : '') + '" title="Note" aria-label="Note"><span class="material-symbols-outlined" style="font-size:18px;display:block">sticky_note_2</span></button>' : '') +
                     '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview" aria-label="Preview ' + file.name + '">visibility</button>' +
                     '<button onclick="copyFileLink(\'' + safeUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link" aria-label="Copy link for ' + file.name + '"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block" aria-hidden="true">link</span></button>' +
@@ -1733,6 +1733,7 @@
         
         (async () => {
             await checkAuth();
+            if (window.location.href.includes('manager.html')) return;
             fetchFiles();
             loadAnnouncement();
         })();
