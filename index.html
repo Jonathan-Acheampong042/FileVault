@@ -1158,6 +1158,7 @@
                         (file.description ? '<p class="mt-0.5 text-[11px] text-slate-400 italic truncate">' + highlightText(file.description, currentSearchTerm) + '</p>' : '') +
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
+                    '<button onclick="_openCardReactionPicker(\'' + (file.id||'') + '\',this);event.stopPropagation()" class="p-2 text-slate-400 hover:text-pink-400 transition" title="React" aria-label="React to ' + file.name + '" style="font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px">😊</button>' +
                     '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview" aria-label="Preview ' + file.name + '">visibility</button>' +
                     '<button onclick="copyFileLink(\'' + safeUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link" aria-label="Copy link for ' + file.name + '"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block" aria-hidden="true">link</span></button>' +
                     '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\');event.stopPropagation()" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download" aria-label="Download ' + file.name + '">download</a>' +
@@ -1736,37 +1737,47 @@
 
         async function loadAnnouncement() {
             try {
-                // Fetch all active announcements; don't filter by 'active' column
-                // in case the column name differs — filter client-side instead
-                let query = _supabase
+                const { data, error } = await _supabase
                     .from('announcements')
                     .select('*')
                     .order('created_at', { ascending: false })
-                    .limit(10);
+                    .limit(20);
 
-                const { data, error } = await query;
                 if (error) { console.warn('Announcements fetch error:', error.message); return; }
-                if (!data || data.length === 0) return;
+                if (!data || data.length === 0) { console.info('No announcements in table.'); return; }
 
-                // Filter active announcements client-side (handles both boolean and 1/0)
-                const active = data.filter(a => a.active === true || a.active === 1 || a.active === 'true');
-                if (!active.length) return;
+                // Accept active = true/1/"true"/"1"; if column absent, show all
+                const hasActiveCol = 'active' in data[0];
+                const active = hasActiveCol
+                    ? data.filter(a => a.active === true || a.active === 1 || a.active === 'true' || a.active === '1')
+                    : data;
 
-                // Show latest regular announcement
+                if (!active.length) { console.info('No active announcements.'); return; }
+
+                // Show latest — keyed by id so re-posting same text still shows
                 const ann = active[0];
-                if (localStorage.getItem(ANNOUNCE_KEY) !== ann.message) {
-                    document.getElementById('announcementText').textContent = ann.message;
-                    document.getElementById('announcementMeta').textContent = ann.created_at
-                        ? 'Posted ' + new Date(ann.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short' })
-                        : '';
-                    document.getElementById('announcementBanner').classList.add('visible');
+                const dismissKey = String(ann.id || ann.message);
+                if (localStorage.getItem(ANNOUNCE_KEY) !== dismissKey) {
+                    const bannerEl = document.getElementById('announcementBanner');
+                    const textEl   = document.getElementById('announcementText');
+                    const metaEl   = document.getElementById('announcementMeta');
+                    if (bannerEl && textEl) {
+                        textEl.textContent = ann.message || '';
+                        if (metaEl) metaEl.textContent = ann.created_at
+                            ? 'Posted ' + new Date(ann.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short' })
+                            : '';
+                        bannerEl.dataset.annId = String(ann.id || ann.message);
+                        bannerEl.classList.add('visible');
+                    }
                 }
 
-                // Find any announcement with an event_date (countdown)
+                // Countdown: find any with a future event_date
                 const cdAnn = active.find(a => a.event_date && new Date(a.event_date) > new Date());
                 if (cdAnn) {
-                    document.getElementById('countdownTitle').textContent = cdAnn.message || 'Upcoming Event';
-                    document.getElementById('countdownBanner').classList.add('visible');
+                    const titleEl  = document.getElementById('countdownTitle');
+                    const cdBanner = document.getElementById('countdownBanner');
+                    if (titleEl)  titleEl.textContent = cdAnn.message || 'Upcoming Event';
+                    if (cdBanner) cdBanner.classList.add('visible');
                     _startCountdown(new Date(cdAnn.event_date));
                 }
             } catch(e) { console.warn('loadAnnouncement error:', e); }
@@ -1800,8 +1811,10 @@
 
         function dismissAnnouncement() {
             document.getElementById('announcementBanner').classList.remove('visible');
-            const text = document.getElementById('announcementText').textContent;
-            if (text) localStorage.setItem(ANNOUNCE_KEY, text);
+            // Store the banner's data-id if present, else fall back to text
+            const banner = document.getElementById('announcementBanner');
+            const key = (banner && banner.dataset.annId) || document.getElementById('announcementText').textContent;
+            if (key) localStorage.setItem(ANNOUNCE_KEY, String(key));
         }
 
         // ── PWA ──────────────────────────────────────────────────
@@ -3083,6 +3096,53 @@
                 style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;
                 border-radius:99px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);
                 cursor:pointer;font-size:15px;transition:all .15s;flex-shrink:0" title="Add reaction">➕</button>`;
+        }
+
+        // ── Card-level quick reaction picker ────────────────────
+        function _openCardReactionPicker(fileId, btnEl) {
+            // If no fileId (file not in DB) just show a toast
+            if (!fileId) { showToast('Open the file preview to react.', 'info', 2000); return; }
+            // Load reactions for this file then open the emoji picker positioned at the button
+            if (!_reactionsCache[fileId]) {
+                _reactionsCache[fileId] = {};
+                _supabase.from('file_reactions').select('emoji').eq('file_id', fileId).then(function(res) {
+                    const userKey = _getUserKey();
+                    _supabase.from('file_reactions').select('emoji').eq('file_id', fileId).eq('user_key', userKey).then(function(myRes) {
+                        const mySet = new Set((myRes.data || []).map(r => r.emoji));
+                        const counts = {};
+                        (res.data || []).forEach(r => { counts[r.emoji] = (counts[r.emoji] || 0) + 1; });
+                        _reactionsCache[fileId] = {};
+                        REACTION_EMOJIS.forEach(e => {
+                            _reactionsCache[fileId][e] = { count: counts[e] || 0, mine: mySet.has(e) };
+                        });
+                        _showCardPicker(fileId, btnEl);
+                    });
+                });
+            } else {
+                _showCardPicker(fileId, btnEl);
+            }
+        }
+
+        function _showCardPicker(fileId, btnEl) {
+            // Reuse the existing emoji picker popover but position it at the card button
+            _pickerFileId = fileId;
+            _pickerOpen = true;
+            const p = _getOrCreatePicker();
+            _buildPickerContent(fileId);
+            p.style.display = 'block';
+            requestAnimationFrame(() => {
+                const r = btnEl.getBoundingClientRect();
+                const pw = 288, ph = 330;
+                let left = r.left;
+                let top  = r.top - ph - 8;
+                if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+                if (left < 8) left = 8;
+                if (top < 8) top = r.bottom + 8;
+                p.style.left = left + 'px';
+                p.style.top  = top  + 'px';
+                p.style.opacity = '1';
+                p.style.transform = 'scale(1) translateY(0)';
+            });
         }
 
         function _renderReactionBarFallback(fileId) {
