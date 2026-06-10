@@ -515,7 +515,7 @@
             <div id="analyticsChips" class="grid grid-cols-3 gap-3 mb-5"></div>
             <div class="flex items-center gap-2 mb-4 flex-wrap">
                 <span class="text-xs text-white/30 font-bold uppercase tracking-wider">Sort by:</span>
-                <button onclick="setAnalyticsSort('views')"     id="asort-views"      class="analytics-sort-btn text-xs px-3 py-1.5 rounded-lg border font-bold transition-all bg-purple-500/20 text-purple-400 border-purple-500/30">👁 Views</button>
+                <button onclick="setAnalyticsSort('views')"     id="asort-views"      class="analytics-sort-btn active text-xs px-3 py-1.5 rounded-lg border font-bold transition-all bg-white/5 text-white/40 border-white/10">👁 Views</button>
                 <button onclick="setAnalyticsSort('ratings')"   id="asort-ratings"    class="analytics-sort-btn text-xs px-3 py-1.5 rounded-lg border font-bold transition-all bg-white/5 text-white/40 border-white/10">👍 Likes</button>
                 <button onclick="setAnalyticsSort('reactions')" id="asort-reactions"  class="analytics-sort-btn text-xs px-3 py-1.5 rounded-lg border font-bold transition-all bg-white/5 text-white/40 border-white/10">😊 Reactions</button>
                 <button onclick="setAnalyticsSort('downloads')" id="asort-downloads"  class="analytics-sort-btn text-xs px-3 py-1.5 rounded-lg border font-bold transition-all bg-white/5 text-white/40 border-white/10">⬇ Downloads</button>
@@ -2583,10 +2583,11 @@
             // Reaction emoji breakdown
             const emojiEntries = Object.entries(f.reactions).sort((a, b) => b[1] - a[1]);
             const emojiHtml = emojiEntries.length
-                ? emojiEntries.map(([emoji, count]) =>
-                    `<span style="font-size:11px;background:rgba(255,255,255,0.06);padding:2px 7px;border-radius:99px;color:rgba(255,255,255,0.6)">${emoji} ${count}</span>`
-                  ).join('')
-                : '<span style="font-size:10px;color:rgba(255,255,255,0.2);font-style:italic">no reactions</span>';
+                ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">' +
+                  emojiEntries.map(([emoji, count], ei) =>
+                    `<span style="display:inline-flex;align-items:center;gap:3px;font-size:13px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,${ei===0?'0.2':'0.08'});padding:3px 8px;border-radius:99px;color:rgba(255,255,255,${ei===0?'0.9':'0.55'});font-weight:${ei===0?'700':'400'}">${emoji}<span style="font-size:10px;font-weight:700">${count}</span></span>`
+                  ).join('') + '</div>'
+                : '';
 
             return `<div class="ana-row">
                 <div class="flex items-start gap-3">
@@ -2599,8 +2600,9 @@
                             <span style="font-size:11px;color:#a78bfa;font-weight:700">👁 ${f.views}</span>
                             <span style="font-size:11px;color:#fbbf24;font-weight:700">👍 ${f.ratings}</span>
                             <span style="font-size:11px;color:#60a5fa;font-weight:700">⬇ ${f.downloads}</span>
+                            <span style="font-size:11px;color:#f472b6;font-weight:700">😊 ${f.totalReactions}</span>
                         </div>
-                        <div class="flex gap-1 mt-2 flex-wrap">${emojiHtml}</div>
+                        ${emojiHtml}
                     </div>
                 </div>
             </div>`;

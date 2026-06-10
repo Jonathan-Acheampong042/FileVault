@@ -91,7 +91,7 @@
         #backToTop { position:fixed;bottom:80px;right:20px;z-index:9000;width:42px;height:42px;border-radius:50%;background:rgba(59,130,246,0.85);border:1px solid rgba(59,130,246,0.5);backdrop-filter:blur(12px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 20px rgba(59,130,246,0.35);opacity:0;pointer-events:none;transition:opacity .3s,transform .3s; }
         #backToTop.visible { opacity:1;pointer-events:auto; }
         #backToTop:hover { transform:translateY(-3px); }
-        @media (min-width:1024px) { #backToTop { bottom:40px; } }
+        @media (min-width:1024px) { #backToTop { bottom:100px;right:24px; } }
 
         /* ── Skeleton loading ── */
         .skeleton { position:relative;overflow:hidden;background:rgba(30,41,59,0.4);border-radius:12px; }
@@ -1736,16 +1736,24 @@
 
         async function loadAnnouncement() {
             try {
-                const { data } = await _supabase
+                // Fetch all active announcements; don't filter by 'active' column
+                // in case the column name differs — filter client-side instead
+                let query = _supabase
                     .from('announcements')
                     .select('*')
-                    .eq('active', true)
                     .order('created_at', { ascending: false })
-                    .limit(5);
+                    .limit(10);
+
+                const { data, error } = await query;
+                if (error) { console.warn('Announcements fetch error:', error.message); return; }
                 if (!data || data.length === 0) return;
 
+                // Filter active announcements client-side (handles both boolean and 1/0)
+                const active = data.filter(a => a.active === true || a.active === 1 || a.active === 'true');
+                if (!active.length) return;
+
                 // Show latest regular announcement
-                const ann = data[0];
+                const ann = active[0];
                 if (localStorage.getItem(ANNOUNCE_KEY) !== ann.message) {
                     document.getElementById('announcementText').textContent = ann.message;
                     document.getElementById('announcementMeta').textContent = ann.created_at
@@ -1755,13 +1763,13 @@
                 }
 
                 // Find any announcement with an event_date (countdown)
-                const cdAnn = data.find(a => a.event_date && new Date(a.event_date) > new Date());
+                const cdAnn = active.find(a => a.event_date && new Date(a.event_date) > new Date());
                 if (cdAnn) {
                     document.getElementById('countdownTitle').textContent = cdAnn.message || 'Upcoming Event';
                     document.getElementById('countdownBanner').classList.add('visible');
                     _startCountdown(new Date(cdAnn.event_date));
                 }
-            } catch(e) { /* announcements table may not exist yet — silent fail */ }
+            } catch(e) { console.warn('loadAnnouncement error:', e); }
         }
 
         // Countdown timer engine
@@ -2721,8 +2729,15 @@
             const file = allFiles.find(f => f.url === url);
             // Load view count
             if (file && file.id) loadViewCount(file.id);
-            // Load emoji reactions
-            if (file && file.id) loadReactions(String(file.id));
+            // Load emoji reactions (always show picker; load counts when id available)
+            const fid = file && file.id ? String(file.id) : null;
+            if (fid) {
+                loadReactions(fid);
+            } else {
+                // No id — just show the picker with zero counts
+                const bar = document.getElementById('previewReactionBar');
+                if (bar) _renderReactionBarFallback('_no_id_');
+            }
         };
 
         // ══ PRELOAD ADJACENT FILES IN PREVIEW ══════════════════
