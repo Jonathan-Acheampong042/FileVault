@@ -157,6 +157,13 @@
         /* ── Announcement banner ── */
         #announcementBanner { display:none; }
         #announcementBanner.visible { display:flex; align-items:flex-start; gap:12px; margin:0 0 20px; padding:14px 18px; background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(139,92,246,0.10)); border:1px solid rgba(59,130,246,0.25); border-radius:16px; animation:fadeIn 0.4s ease; }
+        /* ── Countdown timer ── */
+        #countdownBanner { display:none; margin-bottom:16px; }
+        #countdownBanner.visible { display:flex; align-items:center; gap:12px; padding:14px 18px; background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(239,68,68,0.10)); border:1px solid rgba(245,158,11,0.3); border-radius:16px; animation:fadeIn 0.4s ease; flex-wrap:wrap; }
+        .countdown-unit { display:flex; flex-direction:column; align-items:center; min-width:44px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:6px 10px; }
+        .countdown-num { font-size:22px; font-weight:800; color:white; line-height:1; }
+        .countdown-lbl { font-size:8px; font-weight:700; color:rgba(255,255,255,0.4); letter-spacing:.1em; text-transform:uppercase; margin-top:2px; }
+        .countdown-sep { color:rgba(255,255,255,0.25); font-size:20px; font-weight:700; align-self:center; }
 
         /* ── PWA install button ── */
         #pwaInstallBtn { display:none; }
@@ -506,6 +513,16 @@
             </div>
 
             <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4 sm:mb-6 inline-block typewriter">FileVault</h2>
+
+            <!-- ── Countdown Banner (from announcements with event_date) ── -->
+            <div id="countdownBanner">
+                <span class="material-symbols-outlined shrink-0" style="color:#fbbf24;font-size:22px">alarm</span>
+                <div style="flex:1;min-width:180px">
+                    <p id="countdownTitle" style="color:rgba(255,255,255,0.9);font-size:13px;font-weight:700;margin:0 0 8px"></p>
+                    <div id="countdownUnits" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"></div>
+                </div>
+                <button onclick="document.getElementById('countdownBanner').classList.remove('visible')" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.3);font-size:20px;line-height:1;padding:0;flex-shrink:0" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.3)'">×</button>
+            </div>
 
             <!-- 51: Returning user banner -->
             <div id="returningBanner">
@@ -1193,6 +1210,10 @@
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
                     ratingHtml +
+                    '<button onclick="togglePin(\'' + safeUrl + '\',\'' + safeName + '\',this);event.stopPropagation()" class="pin-btn' + (isPinned(file.url) ? ' pinned' : '') + '" title="Pin" aria-label="Pin"><span class="material-symbols-outlined" style="font-size:18px;display:block">push_pin</span></button>' +
+                    '<button onclick="toggleBookmark(\'' + safeUrl + '\',\'' + safeName + '\',\'' + (file.folder||\'\') + '\');event.stopPropagation()" class="bookmark-btn' + (isBookmarked(file.url) ? ' bookmarked' : '') + '" title="Save" aria-label="Bookmark"><span class="material-symbols-outlined" style="font-size:18px;display:block">bookmark</span></button>' +
+                    '<button onclick="toggleReadlist(\'' + safeUrl + '\',\'' + safeName + '\',\'' + (file.folder||\'\') + '\');event.stopPropagation()" class="readlist-btn' + (inReadlist(file.url) ? ' in-readlist' : '') + '" title="Later" aria-label="Read later"><span class="material-symbols-outlined" style="font-size:18px;display:block">schedule</span></button>' +
+                    (file.id ? '<button onclick="openNoteModal(\'' + safeUrl + '\',\'' + safeName + '\');event.stopPropagation()" class="note-btn' + (getFileNote(file.url) ? ' has-note' : '') + '" title="Note" aria-label="Note"><span class="material-symbols-outlined" style="font-size:18px;display:block">sticky_note_2</span></button>' : '') +
                     '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview" aria-label="Preview ' + file.name + '">visibility</button>' +
                     '<button onclick="copyFileLink(\'' + safeUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link" aria-label="Copy link for ' + file.name + '"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block" aria-hidden="true">link</span></button>' +
                     '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\');event.stopPropagation()" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download" aria-label="Download ' + file.name + '">download</a>' +
@@ -1775,17 +1796,53 @@
                     .select('*')
                     .eq('active', true)
                     .order('created_at', { ascending: false })
-                    .limit(1);
+                    .limit(5);
                 if (!data || data.length === 0) return;
+
+                // Show latest regular announcement
                 const ann = data[0];
-                // Don't show if user already dismissed this exact message
-                if (localStorage.getItem(ANNOUNCE_KEY) === ann.message) return;
-                document.getElementById('announcementText').textContent = ann.message;
-                document.getElementById('announcementMeta').textContent = ann.created_at
-                    ? 'Posted ' + new Date(ann.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short' })
-                    : '';
-                document.getElementById('announcementBanner').classList.add('visible');
+                if (localStorage.getItem(ANNOUNCE_KEY) !== ann.message) {
+                    document.getElementById('announcementText').textContent = ann.message;
+                    document.getElementById('announcementMeta').textContent = ann.created_at
+                        ? 'Posted ' + new Date(ann.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short' })
+                        : '';
+                    document.getElementById('announcementBanner').classList.add('visible');
+                }
+
+                // Find any announcement with an event_date (countdown)
+                const cdAnn = data.find(a => a.event_date && new Date(a.event_date) > new Date());
+                if (cdAnn) {
+                    document.getElementById('countdownTitle').textContent = cdAnn.message || 'Upcoming Event';
+                    document.getElementById('countdownBanner').classList.add('visible');
+                    _startCountdown(new Date(cdAnn.event_date));
+                }
             } catch(e) { /* announcements table may not exist yet — silent fail */ }
+        }
+
+        // Countdown timer engine
+        let _countdownInterval = null;
+        function _startCountdown(targetDate) {
+            if (_countdownInterval) clearInterval(_countdownInterval);
+            function _tick() {
+                const diff = targetDate.getTime() - Date.now();
+                if (diff <= 0) { clearInterval(_countdownInterval); document.getElementById('countdownBanner').classList.remove('visible'); return; }
+                const days  = Math.floor(diff / 86400000);
+                const hours = Math.floor((diff % 86400000) / 3600000);
+                const mins  = Math.floor((diff % 3600000) / 60000);
+                const secs  = Math.floor((diff % 60000) / 1000);
+                const units = document.getElementById('countdownUnits');
+                if (!units) return;
+                units.innerHTML =
+                    '<div class="countdown-unit"><span class="countdown-num">' + days + '</span><span class="countdown-lbl">Days</span></div>' +
+                    '<span class="countdown-sep">:</span>' +
+                    '<div class="countdown-unit"><span class="countdown-num">' + String(hours).padStart(2,'0') + '</span><span class="countdown-lbl">Hrs</span></div>' +
+                    '<span class="countdown-sep">:</span>' +
+                    '<div class="countdown-unit"><span class="countdown-num">' + String(mins).padStart(2,'0') + '</span><span class="countdown-lbl">Min</span></div>' +
+                    '<span class="countdown-sep">:</span>' +
+                    '<div class="countdown-unit"><span class="countdown-num">' + String(secs).padStart(2,'0') + '</span><span class="countdown-lbl">Sec</span></div>';
+            }
+            _tick();
+            _countdownInterval = setInterval(_tick, 1000);
         }
 
         function dismissAnnouncement() {

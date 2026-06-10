@@ -400,6 +400,10 @@
                     <span class="material-symbols-outlined text-sm mr-1">upload_file</span><span class="hidden sm:inline">Requests</span><span class="sm:hidden">Req</span>
                     <span id="requestsBadge" style="display:none;position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:#ef4444"></span>
                 </button>
+                <button onclick="switchTab('linkcheck')" id="tab-linkcheck" class="tab-btn flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold border border-transparent text-white/70 relative">
+                    <span class="material-symbols-outlined text-sm mr-1">link_off</span><span class="hidden sm:inline">Link Check</span><span class="sm:hidden">Links</span>
+                    <span id="brokenLinkBadge" style="display:none;position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:#ef4444"></span>
+                </button>
             </div>
 
             <div id="managerFileGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -423,6 +427,34 @@
                 </div>
             </div>
         </section>
+
+        <!-- ── Link Check Panel ── -->
+        <div id="linkcheckerPanel" style="display:none">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <span class="material-symbols-outlined text-red-400">link_off</span>
+                    Broken Link Checker
+                    <span id="brokenLinkCount" class="text-xs font-bold text-white/40 bg-white/5 px-2 py-0.5 rounded-full ml-1">—</span>
+                </h3>
+                <button onclick="runLinkCheck()" id="runLinkCheckBtn" class="text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 px-3 py-2 rounded-lg transition-all flex items-center gap-1 border border-blue-500/20">
+                    <span class="material-symbols-outlined text-sm">play_arrow</span> Run Check
+                </button>
+            </div>
+            <p class="text-xs text-white/30 mb-4">Scans all DB records and tests each storage URL. May take a moment for large vaults.</p>
+            <!-- Progress bar -->
+            <div id="linkCheckProgress" style="display:none;margin-bottom:16px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                    <span id="linkCheckProgressLabel" style="font-size:11px;color:rgba(255,255,255,0.4)">Checking…</span>
+                    <span id="linkCheckProgressPct" style="font-size:11px;font-weight:700;color:#94a3b8">0%</span>
+                </div>
+                <div style="height:5px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden">
+                    <div id="linkCheckProgressFill" style="height:100%;background:linear-gradient(90deg,#3b82f6,#8b5cf6);border-radius:99px;transition:width .3s;width:0%"></div>
+                </div>
+            </div>
+            <div id="linkCheckResults" class="space-y-2">
+                <p class="text-white/30 italic text-sm text-center py-8">Run a check to scan for broken storage links.</p>
+            </div>
+        </div>
 
         <!-- Upload for Request Modal -->
         <div id="uploadForReqModal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)closeUploadForReq()">
@@ -651,8 +683,11 @@
         document.getElementById('tab-storage').classList.toggle('active', tab === 'storage');
         document.getElementById('tab-tracker').classList.toggle('active', tab === 'tracker');
         document.getElementById('tab-requests').classList.toggle('active', tab === 'requests');
+        document.getElementById('tab-linkcheck').classList.toggle('active', tab === 'linkcheck');
 
         const grid = document.getElementById('managerFileGrid');
+        const lcPanel = document.getElementById('linkcheckerPanel');
+        if (lcPanel) lcPanel.style.display = tab === 'linkcheck' ? 'block' : 'none';
         const reqPanel = document.getElementById('requestsPanel');
         if (tab === 'requests') {
             grid.style.display = 'none';
@@ -1496,39 +1531,61 @@
         });
     }
 
-    // ─── DUPLICATE CHECK ─────────────────────────────────────────
-    async function checkDuplicate(fileName, folder) {
+    // \u2500\u2500\u2500 ENHANCED DUPLICATE CHECK (name + size) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    async function checkDuplicate(fileName, folder, newFileSize) {
         const folderName = folder || 'Root';
 
-        // Use exact .eq() match — avoids ilike issues with special chars like _ and %
-        // which are wildcards in SQL LIKE patterns
+        // DB check (now also fetches file_size for comparison)
         const { data: dbData, error: dbErr } = await _supabase
-            .from('files_list').select('id')
+            .from('files_list').select('id, file_size')
             .eq('file_name', fileName)
             .eq('folder_name', folderName)
             .limit(1);
 
-        // Also check storage bucket directly (catches files not yet in DB)
+        // Storage check
         const storageFolder = folder || '';
         const { data: storageList } = await _supabase.storage
             .from('vault-files').list(storageFolder, { limit: 500 });
-        const existsInStorage = (storageList || []).some(f =>
-            f.name === fileName  // exact match — storage is case-sensitive
-        );
+        const existingStorage = (storageList || []).find(f => f.name === fileName);
 
         if (dbErr) console.warn('Duplicate DB check error (non-fatal):', dbErr.message);
 
-        const exists = (dbData && dbData.length > 0) || existsInStorage;
+        const existsInDB = dbData && dbData.length > 0;
+        const existsInStorage = !!existingStorage;
+        const exists = existsInDB || existsInStorage;
         if (!exists) return 'new';
 
-        // File exists — ask user what to do
+        // \u2500 Size comparison: warn if same size (exact dup) or show delta \u2500
+        let sizeNote = '';
+        if (newFileSize) {
+            const existingSize = (existsInDB && dbData[0].file_size)
+                || (existingStorage && existingStorage.metadata && existingStorage.metadata.size)
+                || null;
+            if (existingSize !== null) {
+                const diff = Math.abs(newFileSize - existingSize);
+                const sameSizePct = newFileSize > 0 ? (diff / newFileSize) : 1;
+                if (sameSizePct < 0.01) {
+                    sizeNote = '\n\n\u26a0\ufe0f Same size (' + _fmtBytes(newFileSize) + ') \u2014 this looks like an exact duplicate.';
+                } else {
+                    const bigger = newFileSize > existingSize ? '+' : '';
+                    sizeNote = '\n\nSize: existing ' + _fmtBytes(existingSize) + ' \u2192 new ' + _fmtBytes(newFileSize) + ' (' + bigger + _fmtBytes(newFileSize - existingSize) + ')';
+                }
+            }
+        }
+
         const replace = confirm(
-            `"${fileName}" already exists in ${folderName}.\n\nOK → Replace it\nCancel → Keep both (saves a copy with timestamp)`
+            '"' + fileName + '" already exists in ' + folderName + '.' + sizeNote + '\n\nOK \u2192 Replace it\nCancel \u2192 Keep both (saves a copy with timestamp)'
         );
         return replace ? 'replace' : 'keep';
     }
 
-    // ─── UPLOAD ─────────────────────────────────────────────────
+    function _fmtBytes(b) {
+        if (!b) return '0 B';
+        const u = ['B','KB','MB','GB']; let i = 0, s = Math.abs(b), orig = b;
+        while (s >= 1024 && i < u.length - 1) { s /= 1024; i++; }
+        return (orig < 0 ? '-' : '') + s.toFixed(1) + ' ' + u[i];
+    }
+
     async function uploadFile() {
         if (!navigator.onLine) { setStatus('✗ Cannot upload while offline.', 'red'); return; }
 
@@ -1580,7 +1637,7 @@
             let finalName = file.name;
 
             // ── Duplicate check ──
-            const dupChoice = await checkDuplicate(file.name, folder);
+            const dupChoice = await checkDuplicate(file.name, folder, file.size);
             if (dupChoice === 'keep') {
                 const ext = file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')) : '';
                 const base = file.name.includes('.') ? file.name.substring(0, file.name.lastIndexOf('.')) : file.name;
@@ -2021,6 +2078,124 @@
             console.warn('Approval push failed (non-critical):', e.message);
         }
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // ── BROKEN LINK CHECKER ──────────────────────────────────────
+    // Fetches all DB records and HEAD-tests each storage URL.
+    // Flags any URL that returns 4xx/5xx or throws a network error.
+    // ──────────────────────────────────────────────────────────────
+    async function runLinkCheck() {
+        const btn = document.getElementById('runLinkCheckBtn');
+        const results = document.getElementById('linkCheckResults');
+        const progress = document.getElementById('linkCheckProgress');
+        const progFill = document.getElementById('linkCheckProgressFill');
+        const progLabel = document.getElementById('linkCheckProgressLabel');
+        const progPct = document.getElementById('linkCheckProgressPct');
+        const countBadge = document.getElementById('brokenLinkCount');
+        const tabBadge = document.getElementById('brokenLinkBadge');
+
+        if (!btn || !results) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined text-sm" style="animation:spin 1s linear infinite">refresh</span> Scanning…';
+        results.innerHTML = '';
+        if (progress) progress.style.display = 'block';
+
+        try {
+            const { data, error } = await _supabase
+                .from('files_list')
+                .select('id, file_name, folder_name, download_url, created_at')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            const files = data || [];
+            if (!files.length) {
+                results.innerHTML = '<p class="text-white/30 italic text-sm text-center py-8">No files found in the database.</p>';
+                return;
+            }
+
+            let broken = [], checked = 0;
+            const total = files.length;
+
+            for (const file of files) {
+                checked++;
+                const pct = Math.round((checked / total) * 100);
+                if (progFill) progFill.style.width = pct + '%';
+                if (progPct) progPct.textContent = pct + '%';
+                if (progLabel) progLabel.textContent = 'Checking: ' + (file.file_name || '').slice(0, 40);
+
+                let status = 'ok', statusCode = null;
+                try {
+                    const res = await fetch(file.download_url, { method: 'HEAD', mode: 'cors', cache: 'no-store' });
+                    statusCode = res.status;
+                    if (!res.ok) status = 'broken';
+                } catch(e) {
+                    status = 'error';
+                    statusCode = 'Network error';
+                }
+
+                if (status !== 'ok') {
+                    broken.push({ ...file, statusCode });
+                }
+
+                // Yield to browser to keep UI responsive
+                if (checked % 5 === 0) await new Promise(r => setTimeout(r, 0));
+            }
+
+            if (progress) progress.style.display = 'none';
+            if (countBadge) countBadge.textContent = broken.length > 0 ? broken.length + ' broken' : 'All OK';
+            if (tabBadge) tabBadge.style.display = broken.length > 0 ? 'block' : 'none';
+
+            if (!broken.length) {
+                results.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:32px 0">' +
+                    '<span class="material-symbols-outlined" style="font-size:48px;color:#22c55e">check_circle</span>' +
+                    '<p style="color:#22c55e;font-weight:700;font-size:14px">All ' + total + ' links are healthy! ✓</p>' +
+                    '</div>';
+            } else {
+                results.innerHTML = '<p style="color:#f87171;font-size:11px;font-weight:700;margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">' +
+                    broken.length + ' broken link' + (broken.length !== 1 ? 's' : '') + ' found (out of ' + total + ')</p>' +
+                    broken.map(function(f) {
+                        const safeId = String(f.id || '').replace(/'/g, "\'");
+                        const safeName = (f.file_name || '').replace(/'/g, "\'");
+                        const safeFolder = (f.folder_name || 'Root').replace(/'/g, "\'");
+                        return '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:12px">' +
+                            '<span class="material-symbols-outlined" style="font-size:18px;color:#f87171;flex-shrink:0;margin-top:1px">link_off</span>' +
+                            '<div style="flex:1;min-width:0">' +
+                                '<p style="color:white;font-size:13px;font-weight:600;margin:0 0 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (f.file_name || 'Unknown') + '</p>' +
+                                '<p style="color:rgba(255,255,255,0.35);font-size:10px;margin:0 0 6px">' + (f.folder_name || 'Root') + ' · HTTP ' + f.statusCode + '</p>' +
+                                '<a href="' + (f.download_url || '#') + '" target="_blank" rel="noopener" style="font-size:10px;color:#60a5fa;text-decoration:none;overflow:hidden;text-overflow:ellipsis;display:block;white-space:nowrap">' + (f.download_url || '') + '</a>' +
+                            '</div>' +
+                            '<button onclick="deleteFileById(\'' + safeId + '\',\'' + safeName + '\',\'' + safeFolder + '\')" style="flex-shrink:0;padding:5px 8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#f87171;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">Delete</button>' +
+                        '</div>';
+                    }).join('');
+            }
+        } catch(err) {
+            if (progress) progress.style.display = 'none';
+            results.innerHTML = '<div style="color:#f87171;font-size:13px;padding:16px;text-align:center">Error: ' + err.message + '</div>';
+            showMgrToast('Link check failed: ' + err.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-outlined text-sm">play_arrow</span> Run Check';
+        }
+    }
+
+    // Helper: delete a DB record by ID (from link checker)
+    async function deleteFileById(id, name, folder) {
+        if (!confirm('Delete "' + name + '" from the database? This cannot be undone.')) return;
+        try {
+            const { error } = await _supabase.from('files_list').delete().eq('id', id);
+            if (error) throw error;
+            showMgrToast('Deleted "' + name + '"', 'success');
+            // Re-run the check to refresh results
+            runLinkCheck();
+        } catch(e) {
+            showMgrToast('Delete failed: ' + e.message, 'error');
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // ── ENHANCED DUPLICATE DETECTION (name + size) ───────────────
+    // ──────────────────────────────────────────────────────────────
 
     checkAccess();
 
