@@ -1168,7 +1168,7 @@
                         (file.description ? '<p class="mt-0.5 text-[11px] text-slate-400 italic truncate">' + highlightText(file.description, currentSearchTerm) + '</p>' : '') +
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
-                    '<button class="card-react-btn p-1 text-slate-400 hover:text-pink-400 transition" data-fid="' + (file.id||'') + '" title="React (hold on mobile)" aria-label="React to ' + file.name + '" style="font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:none;border:none;cursor:pointer;flex-shrink:0">😊</button>' +
+                    '<button class="card-react-btn p-1 text-slate-400 hover:text-pink-400 transition" data-fid="' + (file.id||'') + '" title="React" aria-label="React to ' + file.name + '" onclick="openCardReactionPickerSafe(\'' + (file.id||'') + '\',this,event)" style="font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:none;border:none;cursor:pointer;flex-shrink:0;touch-action:manipulation">😊</button>' +
                     '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview" aria-label="Preview ' + file.name + '">visibility</button>' +
                     '<button onclick="copyFileLink(\'' + safeUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link" aria-label="Copy link for ' + file.name + '"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block" aria-hidden="true">link</span></button>' +
                     '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\');event.stopPropagation()" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download" aria-label="Download ' + file.name + '">download</a>' +
@@ -1781,20 +1781,19 @@
                     }
                 }
 
-                // Countdown: find any with a future event_date
+                // Countdown: find any announcement with a future event_date
                 const cdAnn = active.find(a => a.event_date && new Date(a.event_date) > new Date());
                 if (cdAnn) {
-                    const titleEl  = document.getElementById('countdownTitle');
-                    const cdBanner = document.getElementById('countdownBanner');
-                    // If this countdown ann is the same as the visible announcement, show inline
-                    const sameAnn = ann && (ann.id === cdAnn.id || ann.message === cdAnn.message);
-                    if (sameAnn) {
-                        // Show countdown inside the announcement banner
+                    const bannerVisible = document.getElementById('announcementBanner').classList.contains('visible');
+                    if (bannerVisible) {
+                        // Announcement banner is showing — embed the countdown inside it
                         const acd = document.getElementById('announcementCountdown');
                         if (acd) acd.classList.add('visible');
                         _startCountdown(new Date(cdAnn.event_date), true);
                     } else {
-                        // Show standalone countdown banner
+                        // Announcement was dismissed or absent — show standalone countdown banner
+                        const titleEl  = document.getElementById('countdownTitle');
+                        const cdBanner = document.getElementById('countdownBanner');
                         if (titleEl)  titleEl.textContent = cdAnn.message || 'Upcoming Event';
                         if (cdBanner) cdBanner.classList.add('visible');
                         _startCountdown(new Date(cdAnn.event_date), false);
@@ -1941,64 +1940,39 @@
 
         // Init drag-select after DOM ready
         initDragSelect();
-        // ── Card emoji button: click (desktop) + tap (mobile) ──
+
+        // ── Card emoji button handler ──────────────────────────
+        // handleCardClick already skips clicks on buttons, so no capture-phase tricks needed.
+        // We just need a reliable open function that both onclick and touchend can call.
+        function openCardReactionPickerSafe(fidStr, btn, e) {
+            if (e) { e.stopPropagation(); e.preventDefault(); }
+            const fid = fidStr || btn.dataset.fid || '';
+            if (!fid) { showToast('This file needs to be saved to the database to receive reactions.', 'info', 2500); return; }
+            haptic('light');
+            _openCardReactionPicker(fid, btn);
+        }
+
+        // Mobile: touchend fires reliably even when click is swallowed by swipe detection
         (function() {
-            let _cardLongPressTimer = null;
-            let _cardLongPressFired = false;
-            let _cardTouchMoved = false;
-
-            // Use pointerdown in capture phase — fires before card's onclick, works on both desktop and mobile
-            document.addEventListener('pointerdown', function(e) {
-                const btn = e.target.closest('.card-react-btn');
-                if (!btn) return;
-                // Prevent card click from firing
-                e.stopPropagation();
-                _cardLongPressFired = false;
-                _cardTouchMoved = false;
-            }, true);
-
-            // Desktop: click opens picker immediately (capture phase so it beats handleCardClick)
-            document.addEventListener('click', function(e) {
-                const btn = e.target.closest('.card-react-btn');
-                if (!btn) return;
-                e.stopPropagation();
-                e.preventDefault();
-                const fid = btn.dataset.fid;
-                _openCardReactionPicker(fid, btn);
-            }, true); // capture phase so it runs before handleCardClick
-
-            // Mobile: touchstart begins long-press timer (500ms); touchend cancels or fires click
+            let _tStartX = 0, _tStartY = 0, _tMoved = false;
             document.addEventListener('touchstart', function(e) {
                 const btn = e.target.closest('.card-react-btn');
                 if (!btn) return;
-                _cardLongPressFired = false;
-                _cardTouchMoved = false;
-                _cardLongPressTimer = setTimeout(function() {
-                    _cardLongPressFired = true;
-                    haptic('medium');
-                    const fid = btn.dataset.fid;
-                    _openCardReactionPicker(fid, btn);
-                }, 500);
+                _tStartX = e.touches[0].clientX;
+                _tStartY = e.touches[0].clientY;
+                _tMoved = false;
             }, { passive: true });
-
             document.addEventListener('touchmove', function() {
-                clearTimeout(_cardLongPressTimer);
-                _cardTouchMoved = true;
+                _tMoved = true;
             }, { passive: true });
-
             document.addEventListener('touchend', function(e) {
-                clearTimeout(_cardLongPressTimer);
                 const btn = e.target.closest('.card-react-btn');
-                if (!btn) return;
-                // Short tap on mobile (no scroll movement) = open immediately
-                if (!_cardLongPressFired && !_cardTouchMoved) {
-                    e.preventDefault();
-                    haptic('light');
-                    const fid = btn.dataset.fid;
-                    _openCardReactionPicker(fid, btn);
-                }
-                _cardLongPressFired = false;
-                _cardTouchMoved = false;
+                if (!btn || _tMoved) return;
+                const dx = Math.abs(e.changedTouches[0].clientX - _tStartX);
+                const dy = Math.abs(e.changedTouches[0].clientY - _tStartY);
+                if (dx > 10 || dy > 10) return; // was a scroll, not a tap
+                e.preventDefault(); // stop the ghost click
+                openCardReactionPickerSafe(btn.dataset.fid, btn, null);
             }, { passive: false });
         })();
 
@@ -3391,8 +3365,9 @@
         document.addEventListener('click', (e) => {
             if (!_pickerOpen) return;
             const p = document.getElementById('emojiPickerPopover');
-            const btn = document.getElementById('rxPickerBtn');
-            if (p && !p.contains(e.target) && btn && !btn.contains(e.target)) {
+            const rxBtn = document.getElementById('rxPickerBtn');
+            const cardBtn = e.target.closest('.card-react-btn');
+            if (p && !p.contains(e.target) && (!rxBtn || !rxBtn.contains(e.target)) && !cardBtn) {
                 _closeEmojiPicker();
             }
         });
