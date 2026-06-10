@@ -464,7 +464,7 @@
                     <p id="announcementText" style="color:rgba(255,255,255,0.9);font-size:14px;font-weight:600;line-height:1.5;margin:0"></p>
                     <p id="announcementMeta" style="color:rgba(255,255,255,0.35);font-size:10px;margin-top:4px"></p>
                 </div>
-                <button onclick="dismissAnnouncement()" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.3);font-size:20px;line-height:1;padding:0;flex-shrink:0" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.3)'">×</button>
+
             </div>
 
             <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4 sm:mb-6 inline-block typewriter">FileVault</h2>
@@ -476,7 +476,7 @@
                     <p id="countdownTitle" style="color:rgba(255,255,255,0.9);font-size:13px;font-weight:700;margin:0 0 8px"></p>
                     <div id="countdownUnits" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"></div>
                 </div>
-                <button onclick="document.getElementById('countdownBanner').classList.remove('visible')" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.3);font-size:20px;line-height:1;padding:0;flex-shrink:0" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.3)'">×</button>
+
             </div>
 
             <!-- 51: Returning user banner -->
@@ -1158,7 +1158,7 @@
                         (file.description ? '<p class="mt-0.5 text-[11px] text-slate-400 italic truncate">' + highlightText(file.description, currentSearchTerm) + '</p>' : '') +
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
-                    '<button onclick="_openCardReactionPicker(\'' + (file.id||'') + '\',this);event.stopPropagation()" class="p-2 text-slate-400 hover:text-pink-400 transition" title="React" aria-label="React to ' + file.name + '" style="font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px">😊</button>' +
+                    '<button class="card-react-btn p-1 text-slate-400 hover:text-pink-400 transition" data-fid="' + (file.id||'') + '" title="React (hold on mobile)" aria-label="React to ' + file.name + '" style="font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:none;border:none;cursor:pointer;flex-shrink:0">😊</button>' +
                     '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview" aria-label="Preview ' + file.name + '">visibility</button>' +
                     '<button onclick="copyFileLink(\'' + safeUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link" aria-label="Copy link for ' + file.name + '"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block" aria-hidden="true">link</span></button>' +
                     '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\');event.stopPropagation()" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download" aria-label="Download ' + file.name + '">download</a>' +
@@ -1906,6 +1906,53 @@
 
         // Init drag-select after DOM ready
         initDragSelect();
+        // ── Card emoji button: click (desktop) + long-press (mobile) ──
+        (function() {
+            let _cardLongPressTimer = null;
+            let _cardLongPressFired = false;
+
+            // Desktop: click opens picker immediately
+            document.addEventListener('click', function(e) {
+                const btn = e.target.closest('.card-react-btn');
+                if (!btn) return;
+                e.stopPropagation();
+                e.preventDefault();
+                const fid = btn.dataset.fid;
+                _openCardReactionPicker(fid, btn);
+            }, true); // capture phase so it runs before handleCardClick
+
+            // Mobile: touchstart begins long-press timer (500ms); touchend cancels or fires click
+            document.addEventListener('touchstart', function(e) {
+                const btn = e.target.closest('.card-react-btn');
+                if (!btn) return;
+                _cardLongPressFired = false;
+                _cardLongPressTimer = setTimeout(function() {
+                    _cardLongPressFired = true;
+                    haptic('medium');
+                    const fid = btn.dataset.fid;
+                    _openCardReactionPicker(fid, btn);
+                }, 500);
+            }, { passive: true });
+
+            document.addEventListener('touchend', function(e) {
+                clearTimeout(_cardLongPressTimer);
+                const btn = e.target.closest('.card-react-btn');
+                if (!btn) return;
+                if (!_cardLongPressFired) {
+                    // Short tap on mobile = also open (no hold required if they just tap)
+                    e.preventDefault();
+                    const fid = btn.dataset.fid;
+                    _openCardReactionPicker(fid, btn);
+                }
+                _cardLongPressFired = false;
+            }, { passive: false });
+
+            document.addEventListener('touchmove', function() {
+                clearTimeout(_cardLongPressTimer);
+            }, { passive: true });
+        })();
+
+
 
         // ═══ 27: SWIPE GESTURES ═══════════════════════════════
         function initSwipeGestures() {
@@ -3098,51 +3145,69 @@
                 cursor:pointer;font-size:15px;transition:all .15s;flex-shrink:0" title="Add reaction">➕</button>`;
         }
 
-        // ── Card-level quick reaction picker ────────────────────
-        function _openCardReactionPicker(fileId, btnEl) {
-            // If no fileId (file not in DB) just show a toast
-            if (!fileId) { showToast('Open the file preview to react.', 'info', 2000); return; }
-            // Load reactions for this file then open the emoji picker positioned at the button
-            if (!_reactionsCache[fileId]) {
-                _reactionsCache[fileId] = {};
-                _supabase.from('file_reactions').select('emoji').eq('file_id', fileId).then(function(res) {
-                    const userKey = _getUserKey();
-                    _supabase.from('file_reactions').select('emoji').eq('file_id', fileId).eq('user_key', userKey).then(function(myRes) {
-                        const mySet = new Set((myRes.data || []).map(r => r.emoji));
-                        const counts = {};
-                        (res.data || []).forEach(r => { counts[r.emoji] = (counts[r.emoji] || 0) + 1; });
-                        _reactionsCache[fileId] = {};
-                        REACTION_EMOJIS.forEach(e => {
-                            _reactionsCache[fileId][e] = { count: counts[e] || 0, mine: mySet.has(e) };
-                        });
-                        _showCardPicker(fileId, btnEl);
-                    });
-                });
-            } else {
-                _showCardPicker(fileId, btnEl);
-            }
+        // ── Glow the card emoji button if user has reacted ──────────
+        function _updateCardReactBtnGlow(fileId) {
+            const rx = _reactionsCache[fileId] || {};
+            const hasReacted = Object.values(rx).some(r => r.mine);
+            document.querySelectorAll('.card-react-btn[data-fid="' + fileId + '"]').forEach(function(btn) {
+                btn.style.color      = hasReacted ? '#f472b6' : '';
+                btn.style.textShadow = hasReacted ? '0 0 8px rgba(244,114,182,0.6)' : '';
+                btn.title = hasReacted ? 'You reacted — click to change' : 'React (hold on mobile)';
+            });
         }
 
-        function _showCardPicker(fileId, btnEl) {
-            // Reuse the existing emoji picker popover but position it at the card button
-            _pickerFileId = fileId;
-            _pickerOpen = true;
-            const p = _getOrCreatePicker();
-            _buildPickerContent(fileId);
-            p.style.display = 'block';
-            requestAnimationFrame(() => {
-                const r = btnEl.getBoundingClientRect();
-                const pw = 288, ph = 330;
-                let left = r.left;
-                let top  = r.top - ph - 8;
-                if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
-                if (left < 8) left = 8;
-                if (top < 8) top = r.bottom + 8;
-                p.style.left = left + 'px';
-                p.style.top  = top  + 'px';
-                p.style.opacity = '1';
-                p.style.transform = 'scale(1) translateY(0)';
-            });
+        // ── Card-level quick reaction picker ────────────────────
+        function _openCardReactionPicker(fileId, btnEl) {
+            if (!fileId) { showToast('This file needs to be saved in the database to receive reactions.', 'info', 2500); return; }
+            const _doShow = function() {
+                _pickerFileId = fileId;
+                _pickerOpen = true;
+                const p = _getOrCreatePicker();
+                _buildPickerContent(fileId);
+                // Make visible before positioning so getBoundingClientRect is accurate
+                p.style.display = 'block';
+                p.style.opacity = '0';
+                p.style.transform = 'scale(0.92) translateY(6px)';
+                requestAnimationFrame(function() {
+                    requestAnimationFrame(function() {
+                        const r = btnEl.getBoundingClientRect();
+                        const pw = 288, ph = Math.min(330, window.innerHeight * 0.6);
+                        let left = r.left;
+                        let top  = r.top - ph - 8;
+                        if (top < 60) top = r.bottom + 8;
+                        if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+                        if (left < 8) left = 8;
+                        // Clamp to viewport vertically
+                        if (top + ph > window.innerHeight - 8) top = window.innerHeight - ph - 8;
+                        if (top < 8) top = 8;
+                        p.style.left = left + 'px';
+                        p.style.top  = top  + 'px';
+                        p.style.opacity = '1';
+                        p.style.transform = 'scale(1) translateY(0)';
+                        p.style.transition = 'opacity .15s, transform .15s';
+                        p.style.maxHeight = ph + 'px';
+                    });
+                });
+            };
+            if (!_reactionsCache[fileId] || Object.keys(_reactionsCache[fileId]).length === 0) {
+                _reactionsCache[fileId] = {};
+                Promise.all([
+                    _supabase.from('file_reactions').select('emoji').eq('file_id', fileId),
+                    _supabase.from('file_reactions').select('emoji').eq('file_id', fileId).eq('user_key', _getUserKey())
+                ]).then(function(results) {
+                    const allRx = (results[0].data || []);
+                    const myRx  = (results[1].data || []);
+                    const mySet = new Set(myRx.map(r => r.emoji));
+                    const counts = {};
+                    allRx.forEach(r => { counts[r.emoji] = (counts[r.emoji] || 0) + 1; });
+                    REACTION_EMOJIS.forEach(e => {
+                        _reactionsCache[fileId][e] = { count: counts[e] || 0, mine: mySet.has(e) };
+                    });
+                    _doShow();
+                }).catch(function() { _doShow(); });
+            } else {
+                _doShow();
+            }
         }
 
         function _renderReactionBarFallback(fileId) {
@@ -3283,6 +3348,8 @@
             const newMine = !r.mine;
             _reactionsCache[fileId][emoji] = { count: Math.max(0, r.count + (newMine ? 1 : -1)), mine: newMine };
             _renderReactionBar(fileId);
+            // Also update the card emoji button glow to show the user has reacted
+            _updateCardReactBtnGlow(fileId);
             try {
                 if (newMine) {
                     await _supabase.from('file_reactions').upsert(
