@@ -160,10 +160,17 @@
         /* ── Countdown timer ── */
         #countdownBanner { display:none; margin-bottom:16px; }
         #countdownBanner.visible { display:flex; align-items:center; gap:12px; padding:14px 18px; background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(239,68,68,0.10)); border:1px solid rgba(245,158,11,0.3); border-radius:16px; animation:fadeIn 0.4s ease; flex-wrap:wrap; }
-        .countdown-unit { display:flex; flex-direction:column; align-items:center; min-width:44px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:6px 10px; }
+        .countdown-unit { display:flex; flex-direction:column; align-items:center; min-width:40px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:6px 10px; }
         .countdown-num { font-size:22px; font-weight:800; color:white; line-height:1; }
         .countdown-lbl { font-size:8px; font-weight:700; color:rgba(255,255,255,0.4); letter-spacing:.1em; text-transform:uppercase; margin-top:2px; }
         .countdown-sep { color:rgba(255,255,255,0.25); font-size:20px; font-weight:700; align-self:center; }
+        /* countdown inside announcement banner */
+        #announcementCountdown { display:none; margin-top:10px; }
+        #announcementCountdown.visible { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+        @media (max-width:480px) {
+            .countdown-unit { min-width:36px; padding:5px 7px; }
+            .countdown-num { font-size:18px; }
+        }
 
         /* ── PWA install button ── */
         #pwaInstallBtn { display:none; }
@@ -463,20 +470,23 @@
                 <div style="flex:1;min-width:0">
                     <p id="announcementText" style="color:rgba(255,255,255,0.9);font-size:14px;font-weight:600;line-height:1.5;margin:0"></p>
                     <p id="announcementMeta" style="color:rgba(255,255,255,0.35);font-size:10px;margin-top:4px"></p>
+                    <!-- Inline countdown (shown when announcement has an event_date) -->
+                    <div id="announcementCountdown">
+                        <span class="material-symbols-outlined" style="color:#fbbf24;font-size:16px;flex-shrink:0;margin-right:2px">alarm</span>
+                        <div id="countdownUnitsInline" style="display:flex;gap:5px;align-items:center;flex-wrap:wrap"></div>
+                    </div>
                 </div>
-
             </div>
 
             <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4 sm:mb-6 inline-block typewriter">FileVault</h2>
 
-            <!-- ── Countdown Banner (from announcements with event_date) ── -->
+            <!-- ── Standalone Countdown Banner (no announcement text, just event_date) ── -->
             <div id="countdownBanner">
                 <span class="material-symbols-outlined shrink-0" style="color:#fbbf24;font-size:22px">alarm</span>
                 <div style="flex:1;min-width:180px">
                     <p id="countdownTitle" style="color:rgba(255,255,255,0.9);font-size:13px;font-weight:700;margin:0 0 8px"></p>
                     <div id="countdownUnits" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"></div>
                 </div>
-
             </div>
 
             <!-- 51: Returning user banner -->
@@ -1776,34 +1786,59 @@
                 if (cdAnn) {
                     const titleEl  = document.getElementById('countdownTitle');
                     const cdBanner = document.getElementById('countdownBanner');
-                    if (titleEl)  titleEl.textContent = cdAnn.message || 'Upcoming Event';
-                    if (cdBanner) cdBanner.classList.add('visible');
-                    _startCountdown(new Date(cdAnn.event_date));
+                    // If this countdown ann is the same as the visible announcement, show inline
+                    const sameAnn = ann && (ann.id === cdAnn.id || ann.message === cdAnn.message);
+                    if (sameAnn) {
+                        // Show countdown inside the announcement banner
+                        const acd = document.getElementById('announcementCountdown');
+                        if (acd) acd.classList.add('visible');
+                        _startCountdown(new Date(cdAnn.event_date), true);
+                    } else {
+                        // Show standalone countdown banner
+                        if (titleEl)  titleEl.textContent = cdAnn.message || 'Upcoming Event';
+                        if (cdBanner) cdBanner.classList.add('visible');
+                        _startCountdown(new Date(cdAnn.event_date), false);
+                    }
                 }
             } catch(e) { console.warn('loadAnnouncement error:', e); }
         }
 
         // Countdown timer engine
         let _countdownInterval = null;
-        function _startCountdown(targetDate) {
+        function _buildCountdownHTML(days, hours, mins, secs) {
+            return '<div class="countdown-unit"><span class="countdown-num">' + days + '</span><span class="countdown-lbl">Days</span></div>' +
+                '<span class="countdown-sep">:</span>' +
+                '<div class="countdown-unit"><span class="countdown-num">' + String(hours).padStart(2,'0') + '</span><span class="countdown-lbl">Hrs</span></div>' +
+                '<span class="countdown-sep">:</span>' +
+                '<div class="countdown-unit"><span class="countdown-num">' + String(mins).padStart(2,'0') + '</span><span class="countdown-lbl">Min</span></div>' +
+                '<span class="countdown-sep">:</span>' +
+                '<div class="countdown-unit"><span class="countdown-num">' + String(secs).padStart(2,'0') + '</span><span class="countdown-lbl">Sec</span></div>';
+        }
+        function _startCountdown(targetDate, inline) {
             if (_countdownInterval) clearInterval(_countdownInterval);
             function _tick() {
                 const diff = targetDate.getTime() - Date.now();
-                if (diff <= 0) { clearInterval(_countdownInterval); document.getElementById('countdownBanner').classList.remove('visible'); return; }
+                if (diff <= 0) {
+                    clearInterval(_countdownInterval);
+                    document.getElementById('countdownBanner').classList.remove('visible');
+                    const acd = document.getElementById('announcementCountdown');
+                    if (acd) acd.classList.remove('visible');
+                    return;
+                }
                 const days  = Math.floor(diff / 86400000);
                 const hours = Math.floor((diff % 86400000) / 3600000);
                 const mins  = Math.floor((diff % 3600000) / 60000);
                 const secs  = Math.floor((diff % 60000) / 1000);
-                const units = document.getElementById('countdownUnits');
-                if (!units) return;
-                units.innerHTML =
-                    '<div class="countdown-unit"><span class="countdown-num">' + days + '</span><span class="countdown-lbl">Days</span></div>' +
-                    '<span class="countdown-sep">:</span>' +
-                    '<div class="countdown-unit"><span class="countdown-num">' + String(hours).padStart(2,'0') + '</span><span class="countdown-lbl">Hrs</span></div>' +
-                    '<span class="countdown-sep">:</span>' +
-                    '<div class="countdown-unit"><span class="countdown-num">' + String(mins).padStart(2,'0') + '</span><span class="countdown-lbl">Min</span></div>' +
-                    '<span class="countdown-sep">:</span>' +
-                    '<div class="countdown-unit"><span class="countdown-num">' + String(secs).padStart(2,'0') + '</span><span class="countdown-lbl">Sec</span></div>';
+                const html  = _buildCountdownHTML(days, hours, mins, secs);
+                // Render inside announcement banner if inline=true
+                const inlineUnits = document.getElementById('countdownUnitsInline');
+                if (inline && inlineUnits) {
+                    inlineUnits.innerHTML = html;
+                } else {
+                    // Render in standalone banner
+                    const units = document.getElementById('countdownUnits');
+                    if (units) units.innerHTML = html;
+                }
             }
             _tick();
             _countdownInterval = setInterval(_tick, 1000);
@@ -1906,12 +1941,23 @@
 
         // Init drag-select after DOM ready
         initDragSelect();
-        // ── Card emoji button: click (desktop) + long-press (mobile) ──
+        // ── Card emoji button: click (desktop) + tap (mobile) ──
         (function() {
             let _cardLongPressTimer = null;
             let _cardLongPressFired = false;
+            let _cardTouchMoved = false;
 
-            // Desktop: click opens picker immediately
+            // Use pointerdown in capture phase — fires before card's onclick, works on both desktop and mobile
+            document.addEventListener('pointerdown', function(e) {
+                const btn = e.target.closest('.card-react-btn');
+                if (!btn) return;
+                // Prevent card click from firing
+                e.stopPropagation();
+                _cardLongPressFired = false;
+                _cardTouchMoved = false;
+            }, true);
+
+            // Desktop: click opens picker immediately (capture phase so it beats handleCardClick)
             document.addEventListener('click', function(e) {
                 const btn = e.target.closest('.card-react-btn');
                 if (!btn) return;
@@ -1926,6 +1972,7 @@
                 const btn = e.target.closest('.card-react-btn');
                 if (!btn) return;
                 _cardLongPressFired = false;
+                _cardTouchMoved = false;
                 _cardLongPressTimer = setTimeout(function() {
                     _cardLongPressFired = true;
                     haptic('medium');
@@ -1934,22 +1981,25 @@
                 }, 500);
             }, { passive: true });
 
+            document.addEventListener('touchmove', function() {
+                clearTimeout(_cardLongPressTimer);
+                _cardTouchMoved = true;
+            }, { passive: true });
+
             document.addEventListener('touchend', function(e) {
                 clearTimeout(_cardLongPressTimer);
                 const btn = e.target.closest('.card-react-btn');
                 if (!btn) return;
-                if (!_cardLongPressFired) {
-                    // Short tap on mobile = also open (no hold required if they just tap)
+                // Short tap on mobile (no scroll movement) = open immediately
+                if (!_cardLongPressFired && !_cardTouchMoved) {
                     e.preventDefault();
+                    haptic('light');
                     const fid = btn.dataset.fid;
                     _openCardReactionPicker(fid, btn);
                 }
                 _cardLongPressFired = false;
+                _cardTouchMoved = false;
             }, { passive: false });
-
-            document.addEventListener('touchmove', function() {
-                clearTimeout(_cardLongPressTimer);
-            }, { passive: true });
         })();
 
 
@@ -3171,21 +3221,28 @@
                 requestAnimationFrame(function() {
                     requestAnimationFrame(function() {
                         const r = btnEl.getBoundingClientRect();
-                        const pw = 288, ph = Math.min(330, window.innerHeight * 0.6);
-                        let left = r.left;
-                        let top  = r.top - ph - 8;
-                        if (top < 60) top = r.bottom + 8;
-                        if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
-                        if (left < 8) left = 8;
-                        // Clamp to viewport vertically
+                        const pw = 288;
+                        const ph = Math.min(330, window.innerHeight * 0.65);
+                        p.style.maxHeight = ph + 'px';
+
+                        // Prefer above the button; fall back to below if not enough room
+                        let top = r.top - ph - 10;
+                        if (top < 8) top = r.bottom + 8;
+                        // Still off-screen? Clamp to top
                         if (top + ph > window.innerHeight - 8) top = window.innerHeight - ph - 8;
                         if (top < 8) top = 8;
+
+                        // Horizontal: align to button left, clamped to viewport
+                        let left = r.left;
+                        if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+                        if (left < 8) left = 8;
+
                         p.style.left = left + 'px';
                         p.style.top  = top  + 'px';
+                        p.style.width = pw + 'px';
                         p.style.opacity = '1';
                         p.style.transform = 'scale(1) translateY(0)';
                         p.style.transition = 'opacity .15s, transform .15s';
-                        p.style.maxHeight = ph + 'px';
                     });
                 });
             };
