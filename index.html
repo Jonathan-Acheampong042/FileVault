@@ -1175,7 +1175,8 @@
                 const hoverAttrs = (file.description && !isListView())
                     ? 'onmouseenter="showTip('+_ri+',this)" onmouseleave="hideTip('+_ri+')"' : '';
                 const staggerStyle = 'animation-delay:' + Math.min(_ci * 40, 400) + 'ms';
-                return '<div class="file-card file-card-animate glass-card p-4 rounded-2xl flex items-center gap-3 group" data-idx="'+_ri+'" style="' + staggerStyle + '" ' + hoverAttrs + ' onclick="handleCardClick(event,'+_ri+')">' +
+                const viewBadge = file.id ? '<span class="view-count-badge" style="display:none;align-items:center;gap:2px;font-size:9px;background:rgba(139,92,246,0.1);color:#a78bfa;border:1px solid rgba(139,92,246,0.2);border-radius:99px;padding:1px 6px;font-weight:700"></span>' : '';
+                return '<div class="file-card file-card-animate glass-card p-4 rounded-2xl flex items-center gap-3 group" data-idx="'+_ri+'"' + (file.id ? ' data-file-id="'+file.id+'"' : '') + ' style="' + staggerStyle + '" ' + hoverAttrs + ' onclick="handleCardClick(event,'+_ri+')">' +
                     descTooltip +
                     '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="toggleSelect(\'' + safeUrl + '\',\'' + safeName + '\',this,' + (file.file_size||0) + ')" class="w-4 h-4 rounded text-primary cursor-pointer shrink-0">' +
                     '<div class="' + getFileColor(file.name) + ' w-10 h-10 rounded-xl flex items-center justify-center border shrink-0"><span class="material-symbols-outlined text-xl">' + getFileIcon(file.name) + '</span></div>' +
@@ -1186,6 +1187,7 @@
                             (sizeLabel ? '<span>·</span><span class="text-slate-400 font-medium">' + sizeLabel + '</span>' : '') +
                             '<span>·</span><span title="' + formatDate(file.date) + '">' + timeAgo(file.date) + '</span>' +
                             expText +
+                            viewBadge +
                         '</div>' +
                         (file.description ? '<p class="mt-0.5 text-[11px] text-slate-400 italic truncate">' + highlightText(file.description, currentSearchTerm) + '</p>' : '') +
                     '</div>' +
@@ -1200,7 +1202,10 @@
             clearKbFocus();
             // Load ratings for visible files (non-blocking)
             const visibleIds = files.filter(f => f.id && !(f.expires_at && new Date(f.expires_at) <= now)).map(f => f.id);
-            if (visibleIds.length) setTimeout(() => loadRatings(visibleIds), 200);
+            if (visibleIds.length) {
+                setTimeout(() => loadRatings(visibleIds), 200);
+                setTimeout(() => loadCardViewCounts(visibleIds.map(String)), 600);
+            }
         }
         
         function toggleSelect(url, name, checkbox, size) {
@@ -2924,9 +2929,23 @@
             _origOpenPreviewComments(url, name, folder, size);
             const file = allFiles.find(f => f.url === url);
             _commentsFileId = file ? String(file.id || '') : '';
+            // Keep commentsSection closed by default; just load badge count
             const section = document.getElementById('commentsSection');
-            if (section) section.style.display = 'block';
-            if (_commentsFileId) loadComments(_commentsFileId);
+            if (section) section.style.display = 'none';
+            // Reset comment toggle button
+            const toggleBtn = document.getElementById('previewCommentToggleBtn');
+            if (toggleBtn) {
+                toggleBtn.style.background = 'rgba(59,130,246,0.12)';
+                toggleBtn.style.color = '#93c5fd';
+                toggleBtn.style.borderColor = 'rgba(59,130,246,0.3)';
+            }
+            const lbl = document.getElementById('previewCommentBtnLabel');
+            if (lbl) lbl.textContent = 'Comments';
+            if (_commentsFileId) loadCommentCount(_commentsFileId);
+            // Load view count
+            if (file && file.id) loadViewCount(file.id);
+            // Load emoji reactions
+            if (file && file.id) loadReactions(String(file.id));
         };
 
         // ══ PRELOAD ADJACENT FILES IN PREVIEW ══════════════════
@@ -3245,6 +3264,202 @@
         // Render on page load from localStorage
         renderRecentViewed();
 
+        // ══ COMMENT PANEL TOGGLE ══════════════════════════════
+        let _commentPanelOpen = false;
+        function toggleCommentPanel() {
+            _commentPanelOpen = !_commentPanelOpen;
+            const section = document.getElementById('commentsSection');
+            const btn = document.getElementById('previewCommentToggleBtn');
+            const lbl = document.getElementById('previewCommentBtnLabel');
+            if (section) section.style.display = _commentPanelOpen ? 'block' : 'none';
+            if (btn) {
+                btn.style.background = _commentPanelOpen ? 'rgba(59,130,246,0.25)' : 'rgba(59,130,246,0.12)';
+                btn.style.borderColor = _commentPanelOpen ? 'rgba(59,130,246,0.5)' : 'rgba(59,130,246,0.3)';
+            }
+            if (lbl) lbl.textContent = _commentPanelOpen ? 'Hide' : 'Comments';
+            if (_commentPanelOpen && _commentsFileId) loadComments(_commentsFileId);
+        }
+
+        // Also reset panel state when preview closes
+        const _origClosePrevCmt = closePreview;
+        closePreview = function() {
+            _origClosePrevCmt();
+            _commentPanelOpen = false;
+        };
+
+        // Load just the comment count (for button badge, without opening panel)
+        async function loadCommentCount(fileId) {
+            if (!fileId) return;
+            try {
+                const { count } = await _supabase
+                    .from('file_comments')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('file_id', fileId);
+                const n = count || 0;
+                const countEl = document.getElementById('commentsCount');
+                if (countEl) countEl.textContent = n > 0 ? n : '';
+                const badge = document.getElementById('previewCommentBtnCount');
+                if (badge) badge.textContent = n > 0 ? n : '';
+            } catch(e) {}
+        }
+
+        // Also update badge when comments load
+        const _origLoadComments = loadComments;
+        loadComments = async function(fileId) {
+            await _origLoadComments(fileId);
+            // Sync badge from count element
+            const countEl = document.getElementById('commentsCount');
+            const badge = document.getElementById('previewCommentBtnCount');
+            if (countEl && badge) badge.textContent = countEl.textContent;
+        };
+
+        // ══ VIEW COUNT (file opens, not just downloads) ══════════
+        // Uses Supabase RPC increment_view_count or direct upsert on file_views table
+        // Table: file_views (file_id TEXT, user_key TEXT, last_viewed TIMESTAMPTZ, view_count INT)
+        async function trackView(fileId) {
+            if (!fileId) return;
+            try {
+                const userKey = _getUserKey();
+                // Upsert: one row per (file_id, user_key), count distinct user views
+                await _supabase.from('file_views').upsert(
+                    { file_id: String(fileId), user_key: userKey, last_viewed: new Date().toISOString() },
+                    { onConflict: 'file_id,user_key', ignoreDuplicates: false }
+                );
+            } catch(e) {}
+        }
+
+        async function loadViewCount(fileId) {
+            if (!fileId) return;
+            try {
+                const { count } = await _supabase
+                    .from('file_views')
+                    .select('user_key', { count: 'exact', head: true })
+                    .eq('file_id', String(fileId));
+                const n = count || 0;
+                const el = document.getElementById('previewViewCount');
+                const num = document.getElementById('previewViewCountNum');
+                if (el && n > 0) { el.style.display = 'inline-flex'; if (num) num.textContent = n; }
+                else if (el) el.style.display = 'none';
+            } catch(e) {}
+        }
+
+        // Patch openPreview to track views
+        const _origOpenPreviewViews = openPreview;
+        openPreview = function(url, name, folder, size) {
+            _origOpenPreviewViews(url, name, folder, size);
+            const file = allFiles.find(f => f.url === url);
+            if (file && file.id) trackView(file.id);
+        };
+
+        // Also show view count on file cards (in download_count badge slot)
+        // We piggyback: after renderFileList loads ratings, also load view counts
+        async function loadCardViewCounts(fileIds) {
+            if (!fileIds || !fileIds.length) return;
+            try {
+                const { data } = await _supabase
+                    .from('file_views')
+                    .select('file_id')
+                    .in('file_id', fileIds);
+                if (!data) return;
+                const counts = {};
+                data.forEach(r => { counts[r.file_id] = (counts[r.file_id] || 0) + 1; });
+                // Inject into cards
+                document.querySelectorAll('[data-file-id]').forEach(card => {
+                    const id = card.dataset.fileId;
+                    if (!id || !counts[id]) return;
+                    const vc = card.querySelector('.view-count-badge');
+                    if (vc) {
+                        vc.style.display = 'inline-flex';
+                        vc.innerHTML = '<span class="material-symbols-outlined" style="font-size:10px">visibility</span>' + counts[id];
+                        vc.title = counts[id] + ' student' + (counts[id] !== 1 ? 's' : '') + ' opened this';
+                    }
+                });
+            } catch(e) {}
+        }
+
+        // ══ EMOJI REACTIONS ════════════════════════════════════
+        // Table: file_reactions (file_id TEXT, user_key TEXT, emoji TEXT)
+        // Unique constraint: (file_id, user_key, emoji)
+        const REACTION_EMOJIS = ['👍','❤️','🔥','😮','🤔','💡','📚','✅'];
+        const _reactionsCache = {}; // fileId -> { emoji -> { count, mine } }
+
+        async function loadReactions(fileId) {
+            if (!fileId) return;
+            const bar = document.getElementById('previewReactionBar');
+            if (!bar) return;
+            bar.innerHTML = '<span style="font-size:11px;color:#475569">…</span>';
+            try {
+                const userKey = _getUserKey();
+                const [{ data: allRx }, { data: myRx }] = await Promise.all([
+                    _supabase.from('file_reactions').select('emoji').eq('file_id', fileId),
+                    _supabase.from('file_reactions').select('emoji').eq('file_id', fileId).eq('user_key', userKey)
+                ]);
+                const mySet = new Set((myRx || []).map(r => r.emoji));
+                const counts = {};
+                (allRx || []).forEach(r => { counts[r.emoji] = (counts[r.emoji] || 0) + 1; });
+                _reactionsCache[fileId] = {};
+                REACTION_EMOJIS.forEach(e => {
+                    _reactionsCache[fileId][e] = { count: counts[e] || 0, mine: mySet.has(e) };
+                });
+                _renderReactionBar(fileId);
+            } catch(e) {
+                bar.innerHTML = '';
+                _renderReactionBarFallback(fileId);
+            }
+        }
+
+        function _renderReactionBar(fileId) {
+            const bar = document.getElementById('previewReactionBar');
+            if (!bar) return;
+            const rx = _reactionsCache[fileId] || {};
+            bar.innerHTML = REACTION_EMOJIS.map(emoji => {
+                const r = rx[emoji] || { count: 0, mine: false };
+                const active = r.mine;
+                return '<button onclick="toggleReaction(\'' + fileId + '\',\'' + emoji + '\')" ' +
+                    'style="display:inline-flex;align-items:center;gap:3px;padding:5px 9px;border-radius:99px;border:1px solid ' +
+                    (active ? 'rgba(59,130,246,0.5)' : 'rgba(255,255,255,0.08)') +
+                    ';background:' + (active ? 'rgba(59,130,246,0.18)' : 'rgba(255,255,255,0.04)') +
+                    ';cursor:pointer;font-size:13px;transition:all .15s" title="' + emoji + (r.count > 0 ? ' · ' + r.count : '') + '">' +
+                    emoji + (r.count > 0 ? '<span style="font-size:10px;font-weight:700;color:' + (active ? '#93c5fd' : '#64748b') + '">' + r.count + '</span>' : '') +
+                    '</button>';
+            }).join('');
+        }
+
+        function _renderReactionBarFallback(fileId) {
+            const bar = document.getElementById('previewReactionBar');
+            if (!bar) return;
+            bar.innerHTML = REACTION_EMOJIS.map(emoji =>
+                '<button onclick="toggleReaction(\'' + fileId + '\',\'' + emoji + '\')" ' +
+                'style="padding:5px 9px;border-radius:99px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);cursor:pointer;font-size:13px">' +
+                emoji + '</button>'
+            ).join('');
+        }
+
+        async function toggleReaction(fileId, emoji) {
+            if (!fileId) return;
+            const userKey = _getUserKey();
+            if (!_reactionsCache[fileId]) _reactionsCache[fileId] = {};
+            const r = _reactionsCache[fileId][emoji] || { count: 0, mine: false };
+            const newMine = !r.mine;
+            _reactionsCache[fileId][emoji] = { count: Math.max(0, r.count + (newMine ? 1 : -1)), mine: newMine };
+            _renderReactionBar(fileId);
+            try {
+                if (newMine) {
+                    await _supabase.from('file_reactions').upsert(
+                        { file_id: fileId, user_key: userKey, emoji },
+                        { onConflict: 'file_id,user_key,emoji' }
+                    );
+                } else {
+                    await _supabase.from('file_reactions').delete()
+                        .eq('file_id', fileId).eq('user_key', userKey).eq('emoji', emoji);
+                }
+            } catch(e) {
+                // rollback
+                _reactionsCache[fileId][emoji] = r;
+                _renderReactionBar(fileId);
+            }
+        }
+
     </script>
     <div id="settingsPanel" role="dialog" aria-label="Display settings" aria-modal="true">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -3361,15 +3576,6 @@
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-                    <button id="previewPinBtn" onclick="togglePreviewPin()" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Pin this file">
-                        📌 Pin
-                    </button>
-                    <button id="previewBookmarkBtn" onclick="togglePreviewBookmark()" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Bookmark this file">
-                        🔖 Save
-                    </button>
-                    <button id="previewReadlistBtn" onclick="togglePreviewReadlist()" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Add to Reading List">
-                        📋 Later
-                    </button>
                     <a id="previewDownload" href="#" download style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(59,130,246,0.2);color:#93c5fd;border-radius:12px;font-size:12px;font-weight:700;text-decoration:none">
                         <span class="material-symbols-outlined" style="font-size:16px">download</span>Download
                     </a>
@@ -3382,6 +3588,30 @@
                 <button class="preview-nav left" onclick="slideshowNav(-1)" title="Previous file"><span class="material-symbols-outlined" style="font-size:20px">chevron_left</span></button>
                 <button class="preview-nav right" onclick="slideshowNav(1)" title="Next file"><span class="material-symbols-outlined" style="font-size:20px">chevron_right</span></button>
                 <div style="color:#64748b;font-size:14px">Loading preview…</div>
+            </div>
+            <!-- ── Action Bar: Pin / Save / Later / View count / Reactions / Comments ── -->
+            <div id="previewActionBar" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 18px;border-top:1px solid rgba(255,255,255,0.07);background:rgba(0,0,0,0.15)">
+                <!-- Pin -->
+                <button id="previewPinBtn" onclick="togglePreviewPin()" style="display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Pin this file">📌 Pin</button>
+                <!-- Save/Bookmark -->
+                <button id="previewBookmarkBtn" onclick="togglePreviewBookmark()" style="display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Bookmark this file">🔖 Save</button>
+                <!-- Read Later -->
+                <button id="previewReadlistBtn" onclick="togglePreviewReadlist()" style="display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Add to Reading List">📋 Later</button>
+                <!-- View Count -->
+                <span id="previewViewCount" style="display:none;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#64748b;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:99px;padding:5px 11px">
+                    <span class="material-symbols-outlined" style="font-size:13px">visibility</span>
+                    <span id="previewViewCountNum">0</span> views
+                </span>
+                <!-- Spacer -->
+                <div style="flex:1"></div>
+                <!-- Emoji Reactions -->
+                <div id="previewReactionBar" style="display:flex;align-items:center;gap:4px"></div>
+                <!-- Comment toggle button -->
+                <button id="previewCommentToggleBtn" onclick="toggleCommentPanel()" style="display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border:1px solid rgba(59,130,246,0.3);border-radius:12px;background:rgba(59,130,246,0.12);color:#93c5fd;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Show/hide comments">
+                    <span class="material-symbols-outlined" style="font-size:15px">chat_bubble</span>
+                    <span id="previewCommentBtnLabel">Comments</span>
+                    <span id="previewCommentBtnCount" style="font-size:10px;font-weight:800;background:rgba(59,130,246,0.25);border-radius:99px;padding:1px 6px"></span>
+                </button>
             </div>
             <!-- 39: Related files in same folder -->
             <div id="relatedFilesStrip" class="hidden">
@@ -3396,10 +3626,10 @@
                 <button class="zoom-btn" onclick="previewZoomReset()" title="Reset zoom" aria-label="Reset zoom" style="margin-left:4px"><span class="material-symbols-outlined" style="font-size:16px;display:block">fit_page</span></button>
             </div>
             <!-- Comments panel -->
-            <div id="commentsSection" style="display:none;border-top:1px solid rgba(255,255,255,0.07);padding:14px 18px 10px">
+            <div id="commentsSection" style="display:none;border-top:1px solid rgba(59,130,246,0.18);padding:14px 18px 10px;background:rgba(59,130,246,0.04)">
                 <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px">
-                    <span class="material-symbols-outlined" style="font-size:16px;color:#94a3b8">chat_bubble</span>
-                    <span style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em">Notes &amp; Comments</span>
+                    <span class="material-symbols-outlined" style="font-size:16px;color:#93c5fd">chat_bubble</span>
+                    <span style="font-size:12px;font-weight:700;color:#93c5fd;text-transform:uppercase;letter-spacing:.07em">Notes &amp; Comments</span>
                     <span id="commentsCount" style="font-size:10px;font-weight:800;color:#64748b;background:rgba(255,255,255,0.06);border-radius:99px;padding:1px 7px"></span>
                 </div>
                 <div id="commentsList" style="display:flex;flex-direction:column;gap:7px;max-height:180px;overflow-y:auto;margin-bottom:10px;padding-right:2px"></div>
