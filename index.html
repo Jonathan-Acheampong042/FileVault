@@ -378,6 +378,49 @@
         #noteModal { display:none;position:fixed;inset:0;z-index:10000000;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px; }
         #noteModal.open { display:flex; }
         #noteBox { background:rgba(15,23,42,.98);border:1px solid rgba(255,255,255,.12);border-radius:20px;width:100%;max-width:380px;padding:24px;box-shadow:0 32px 80px rgba(0,0,0,.6); }
+
+        /* ── Bookmark button ── */
+        .bookmark-btn { background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#475569;transition:color .2s,background .2s;font-size:0;line-height:0; }
+        .bookmark-btn:hover { color:#ec4899;background:rgba(236,72,153,.1); }
+        .bookmark-btn.bookmarked { color:#ec4899; }
+
+        /* ── Reading-list button ── */
+        .readlist-btn { background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#475569;transition:color .2s,background .2s;font-size:0;line-height:0; }
+        .readlist-btn:hover { color:#06b6d4;background:rgba(6,182,212,.1); }
+        .readlist-btn.in-readlist { color:#06b6d4; }
+
+        /* ── Preview Zoom controls ── */
+        #previewZoomBar { display:none;align-items:center;gap:6px;padding:6px 14px;border-top:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.15);flex-shrink:0; }
+        #previewZoomBar.visible { display:flex; }
+        .zoom-btn { display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#94a3b8;cursor:pointer;font-size:0;line-height:0;transition:all .18s; }
+        .zoom-btn:hover { background:rgba(59,130,246,0.18);border-color:rgba(59,130,246,0.35);color:#93c5fd; }
+        #zoomLevelLabel { font-size:11px;font-weight:700;color:#64748b;min-width:36px;text-align:center; }
+
+        /* ── Recently Viewed sidebar section ── */
+        #recentViewedSection { margin-bottom:14px; }
+        .rv-chip { display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);font-size:11px;color:#94a3b8;cursor:pointer;transition:all .18s;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+        .rv-chip:hover { background:rgba(59,130,246,0.12);border-color:rgba(59,130,246,0.28);color:#93c5fd; }
+
+        /* ── Folder accent / theming ── */
+        body[data-folder-accent] { --accent: var(--folder-accent,#3b82f6) !important; }
+
+        /* ── "Suggested for you" strip (viewed-based) ── */
+        #suggestedSection { margin-bottom:20px; }
+        .sugg-file-chip { display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:9px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .18s;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis; }
+        .sugg-file-chip:hover { background:rgba(139,92,246,0.14);border-color:rgba(139,92,246,0.3);color:#c084fc; }
+
+        /* ── Bookmarks & Reading List modal ── */
+        #savedModal { display:none;position:fixed;inset:0;z-index:9999000;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px; }
+        #savedModal.open { display:flex; }
+        #savedBox { background:rgba(15,23,42,.98);border:1px solid rgba(255,255,255,.1);border-radius:20px;width:100%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 32px 80px rgba(0,0,0,.6);overflow:hidden; }
+        #savedBox .saved-tab { flex:1;padding:9px 14px;border:none;border-bottom:2px solid transparent;background:none;color:#64748b;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;letter-spacing:.04em; }
+        #savedBox .saved-tab.active { color:var(--accent);border-bottom-color:var(--accent); }
+        .saved-item { display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;transition:background .15s; }
+        .saved-item:hover { background:rgba(59,130,246,0.07); }
+        .saved-item-name { flex:1;min-width:0;font-size:13px;font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+        .saved-item-meta { font-size:10px;color:#64748b; }
+        .saved-item-remove { background:none;border:none;cursor:pointer;color:#475569;padding:4px;border-radius:6px;line-height:0;font-size:0;flex-shrink:0;transition:color .15s; }
+        .saved-item-remove:hover { color:#ef4444; }
     </style>
 </head>
 <body class="overflow-x-hidden">
@@ -433,6 +476,9 @@
             </button>
             <!-- Header icon buttons wrapped for mobile hide/show -->
             <div id="headerIcons">
+            <button onclick="openSavedModal()" title="Bookmarks &amp; Reading List" aria-label="Bookmarks and reading list" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
+                <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">bookmarks</span>
+            </button>
             <button id="pushBellBtn" onclick="togglePushSubscription()" title="Enable push notifications" aria-label="Enable push notifications" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
                 <span id="pushBellIcon" class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">notifications</span>
             </button>
@@ -475,6 +521,28 @@
                     <h3 class="text-sm font-bold text-white uppercase tracking-wide">Downloaded This Session</h3>
                 </div>
                 <div id="recentDLList" class="flex gap-2 flex-wrap"></div>
+            </section>
+
+            <!-- Recently Viewed (persisted) -->
+            <section id="recentViewedSection" class="glass-card p-4 rounded-2xl" style="display:none;margin-bottom:20px">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-violet-400" style="font-size:20px">history</span>
+                        <h3 class="text-sm font-bold text-white uppercase tracking-wide">Recently Viewed</h3>
+                    </div>
+                    <button onclick="clearRecentViewed()" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.2);font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;font-family:inherit;transition:color .15s" onmouseover="this.style.color='rgba(255,255,255,0.5)'" onmouseout="this.style.color='rgba(255,255,255,0.2)'">Clear</button>
+                </div>
+                <div id="recentViewedList" class="flex gap-2 flex-wrap"></div>
+            </section>
+
+            <!-- Suggested for you -->
+            <section id="suggestedSection" class="glass-card p-4 rounded-2xl" style="display:none;margin-bottom:20px">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="material-symbols-outlined text-purple-400" style="font-size:20px">auto_awesome</span>
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wide">Suggested for You</h3>
+                    <span style="font-size:9px;color:#64748b;font-weight:600">Based on what you've viewed</span>
+                </div>
+                <div id="suggestedList" class="flex gap-2 flex-wrap"></div>
             </section>
 
             <!-- Folders Section — always visible, hidden only when truly empty -->
@@ -2885,9 +2953,299 @@
             if (next) _preloadFile(next.url, next.name);
         };
 
+
+        // ══════════════════════════════════════════════════════
+        // ── FEATURE A: BOOKMARKS ──────────────────────────────
+        const BM_KEY = 'fvBookmarks';
+        function getBookmarks() { try { return JSON.parse(localStorage.getItem(BM_KEY) || '[]'); } catch { return []; } }
+        function saveBookmarks(b) { localStorage.setItem(BM_KEY, JSON.stringify(b)); }
+        function isBookmarked(url) { return getBookmarks().some(b => b.url === url); }
+        function toggleBookmark(url, name, folder) {
+            let bm = getBookmarks();
+            const was = bm.some(b => b.url === url);
+            bm = was ? bm.filter(b => b.url !== url) : [{ url, name, folder, savedAt: Date.now() }, ...bm];
+            saveBookmarks(bm);
+            showToast(was ? 'Bookmark removed' : '🔖 Bookmarked — find it under Saved Files', was ? 'info' : 'success', 2200);
+            renderFileList(getFilteredFiles());
+            _updatePreviewBookmarkBtn(url);
+        }
+
+        var _previewBMUrl = '', _previewBMName = '', _previewBMFolder = '';
+        function _updatePreviewBookmarkBtn(url) {
+            const btn = document.getElementById('previewBookmarkBtn');
+            if (!btn) return;
+            const on = isBookmarked(url);
+            btn.innerHTML = on ? '🔖 Saved' : '🔖 Save';
+            btn.style.color = on ? '#ec4899' : '#94a3b8';
+            btn.style.background = on ? 'rgba(236,72,153,0.1)' : 'rgba(255,255,255,0.05)';
+            btn.style.borderColor = on ? 'rgba(236,72,153,0.3)' : 'rgba(255,255,255,0.1)';
+        }
+        function togglePreviewBookmark() {
+            if (!_previewBMUrl) return;
+            toggleBookmark(_previewBMUrl, _previewBMName, _previewBMFolder);
+        }
+
+        // ── FEATURE B: READING LIST ───────────────────────────
+        const RL_KEY = 'fvReadingList';
+        function getReadlist() { try { return JSON.parse(localStorage.getItem(RL_KEY) || '[]'); } catch { return []; } }
+        function saveReadlist(r) { localStorage.setItem(RL_KEY, JSON.stringify(r)); }
+        function inReadlist(url) { return getReadlist().some(r => r.url === url); }
+        function toggleReadlist(url, name, folder) {
+            let rl = getReadlist();
+            const was = rl.some(r => r.url === url);
+            rl = was ? rl.filter(r => r.url !== url) : [{ url, name, folder, addedAt: Date.now() }, ...rl];
+            saveReadlist(rl);
+            showToast(was ? 'Removed from Reading List' : '📋 Added to Reading List', was ? 'info' : 'success', 2000);
+            _updatePreviewReadlistBtn(url);
+        }
+        function _updatePreviewReadlistBtn(url) {
+            const btn = document.getElementById('previewReadlistBtn');
+            if (!btn) return;
+            const on = inReadlist(url);
+            btn.innerHTML = on ? '📋 In List' : '📋 Later';
+            btn.style.color = on ? '#06b6d4' : '#94a3b8';
+            btn.style.background = on ? 'rgba(6,182,212,0.1)' : 'rgba(255,255,255,0.05)';
+            btn.style.borderColor = on ? 'rgba(6,182,212,0.3)' : 'rgba(255,255,255,0.1)';
+        }
+        function togglePreviewReadlist() {
+            if (!_previewBMUrl) return;
+            toggleReadlist(_previewBMUrl, _previewBMName, _previewBMFolder);
+        }
+
+        // ── SAVED FILES MODAL ─────────────────────────────────
+        let _savedTab = 'bookmarks';
+        function openSavedModal() {
+            document.getElementById('savedModal').classList.add('open');
+            renderSavedList();
+        }
+        function closeSavedModal() { document.getElementById('savedModal').classList.remove('open'); }
+        function switchSavedTab(tab) {
+            _savedTab = tab;
+            document.getElementById('tabBookmarks').classList.toggle('active', tab === 'bookmarks');
+            document.getElementById('tabReadlist').classList.toggle('active', tab === 'readlist');
+            renderSavedList();
+        }
+        function renderSavedList() {
+            const items = _savedTab === 'bookmarks' ? getBookmarks() : getReadlist();
+            const container = document.getElementById('savedListContainer');
+            if (!items.length) {
+                const msg = _savedTab === 'bookmarks'
+                    ? 'No bookmarks yet. Use the 🔖 Save button in a file preview.'
+                    : 'Your reading list is empty. Use 📋 Later in a file preview.';
+                container.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#64748b;font-size:13px">' + msg + '</div>';
+                return;
+            }
+            container.innerHTML = items.map(function(item) {
+                const safeUrl = (item.url||'').replace(/'/g,"\\'");
+                const safeName = (item.name||'').replace(/'/g,"\\'");
+                const safeFolder = (item.folder||'').replace(/'/g,"\\'");
+                return '<div class="saved-item" onclick="closeSavedModal();setTimeout(function(){openPreview(\''+safeUrl+'\',\''+safeName+'\',\''+safeFolder+'\')},80)">' +
+                    '<span class="material-symbols-outlined" style="font-size:18px;flex-shrink:0;color:#64748b">' + getFileIcon(item.name||'') + '</span>' +
+                    '<div style="flex:1;min-width:0">' +
+                        '<div class="saved-item-name">' + (item.name||'Unnamed') + '</div>' +
+                        '<div class="saved-item-meta">' + (item.folder||'Root') + '</div>' +
+                    '</div>' +
+                    '<button class="saved-item-remove" onclick="event.stopPropagation();removeSavedItem(\''+safeUrl+'\')" title="Remove" aria-label="Remove"><span class="material-symbols-outlined" style="font-size:16px;display:block">delete</span></button>' +
+                '</div>';
+            }).join('');
+        }
+        function removeSavedItem(url) {
+            if (_savedTab === 'bookmarks') saveBookmarks(getBookmarks().filter(b => b.url !== url));
+            else saveReadlist(getReadlist().filter(r => r.url !== url));
+            renderSavedList();
+        }
+
+        // ── FEATURE C: RECENTLY VIEWED HISTORY ───────────────
+        const RV_KEY = 'fvRecentViewed';
+        const RV_MAX = 12;
+        function getRecentViewed() { try { return JSON.parse(localStorage.getItem(RV_KEY) || '[]'); } catch { return []; } }
+        function addRecentViewed(url, name, folder) {
+            let rv = getRecentViewed().filter(x => x.url !== url);
+            rv.unshift({ url, name, folder, viewedAt: Date.now() });
+            if (rv.length > RV_MAX) rv = rv.slice(0, RV_MAX);
+            localStorage.setItem(RV_KEY, JSON.stringify(rv));
+            renderRecentViewed();
+            renderSuggested();
+        }
+        function clearRecentViewed() {
+            localStorage.removeItem(RV_KEY);
+            renderRecentViewed();
+            renderSuggested();
+        }
+        function renderRecentViewed() {
+            const sec = document.getElementById('recentViewedSection');
+            const list = document.getElementById('recentViewedList');
+            if (!sec || !list) return;
+            const rv = getRecentViewed();
+            if (!rv.length) { sec.style.display = 'none'; return; }
+            sec.style.display = '';
+            list.innerHTML = rv.slice(0,8).map(function(item) {
+                const safeUrl = (item.url||'').replace(/'/g,"\\'");
+                const safeName = (item.name||'').replace(/'/g,"\\'");
+                const safeFolder = (item.folder||'').replace(/'/g,"\\'");
+                return '<button class="rv-chip" onclick="openPreview(\''+safeUrl+'\',\''+safeName+'\',\''+safeFolder+'\');event.preventDefault()" title="'+item.name+'">' +
+                    '<span class="material-symbols-outlined" style="font-size:13px;flex-shrink:0">' + getFileIcon(item.name||'') + '</span>' +
+                    '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (item.name||'') + '</span>' +
+                '</button>';
+            }).join('');
+        }
+
+        // ── FEATURE D: SUGGESTED FOR YOU ─────────────────────
+        function renderSuggested() {
+            const sec = document.getElementById('suggestedSection');
+            const list = document.getElementById('suggestedList');
+            if (!sec || !list || !allFiles.length) return;
+            const rv = getRecentViewed();
+            if (!rv.length) { sec.style.display = 'none'; return; }
+            const viewedUrls = new Set(rv.map(x => x.url));
+            const scoredMap = {};
+            rv.slice(0, 5).forEach(function(viewed) {
+                const ext = (viewed.name||'').split('.').pop().toLowerCase();
+                allFiles.forEach(function(f) {
+                    if (viewedUrls.has(f.url)) return;
+                    if (f.expires_at && new Date(f.expires_at) <= new Date()) return;
+                    const fext = (f.name||'').split('.').pop().toLowerCase();
+                    let score = 0;
+                    if (f.folder && f.folder === viewed.folder) score += 2;
+                    if (fext === ext) score += 1;
+                    if (score > 0) {
+                        if (!scoredMap[f.url]) scoredMap[f.url] = { file: f, score: 0 };
+                        scoredMap[f.url].score += score;
+                    }
+                });
+            });
+            const suggestions = Object.values(scoredMap).sort((a,b) => b.score - a.score).slice(0, 8);
+            if (!suggestions.length) { sec.style.display = 'none'; return; }
+            sec.style.display = '';
+            list.innerHTML = suggestions.map(function(s) {
+                const f = s.file;
+                const safeUrl = (f.url||'').replace(/'/g,"\\'");
+                const safeName = (f.name||'').replace(/'/g,"\\'");
+                const safeFolder = (f.folder||'').replace(/'/g,"\\'");
+                return '<button class="sugg-file-chip" onclick="openPreview(\''+safeUrl+'\',\''+safeName+'\',\''+safeFolder+'\','+(f.file_size||0)+')" title="'+f.name+'">' +
+                    '<span class="material-symbols-outlined" style="font-size:13px;flex-shrink:0">' + getFileIcon(f.name) + '</span>' +
+                    '<span style="overflow:hidden;text-overflow:ellipsis">' + f.name + '</span>' +
+                '</button>';
+            }).join('');
+        }
+
+        // ── FEATURE E: PREVIEW ZOOM ───────────────────────────
+        let _previewZoom = 1.0;
+        function previewZoom(delta) {
+            _previewZoom = Math.max(0.5, Math.min(3.0, _previewZoom + delta));
+            _applyPreviewZoom();
+        }
+        function previewZoomReset() { _previewZoom = 1.0; _applyPreviewZoom(); }
+        function _applyPreviewZoom() {
+            const body = document.getElementById('previewBody');
+            if (!body) return;
+            const el = body.querySelector('img, iframe');
+            if (!el) return;
+            const label = document.getElementById('zoomLevelLabel');
+            if (label) label.textContent = Math.round(_previewZoom * 100) + '%';
+            if (el.tagName === 'IMG') {
+                el.style.transform = 'scale(' + _previewZoom + ')';
+                el.style.transformOrigin = 'top center';
+                el.style.transition = 'transform 0.2s';
+                body.style.overflow = _previewZoom > 1 ? 'auto' : '';
+            } else {
+                el.style.transform = 'scale(' + _previewZoom + ')';
+                el.style.transformOrigin = 'top left';
+                el.style.width = (100 / _previewZoom) + '%';
+                el.style.height = (70 / _previewZoom) + 'vh';
+            }
+        }
+
+        // ── FEATURE F: PER-FOLDER ACCENT ─────────────────────
+        const FOLDER_ACCENT_KEY = 'fvFolderAccents';
+        const _folderPalette = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#f472b6','#a78bfa'];
+        let _folderAccentMap = {};
+        function _loadFolderAccentMap() {
+            try { _folderAccentMap = JSON.parse(localStorage.getItem(FOLDER_ACCENT_KEY) || '{}'); } catch { _folderAccentMap = {}; }
+        }
+        function _getFolderAccent(folder) {
+            if (!folder) return null;
+            if (_folderAccentMap[folder]) return _folderAccentMap[folder];
+            let hash = 0;
+            for (let i = 0; i < folder.length; i++) hash = ((hash * 31) + folder.charCodeAt(i)) | 0;
+            return _folderPalette[Math.abs(hash) % _folderPalette.length];
+        }
+        function _applyFolderAccent(folder) {
+            const accent = _getFolderAccent(folder);
+            if (!accent) {
+                try {
+                    const saved = JSON.parse(localStorage.getItem('fvAccent'));
+                    if (saved) {
+                        document.documentElement.style.setProperty('--accent', saved.color);
+                        document.documentElement.style.setProperty('--accent-light', saved.light);
+                        document.documentElement.style.setProperty('--accent-border', saved.border);
+                    } else {
+                        document.documentElement.style.setProperty('--accent', '#3b82f6');
+                        document.documentElement.style.setProperty('--accent-light', 'rgba(59,130,246,0.2)');
+                        document.documentElement.style.setProperty('--accent-border', 'rgba(59,130,246,0.4)');
+                    }
+                } catch(e) {}
+                return;
+            }
+            const r = parseInt(accent.slice(1,3),16), g = parseInt(accent.slice(3,5),16), b = parseInt(accent.slice(5,7),16);
+            document.documentElement.style.setProperty('--accent', accent);
+            document.documentElement.style.setProperty('--accent-light', 'rgba('+r+','+g+','+b+',0.2)');
+            document.documentElement.style.setProperty('--accent-border', 'rgba('+r+','+g+','+b+',0.4)');
+        }
+        // Patch filterByFolder to apply folder accent
+        const _origFilterByFolderFA = filterByFolder;
+        filterByFolder = function(folder, button) {
+            _origFilterByFolderFA(folder, button);
+            _applyFolderAccent(folder);
+        };
+        // Patch sidebarFilterAll to restore base accent
+        const _origSidebarFilterAllFA = sidebarFilterAll;
+        sidebarFilterAll = function(el) {
+            _origSidebarFilterAllFA(el);
+            _applyFolderAccent(null);
+        };
+        _loadFolderAccentMap();
+
+        // ── FEATURE G: ACCENT COLOR CONSISTENCY FIX ──────────
+        // Re-sync swatches when settings panel opens
+        const _origToggleSettingsAcc = toggleSettings;
+        toggleSettings = function() {
+            _origToggleSettingsAcc();
+            const currentAccent = document.documentElement.style.getPropertyValue('--accent').trim() || '#3b82f6';
+            document.querySelectorAll('.color-swatch').forEach(function(s) {
+                const bg = s.style.background || s.style.backgroundColor || '';
+                s.classList.toggle('active', bg === currentAccent);
+            });
+        };
+
+        // ── PATCH openPreview: wire all new features ──────────
+        const _origOpenPreviewFeatures = openPreview;
+        openPreview = function(url, name, folder, size) {
+            _origOpenPreviewFeatures(url, name, folder, size);
+            _previewBMUrl = url; _previewBMName = name; _previewBMFolder = folder || '';
+            _updatePreviewBookmarkBtn(url);
+            _updatePreviewReadlistBtn(url);
+            addRecentViewed(url, name, folder);
+            _previewZoom = 1.0;
+            const label = document.getElementById('zoomLevelLabel');
+            if (label) label.textContent = '100%';
+            const ext = (name||'').split('.').pop().toLowerCase();
+            const canZoom = ['jpg','jpeg','png','gif','webp','svg','pdf'].includes(ext);
+            const zoomBar = document.getElementById('previewZoomBar');
+            if (zoomBar) zoomBar.classList.toggle('visible', canZoom);
+        };
+
+        // ── PATCH renderAll: inject suggested/viewed ──────────
+        const _origRenderAllFeatures = renderAll;
+        renderAll = function(files) {
+            _origRenderAllFeatures(files);
+            renderRecentViewed();
+            renderSuggested();
+        };
+        // Render on page load from localStorage
+        renderRecentViewed();
+
     </script>
-    
-    <!-- ══ Settings Panel (53-56) ══ -->
     <div id="settingsPanel" role="dialog" aria-label="Display settings" aria-modal="true">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
             <p style="color:white;font-weight:700;font-size:14px">Display Settings</p>
@@ -2939,6 +3297,24 @@
     </div>
 
 
+    <!-- ── Bookmarks & Reading List Modal ── -->
+    <div id="savedModal" onclick="if(event.target===this)closeSavedModal()">
+        <div id="savedBox">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.07)">
+                <h3 style="color:white;font-weight:700;font-size:15px;margin:0">Saved Files</h3>
+                <button onclick="closeSavedModal()" style="background:none;border:none;cursor:pointer;color:#64748b"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+            </div>
+            <!-- Tabs -->
+            <div style="display:flex;border-bottom:1px solid rgba(255,255,255,0.07)">
+                <button class="saved-tab active" id="tabBookmarks" onclick="switchSavedTab('bookmarks')">🔖 Bookmarks</button>
+                <button class="saved-tab" id="tabReadlist" onclick="switchSavedTab('readlist')">📋 Reading List</button>
+            </div>
+            <div id="savedListContainer" style="flex:1;overflow-y:auto;max-height:420px">
+                <!-- Injected by JS -->
+            </div>
+        </div>
+    </div>
+
     <!-- ── File Note Modal ── -->
     <div id="noteModal" onclick="if(event.target===this)closeNoteModal()">
         <div id="noteBox">
@@ -2988,6 +3364,12 @@
                     <button id="previewPinBtn" onclick="togglePreviewPin()" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Pin this file">
                         📌 Pin
                     </button>
+                    <button id="previewBookmarkBtn" onclick="togglePreviewBookmark()" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Bookmark this file">
+                        🔖 Save
+                    </button>
+                    <button id="previewReadlistBtn" onclick="togglePreviewReadlist()" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Add to Reading List">
+                        📋 Later
+                    </button>
                     <a id="previewDownload" href="#" download style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(59,130,246,0.2);color:#93c5fd;border-radius:12px;font-size:12px;font-weight:700;text-decoration:none">
                         <span class="material-symbols-outlined" style="font-size:16px">download</span>Download
                     </a>
@@ -3005,6 +3387,13 @@
             <div id="relatedFilesStrip" class="hidden">
                 <p style="color:rgba(255,255,255,0.25);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">More in this folder</p>
                 <div id="relatedList" style="display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none"></div>
+            </div>
+            <!-- Zoom controls (PDF/Image) -->
+            <div id="previewZoomBar">
+                <button class="zoom-btn" onclick="previewZoom(-0.25)" title="Zoom out" aria-label="Zoom out"><span class="material-symbols-outlined" style="font-size:16px;display:block">zoom_out</span></button>
+                <span id="zoomLevelLabel">100%</span>
+                <button class="zoom-btn" onclick="previewZoom(0.25)" title="Zoom in" aria-label="Zoom in"><span class="material-symbols-outlined" style="font-size:16px;display:block">zoom_in</span></button>
+                <button class="zoom-btn" onclick="previewZoomReset()" title="Reset zoom" aria-label="Reset zoom" style="margin-left:4px"><span class="material-symbols-outlined" style="font-size:16px;display:block">fit_page</span></button>
             </div>
             <!-- Comments panel -->
             <div id="commentsSection" style="display:none;border-top:1px solid rgba(255,255,255,0.07);padding:14px 18px 10px">

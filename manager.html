@@ -158,36 +158,6 @@
         html.light .text-white\/60 { color:#475569 !important; }
         html.light header { background:rgba(255,255,255,0.88) !important; border-bottom-color:rgba(0,0,0,0.08) !important; }
         html.light select, html.light input { background:rgba(255,255,255,0.9) !important; color:#0f172a !important; border-color:rgba(0,0,0,0.12) !important; }
-        /* ── Mobile bottom tab bar ── */
-        @media (max-width: 639px) {
-            #mobileTabs { display:flex; }
-            #desktopTabs { display:none; }
-            #mainContent { padding-bottom: 80px; }
-        }
-        @media (min-width: 640px) {
-            #mobileTabs { display:none; }
-            #desktopTabs { display:flex; }
-        }
-        #mobileTabs {
-            position:fixed;bottom:0;left:0;right:0;z-index:200;
-            background:rgba(10,16,32,0.92);backdrop-filter:blur(20px);
-            border-top:1px solid rgba(255,255,255,0.08);
-            padding:6px 8px max(8px,env(safe-area-inset-bottom));
-            gap:4px;align-items:center;justify-content:space-around;
-        }
-        .mob-tab { display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;padding:6px 4px;border-radius:10px;border:none;background:none;color:rgba(255,255,255,0.4);cursor:pointer;transition:all .2s;font-family:inherit;position:relative; }
-        .mob-tab.active { color:#60a5fa;background:rgba(59,130,246,0.12); }
-        .mob-tab span.material-symbols-outlined { font-size:20px; }
-        .mob-tab-label { font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em; }
-
-        /* ── Sticky header compact on mobile ── */
-        @media (max-width: 639px) {
-            header .site-logo { width:32px;height:32px; }
-            header h1 { font-size:15px !important; }
-        }
-
-        /* ── Action button loading state ── */
-        .btn-loading { opacity:0.6;pointer-events:none;cursor:not-allowed; }
         /* ── 31: New-since-last-visit badge ── */
         .folder-new-badge { display:inline-flex;align-items:center;font-size:8px;font-weight:800;background:rgba(16,185,129,0.2);color:#34d399;border:1px solid rgba(52,211,153,0.35);padding:1px 5px;border-radius:99px;margin-left:4px; }
 
@@ -195,41 +165,9 @@
     <!-- chat-widget loaded at bottom of body -->
 </head>
 <body class="font-sans" style="overflow-x:hidden;max-width:100vw">
-    <!-- Auth gate: content hidden until checkAccess() confirms session -->
-    <div id="authGate" style="position:fixed;inset:0;z-index:99999;background:#020617;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">
-        <div style="width:40px;height:40px;border-radius:50%;border:3px solid rgba(59,130,246,0.2);border-top-color:#3b82f6;animation:spin 0.8s linear infinite"></div>
-        <p style="color:rgba(255,255,255,0.4);font-size:13px;font-weight:600">Checking credentials…</p>
-    </div>
     <div class="bg-fixed-image"></div>
     <div class="bg-overlay"></div>
-    <div class="flex flex-col min-h-screen" id="pageContent" style="visibility:hidden">
-
-    <!-- ── Custom Modal System (replaces all prompt/alert/confirm calls) ── -->
-    <div id="fvModal" style="display:none;position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)_modalCancel()">
-        <div id="fvModalBox" style="background:rgba(13,20,40,0.98);border:1px solid rgba(255,255,255,0.12);border-radius:20px;width:100%;max-width:440px;padding:28px;box-shadow:0 40px 100px rgba(0,0,0,0.7);animation:slideUp .2s ease-out">
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:12px">
-                <div style="display:flex;align-items:center;gap:12px">
-                    <div id="fvModalIcon" style="width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0"></div>
-                    <div>
-                        <p id="fvModalSub" style="color:#64748b;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px"></p>
-                        <h3 id="fvModalTitle" style="color:white;font-weight:700;font-size:16px;margin:0"></h3>
-                    </div>
-                </div>
-                <button onclick="_modalCancel()" style="width:30px;height:30px;background:rgba(255,255,255,.06);border:none;border-radius:8px;cursor:pointer;color:#64748b;display:flex;align-items:center;justify-content:center;flex-shrink:0" aria-label="Close">
-                    <span class="material-symbols-outlined" style="font-size:16px">close</span>
-                </button>
-            </div>
-            <p id="fvModalBody" style="color:#94a3b8;font-size:13px;line-height:1.6;margin-bottom:20px"></p>
-            <div id="fvModalInputWrap" style="display:none;margin-bottom:20px">
-                <input id="fvModalInput" type="text" style="width:100%;padding:12px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:white;font-size:14px;outline:none;font-family:inherit;transition:border-color .2s" onfocus="this.style.borderColor='rgba(59,130,246,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,.12)'" />
-                <p id="fvModalInputErr" style="color:#f87171;font-size:11px;margin-top:6px;display:none"></p>
-            </div>
-            <div id="fvModalActions" style="display:flex;gap:10px">
-                <button id="fvModalCancel" onclick="_modalCancel()" style="flex:1;padding:11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;color:rgba(255,255,255,.6);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;transition:all .2s">Cancel</button>
-                <button id="fvModalConfirm" onclick="_modalConfirm()" style="flex:2;padding:11px;border:none;border-radius:12px;color:white;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px">Confirm</button>
-            </div>
-        </div>
-    </div>
+    <div class="flex flex-col min-h-screen">
 
     <header class="glass-card border-b border-white/10 p-4 sticky top-0 z-50 w-full">
         <div class="flex justify-between items-center w-full">
@@ -447,8 +385,8 @@
         </div>
     </div>
 
-            <!-- Tabs (desktop — hidden on mobile, replaced by bottom nav) -->
-            <div id="desktopTabs" class="gap-2 mb-6 p-1 bg-white/5 rounded-xl flex-wrap">
+            <!-- Tabs -->
+            <div class="flex gap-2 mb-6 p-1 bg-white/5 rounded-xl flex-wrap">
                 <button onclick="switchTab('db')" id="tab-db" class="tab-btn active flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold border border-transparent text-white/70">
                     <span class="material-symbols-outlined text-sm mr-1">table_chart</span><span class="hidden sm:inline">Database</span><span class="sm:hidden">DB</span>
                 </button>
@@ -566,98 +504,12 @@
 
     </main>
 
-    <!-- Mobile bottom tab bar -->
-    <nav id="mobileTabs" aria-label="Main tabs">
-        <button class="mob-tab active" id="mobtab-db" onclick="switchTab('db');updateMobTabs('db')">
-            <span class="material-symbols-outlined">table_chart</span>
-            <span class="mob-tab-label">DB</span>
-        </button>
-        <button class="mob-tab" id="mobtab-storage" onclick="switchTab('storage');updateMobTabs('storage')">
-            <span class="material-symbols-outlined">cloud</span>
-            <span class="mob-tab-label">Storage</span>
-        </button>
-        <button class="mob-tab" id="mobtab-tracker" onclick="switchTab('tracker');updateMobTabs('tracker')">
-            <span class="material-symbols-outlined">bar_chart</span>
-            <span class="mob-tab-label">Stats</span>
-        </button>
-        <button class="mob-tab" id="mobtab-requests" onclick="switchTab('requests');updateMobTabs('requests')" style="position:relative">
-            <span class="material-symbols-outlined">upload_file</span>
-            <span class="mob-tab-label">Requests</span>
-            <span id="mobRequestsDot" style="display:none;position:absolute;top:6px;right:16px;width:7px;height:7px;border-radius:50%;background:#ef4444"></span>
-        </button>
-    </nav>
-
     <script>
-    // ─── CONFIG ─────────────────────────────────────────────────
-    // The anon key is safe to expose IF Row Level Security (RLS) policies
-    // are enforced on your Supabase tables and storage bucket.
-    // RLS is your real security layer — the anon key is not a secret.
-    // Ensure: files_list INSERT/DELETE/UPDATE require auth.uid() = manager role
-    // and public SELECT is restricted to what students should see.
-    const SUPABASE_URL = 'https://lvhecpvwpzmstciewziv.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI';
-
-    // ─── MODAL SYSTEM (replaces all prompt/confirm/alert) ────────
-    let _modalResolve = null;
-    function _showModal({ sub='', title, body='', icon='', iconBg='rgba(59,130,246,0.15)', iconColor='#3b82f6',
-        confirmLabel='Confirm', confirmBg='linear-gradient(135deg,#3b82f6,#8b5cf6)',
-        cancelLabel='Cancel', inputValue='', inputPlaceholder='', hasInput=false, isDestructive=false }) {
-        return new Promise(resolve => {
-            _modalResolve = resolve;
-            document.getElementById('fvModalSub').textContent = sub;
-            document.getElementById('fvModalTitle').textContent = title;
-            document.getElementById('fvModalBody').textContent = body;
-            const iconEl = document.getElementById('fvModalIcon');
-            iconEl.style.background = isDestructive ? 'rgba(239,68,68,0.15)' : iconBg;
-            iconEl.innerHTML = `<span class="material-symbols-outlined" style="font-size:20px;color:${isDestructive ? '#f87171' : iconColor}">${icon || (isDestructive ? 'warning' : 'info')}</span>`;
-            const confirmBtn = document.getElementById('fvModalConfirm');
-            confirmBtn.textContent = confirmLabel;
-            confirmBtn.style.background = isDestructive ? 'linear-gradient(135deg,#ef4444,#dc2626)' : confirmBg;
-            document.getElementById('fvModalCancel').textContent = cancelLabel;
-            const inputWrap = document.getElementById('fvModalInputWrap');
-            const inputEl = document.getElementById('fvModalInput');
-            const inputErr = document.getElementById('fvModalInputErr');
-            inputErr.style.display = 'none';
-            if (hasInput) {
-                inputWrap.style.display = 'block';
-                inputEl.value = inputValue;
-                inputEl.placeholder = inputPlaceholder;
-                setTimeout(() => { inputEl.focus(); inputEl.select(); }, 80);
-                inputEl.onkeydown = e => { if (e.key === 'Enter') _modalConfirm(); if (e.key === 'Escape') _modalCancel(); };
-            } else {
-                inputWrap.style.display = 'none';
-            }
-            const modal = document.getElementById('fvModal');
-            modal.style.display = 'flex';
-        });
-    }
-    function _modalConfirm() {
-        const inputEl = document.getElementById('fvModalInput');
-        const inputWrap = document.getElementById('fvModalInputWrap');
-        const inputErr = document.getElementById('fvModalInputErr');
-        if (inputWrap.style.display !== 'none') {
-            const val = inputEl.value.trim();
-            if (!val) { inputErr.textContent = 'This field is required.'; inputErr.style.display = 'block'; inputEl.focus(); return; }
-            _closeModal(val);
-        } else {
-            _closeModal(true);
-        }
-    }
-    function _modalCancel() { _closeModal(null); }
-    function _closeModal(result) {
-        document.getElementById('fvModal').style.display = 'none';
-        if (_modalResolve) { _modalResolve(result); _modalResolve = null; }
-    }
-    // Convenience wrappers
-    async function _confirm(title, body, opts={}) {
-        return _showModal({ title, body, icon:'warning', isDestructive:true, confirmLabel:'Delete', cancelLabel:'Cancel', ...opts });
-    }
-    async function _prompt(title, body, value='', placeholder='', opts={}) {
-        return _showModal({ title, body, hasInput:true, inputValue:value, inputPlaceholder:placeholder, confirmLabel:'Save', icon:'edit', iconColor:'#a78bfa', ...opts });
-    }
-
     // ─── SUPABASE ───────────────────────────────────────────────
-    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const _supabase = supabase.createClient(
+        'https://lvhecpvwpzmstciewziv.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI'
+    );
     const ADMIN_EMAIL_ALLOWLIST = ['admin@nharnharblay21@gmail.com'];
     let allFiles = [];
     let availableFolders = [];
@@ -873,8 +725,7 @@
     }
 
     async function dismissRequest(id) {
-        const ok = await _confirm('Dismiss Request', 'Mark this request as dismissed? The student will not be notified.', { confirmLabel: 'Dismiss', sub: 'Upload Request' });
-        if (!ok) return;
+        if (!confirm('Dismiss this request?')) return;
         try {
             await _supabase.from('upload_requests').update({ status: 'dismissed' }).eq('id', id);
             showMgrToast('Request dismissed.', 'info');
@@ -1054,34 +905,35 @@
             availableFolders.forEach(f => {
                 select.innerHTML += `<option value="${f}" class="text-black">${f}</option>`;
             });
-        } catch (err) { console.warn('loadFolders error:', err.message); showMgrToast('Could not load folders: ' + err.message, 'warning'); }
+        } catch (err) { console.error('loadFolders error:', err); }
     }
 
-    async function createNewFolder() {
-        const folderName = await _prompt('New Folder', 'Choose a name for the new folder.', '', 'e.g. Week 3 Lectures', { confirmLabel: 'Create', icon: 'create_new_folder', iconColor: '#60a5fa', sub: 'Folder' });
-        if (!folderName) return;
-        const cleaned = folderName.trim().replace(/[^a-zA-Z0-9_ -]/g, '');
-        if (!cleaned) { showMgrToast('Invalid folder name — use letters, numbers, spaces, hyphens only.', 'error'); return; }
-        if (availableFolders.includes(cleaned)) {
+    function createNewFolder() {
+        let folderName = prompt('Enter new folder name:');
+        if (!folderName || !folderName.trim()) return;
+        folderName = folderName.trim().replace(/[^a-zA-Z0-9_ -]/g, '');
+        if (!folderName) { alert('Invalid folder name.'); return; }
+        if (availableFolders.includes(folderName)) {
             setStatus('Folder already exists!', 'yellow'); return;
         }
-        availableFolders.push(cleaned);
+        availableFolders.push(folderName);
         availableFolders.sort();
         const select = document.getElementById('folderSelect');
         select.innerHTML = '<option value="" class="text-black">No folder (root)</option>';
         availableFolders.forEach(f => { select.innerHTML += `<option value="${f}" class="text-black">${f}</option>`; });
-        select.value = cleaned;
+        select.value = folderName;
         renderMainFolders();
         populateRequestFolderSelect();
-        setStatus(`Folder "${cleaned}" ready — it will be created on first upload.`, 'green');
+        setStatus(`Folder "${folderName}" ready — it will be created on first upload.`, 'green');
     }
 
     async function renameFolder(oldName) {
         if (!oldName) return;
-        const newNameInput = await _prompt('Rename Folder', `Rename "${oldName}" to a new name.`, oldName, 'New folder name', { sub: 'Folder', confirmLabel: 'Rename' });
+        const newNameInput = prompt('Rename folder:', oldName);
         if (!newNameInput || newNameInput.trim() === oldName) return;
+        // Fixed regex: hyphen at end of class to avoid range interpretation
         const newName = newNameInput.trim().replace(/[^a-zA-Z0-9_ -]/g, '');
-        if (!newName) { showMgrToast('Invalid folder name.', 'error'); return; }
+        if (!newName) { alert('Invalid folder name.'); return; }
         if (availableFolders.includes(newName)) { setStatus('Folder already exists!', 'yellow'); return; }
 
         setStatus(`Renaming "${oldName}" → "${newName}"…`, 'blue');
@@ -1341,8 +1193,7 @@
 
     async function bulkDelete() {
         if (selectedFiles.size === 0) return;
-        const ok = await _confirm('Delete Files', `Permanently delete ${selectedFiles.size} selected file(s)? This cannot be undone.`, { confirmLabel: `Delete ${selectedFiles.size} file(s)`, sub: 'Destructive Action' });
-        if (!ok) return;
+        if (!confirm(`Delete ${selectedFiles.size} file(s)? This cannot be undone.`)) return;
         setStatus(`Deleting ${selectedFiles.size} file(s)...`, 'blue');
         let done = 0;
         for (const path of selectedFiles) {
@@ -1391,7 +1242,7 @@
     }
 
     async function renameFile(storagePath, dbId, oldName) {
-        const newName = await _prompt('Rename File', `Choose a new name for "${oldName}".`, oldName, 'New file name', { sub: 'File', confirmLabel: 'Rename' });
+        const newName = prompt('Rename file to:', oldName);
         if (!newName || newName.trim() === oldName) return;
         let trimmed = newName.trim();
 
@@ -1441,7 +1292,7 @@
     }
 
     async function moveFile(storagePath, dbId, fileName) {
-        const targetFolder = await _prompt('Move File', `Move "${fileName}" to which folder? Leave blank for root.`, '', 'Folder name or leave blank for Root', { sub: 'File', confirmLabel: 'Move', icon: 'drive_file_move', iconColor: '#22d3ee' });
+        const targetFolder = prompt('Move to folder (leave blank for Root):', '');
         if (targetFolder === null) return;
         const target = targetFolder.trim();
         const newPath = target ? `${target}/${fileName}` : fileName;
@@ -1468,7 +1319,7 @@
     }
 
     async function editDescription(dbId, fileName, current) {
-        const desc = await _prompt('Edit Description', `Update the description for "${fileName}".`, current || '', 'Short note about this file…', { sub: 'File', confirmLabel: 'Save', icon: 'notes', iconColor: '#c084fc' });
+        const desc = prompt('Edit description:', current || '');
         if (desc === null) return;
         let query;
         if (dbId && dbId !== 'null') {
@@ -1490,8 +1341,7 @@
 
     async function deleteFolder(folderName) {
         if (!folderName) return;
-        const ok = await _confirm('Delete Folder', `Delete the entire "${folderName}" folder and all its files? This cannot be undone.`, { confirmLabel: 'Delete Folder', sub: 'Destructive Action' });
-        if (!ok) return;
+        if (!confirm(`Delete the entire "${folderName}" folder and all its files? This cannot be undone.`)) return;
         setStatus(`Deleting folder "${folderName}"…`, 'blue');
 
         // List all files in that folder
@@ -1601,7 +1451,11 @@
     // XHR-based upload so we get real progress events
     function uploadWithProgress(path, file) {
         return new Promise(async (resolve) => {
-            let authToken = SUPABASE_ANON_KEY;
+            const SUPABASE_URL = 'https://lvhecpvwpzmstciewziv.supabase.co';
+            const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI';
+
+            // Always prefer the live session token; fall back to anon key
+            let authToken = ANON_KEY;
             try {
                 const { data: { session } } = await _supabase.auth.getSession();
                 if (session?.access_token) authToken = session.access_token;
@@ -1614,7 +1468,7 @@
             const encodedPath = path.split('/').map(seg => encodeURIComponent(seg)).join('/');
             xhr.open('POST', `${SUPABASE_URL}/storage/v1/object/vault-files/${encodedPath}`);
             xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
-            xhr.setRequestHeader('apikey', SUPABASE_ANON_KEY);
+            xhr.setRequestHeader('apikey', ANON_KEY);
             xhr.setRequestHeader('x-upsert', 'true');
             xhr.setRequestHeader('Cache-Control', '3600');
             // Set content-type so Supabase stores the correct MIME type
@@ -1668,12 +1522,9 @@
         if (!exists) return 'new';
 
         // File exists — ask user what to do
-        const replace = await _showModal({
-            sub: 'Duplicate File', title: 'File Already Exists',
-            body: `"${fileName}" already exists in ${folderName}. Replace it or save a copy with a timestamp?`,
-            icon: 'file_copy', iconColor: '#f59e0b',
-            confirmLabel: 'Replace', cancelLabel: 'Keep Both',
-        });
+        const replace = confirm(
+            `"${fileName}" already exists in ${folderName}.\n\nOK → Replace it\nCancel → Keep both (saves a copy with timestamp)`
+        );
         return replace ? 'replace' : 'keep';
     }
 
@@ -1846,8 +1697,7 @@
     // ─── DELETE (synced) ────────────────────────────────────────
    async function deleteFile(storagePath, dbId) {
     const displayName = storagePath.split('/').pop();
-    const ok = await _confirm('Delete File', `Delete "${displayName}"? This removes it from both storage and the database and cannot be undone.`, { confirmLabel: 'Delete File', sub: 'Destructive Action' });
-    if (!ok) return;
+    if (!confirm(`Delete "${displayName}"?`)) return;
 
     setStatus('Deleting...', 'blue');
 
@@ -1913,7 +1763,7 @@
                 issuePanel.innerHTML = `<div class="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-sm">${issueHtml}<p class="text-white/40 text-xs mt-2">Use "Repair Sync" to add missing DB records for storage-only files.</p></div>`;
                 issuePanel.classList.remove('hidden');
             }
-        } catch (err) { console.warn('Sync check error:', err.message); showMgrToast('Sync check failed: ' + err.message, 'warning'); }
+        } catch (err) { console.error('Sync check error:', err); }
     }
 
     // ─── REPAIR SYNC ────────────────────────────────────────────
@@ -2041,71 +1891,62 @@
 
 // ─── AUTH ────────────────────────────────────────────────────
     async function checkAccess() {
+        const { data: { session } } = await _supabase.auth.getSession();
+        if (!session) {
+            const w = document.getElementById('aiChatWidget');
+            if (w) w.style.display = 'none';
+            window.location.href = 'https://filevault.works/login.html';
+            return;
+        }
+        
+        // Check user role from user_profiles table
         try {
-            const { data: { session }, error } = await _supabase.auth.getSession();
-            if (error) throw error;
-            if (!session) {
-                window.location.href = 'https://filevault.works/login.html';
+            const { data: profile } = await _supabase
+                .from('user_profiles')
+                .select('role, email')
+                .eq('id', session.user.id)
+                .single();
+            
+            const isAdmin = profile?.role === 'admin' || profile?.role === 'manager' || ADMIN_EMAIL_ALLOWLIST.includes(session.user.email || '');
+            if (!isAdmin) {
+                // Not privileged — redirect to user page
+                const w = document.getElementById('aiChatWidget');
+                if (w) w.style.display = 'none';
+                window.location.href = 'https://filevault.works/index.html';
                 return;
             }
-            
-            // Check user role from user_profiles table
-            try {
-                const { data: profile } = await _supabase
-                    .from('user_profiles')
-                    .select('role, email')
-                    .eq('id', session.user.id)
-                    .single();
-                
-                const isAdmin = profile?.role === 'admin' || profile?.role === 'manager' || ADMIN_EMAIL_ALLOWLIST.includes(session.user.email || '');
-                if (!isAdmin) {
-                    window.location.href = 'https://filevault.works/index.html';
-                    return;
-                }
 
-                // Show role badge in header
-                const roleLabel = profile?.role === 'manager' ? '🔧 Manager' : '🛡️ Admin';
-                const roleBadge = document.createElement('span');
-                roleBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full ml-2 ' + 
-                    (profile?.role === 'manager' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400');
-                roleBadge.innerText = roleLabel;
-                document.querySelector('header h1').appendChild(roleBadge);
-
-            } catch (err) {
-                // Table might not exist yet — allow access, log warning
-                console.warn('Could not check user role:', err.message);
-            }
-
-            // Auth confirmed — reveal UI, remove gate
-            document.getElementById('pageContent').style.visibility = 'visible';
-            const gate = document.getElementById('authGate');
-            gate.style.opacity = '0';
-            gate.style.transition = 'opacity .25s';
-            setTimeout(() => gate.remove(), 260);
-            
-            // Auth confirmed — reveal the chat widget now
-            if (typeof showChatWidget === 'function') showChatWidget();
-
-            await loadFolders();
-            renderMainFolders();
-            populateRequestFolderSelect();
-            await loadManagerFiles();
-            loadDashboardStats();
-
-            // Show pending requests badge
-            try {
-                const { data: reqData } = await _supabase.from('upload_requests').select('id').eq('status', 'pending');
-                const reqCount = (reqData || []).length;
-                const badge = document.getElementById('requestsBadge');
-                if (badge) badge.style.display = reqCount > 0 ? 'block' : 'none';
-            } catch(e) { console.warn('Requests badge error:', e.message); }
+            // Show role badge in header
+            const roleLabel = profile?.role === 'manager' ? '🔧 Manager' : '🛡️ Admin';
+            const roleBadge = document.createElement('span');
+            roleBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full ml-2 ' + 
+                (profile?.role === 'manager' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400');
+            roleBadge.innerText = roleLabel;
+            document.querySelector('header h1').appendChild(roleBadge);
 
         } catch (err) {
-            // Fatal auth error — show message on gate then redirect
-            const gate = document.getElementById('authGate');
-            gate.innerHTML = `<p style="color:#f87171;font-size:14px;font-weight:600">Auth error: ${err.message}</p><p style="color:rgba(255,255,255,0.4);font-size:12px;margin-top:8px">Redirecting to login…</p>`;
-            setTimeout(() => { window.location.href = 'https://filevault.works/login.html'; }, 2500);
+            // Table might not exist yet - allow access for now
+            console.warn('Could not check user role:', err.message);
         }
+        
+        // Auth confirmed — reveal the chat widget now
+        if (typeof showChatWidget === 'function') showChatWidget();
+
+        await loadFolders();
+        renderMainFolders();
+        populateRequestFolderSelect();
+        await loadManagerFiles();
+
+        // Load dashboard stats now that auth is confirmed
+        loadDashboardStats();
+
+        // Show pending requests badge
+        try {
+            const { data: reqData } = await _supabase.from('upload_requests').select('id').eq('status', 'pending');
+            const reqCount = (reqData || []).length;
+            const badge = document.getElementById('requestsBadge');
+            if (badge) badge.style.display = reqCount > 0 ? 'block' : 'none';
+        } catch(e) {}
     }
 
     // Keyboard shortcuts
@@ -2181,24 +2022,6 @@
         }
     }
 
-    function updateMobTabs(tab) {
-        ['db','storage','tracker','requests'].forEach(t => {
-            const el = document.getElementById('mobtab-' + t);
-            if (el) el.classList.toggle('active', t === tab);
-        });
-    }
-
-    // Wrap original switchTab to also update mobile tabs
-    const _origSwitchTab = switchTab;
-    switchTab = function(tab) {
-        _origSwitchTab(tab);
-        updateMobTabs(tab);
-        // Sync mobile requests dot with desktop badge
-        const desktopBadge = document.getElementById('requestsBadge');
-        const mobDot = document.getElementById('mobRequestsDot');
-        if (mobDot && desktopBadge) mobDot.style.display = desktopBadge.style.display;
-    };
-
     checkAccess();
 
     // ── 29: Haptic ──
@@ -2258,7 +2081,10 @@
                 const el = document.getElementById('mgr-rating-' + id);
                 if (el) { const c = _mgrRatings[id] || 0; el.textContent = '👍 ' + c; el.title = c + ' like' + (c !== 1 ? 's' : ''); }
             });
-        } catch(e) { console.warn('loadMgrRatings error:', e.message); }
+        } catch(e) {}
+    }
+
+    // ── 36: High contrast ──
     function initMgrHighContrast() { if (localStorage.getItem('fvHighContrast') === '1') document.documentElement.classList.add('high-contrast'); }
     function toggleMgrHighContrast() {
         const on = document.documentElement.classList.toggle('high-contrast');
@@ -2341,7 +2167,6 @@
     </section>
     <footer class="text-center text-white/20 text-xs py-6">Built by <span class="text-white/40 font-semibold">Jonathan Acheampong</span> · FileVault</footer>
     </div><!-- end wrapper -->
-    </div><!-- end pageContent -->
     <script src="chat-widget.js"></script>
 </body>
 </html>
