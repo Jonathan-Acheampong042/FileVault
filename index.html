@@ -276,8 +276,6 @@
         html.light .select { background:rgba(255,255,255,0.7) !important; color:#0f172a !important; }
         html.light select { background:rgba(255,255,255,0.9) !important; color:#0f172a !important; border-color:rgba(0,0,0,0.12) !important; }
         html.light #zipProgressBar { background:rgba(255,255,255,0.97) !important; border-color:rgba(0,0,0,0.1) !important; }
-        html.light #noteBox { background:rgba(255,255,255,0.98) !important; border-color:rgba(0,0,0,0.1) !important; }
-        html.light #noteTextarea { background:rgba(0,0,0,0.04) !important; color:#0f172a !important; border-color:rgba(0,0,0,0.1) !important; }
 
         /* ══ 53: ACCENT COLOR ══ */
         :root { --accent:#3b82f6; --accent-light:rgba(59,130,246,0.2); --accent-border:rgba(59,130,246,0.4); }
@@ -325,10 +323,6 @@
         @keyframes blink { 0%,100%{border-color:var(--accent)} 50%{border-color:transparent} }
 
         /* ── 37: Pinned files ── */
-        .pin-btn { background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#475569;transition:color .2s,background .2s;font-size:0;line-height:0; }
-        .pin-btn:hover { color:#f59e0b;background:rgba(245,158,11,.1); }
-        .pin-btn.pinned { color:#f59e0b; }
-        .badge-pinned { display:inline-flex;align-items:center;font-size:9px;font-weight:800;background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.25);padding:1px 6px;border-radius:99px;vertical-align:middle;margin-left:3px; }
         /* ── 38: Recently downloaded section ── */
         #recentDLSection { display:none;margin-bottom:16px; }
 
@@ -367,35 +361,11 @@
         #fileGrid.compact-view p.italic,
         #fileGrid.compact-view .desc-tooltip { display:none !important; }
         /* Shrink action buttons */
-        #fileGrid.compact-view .pin-btn,
-        #fileGrid.compact-view .note-btn { padding:3px !important; }
-        #fileGrid.compact-view .pin-btn .material-symbols-outlined,
-        #fileGrid.compact-view .note-btn .material-symbols-outlined { font-size:14px !important; }
         #fileGrid.compact-view button.p-2,
         #fileGrid.compact-view a.p-2 { padding:4px !important; }
         #fileGrid.compact-view .material-symbols-outlined.text-xl { font-size:15px !important; }
         /* Remove bottom border/padding in list view cards */
         #fileGrid.compact-view .border-t.border-white\/5 { border:none !important; padding:0 !important; margin:0 !important; }
-        /* ── File notes ── */
-        .note-btn { background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#475569;transition:color .2s,background .2s;font-size:0;line-height:0; }
-        .note-btn:hover { color:#f59e0b;background:rgba(245,158,11,.1); }
-        .note-btn.has-note { color:#f59e0b; }
-        .badge-note { display:inline-block;width:6px;height:6px;border-radius:50%;background:#f59e0b;vertical-align:middle;margin-left:3px;flex-shrink:0; }
-        /* Note modal */
-        #noteModal { display:none;position:fixed;inset:0;z-index:10000000;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px; }
-        #noteModal.open { display:flex; }
-        #noteBox { background:rgba(15,23,42,.98);border:1px solid rgba(255,255,255,.12);border-radius:20px;width:100%;max-width:380px;padding:24px;box-shadow:0 32px 80px rgba(0,0,0,.6); }
-
-        /* ── Bookmark button ── */
-        .bookmark-btn { background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#475569;transition:color .2s,background .2s;font-size:0;line-height:0; }
-        .bookmark-btn:hover { color:#ec4899;background:rgba(236,72,153,.1); }
-        .bookmark-btn.bookmarked { color:#ec4899; }
-
-        /* ── Reading-list button ── */
-        .readlist-btn { background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#475569;transition:color .2s,background .2s;font-size:0;line-height:0; }
-        .readlist-btn:hover { color:#06b6d4;background:rgba(6,182,212,.1); }
-        .readlist-btn.in-readlist { color:#06b6d4; }
-
         /* ── Preview Zoom controls ── */
         #previewZoomBar { display:none;align-items:center;gap:6px;padding:6px 14px;border-top:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.15);flex-shrink:0; }
         #previewZoomBar.visible { display:flex; }
@@ -416,18 +386,6 @@
         .sugg-file-chip { display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:9px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .18s;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis; }
         .sugg-file-chip:hover { background:rgba(139,92,246,0.14);border-color:rgba(139,92,246,0.3);color:#c084fc; }
 
-        /* ── Bookmarks & Reading List modal ── */
-        #savedModal { display:none;position:fixed;inset:0;z-index:9999000;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px; }
-        #savedModal.open { display:flex; }
-        #savedBox { background:rgba(15,23,42,.98);border:1px solid rgba(255,255,255,.1);border-radius:20px;width:100%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 32px 80px rgba(0,0,0,.6);overflow:hidden; }
-        #savedBox .saved-tab { flex:1;padding:9px 14px;border:none;border-bottom:2px solid transparent;background:none;color:#64748b;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;letter-spacing:.04em; }
-        #savedBox .saved-tab.active { color:var(--accent);border-bottom-color:var(--accent); }
-        .saved-item { display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;transition:background .15s; }
-        .saved-item:hover { background:rgba(59,130,246,0.07); }
-        .saved-item-name { flex:1;min-width:0;font-size:13px;font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-        .saved-item-meta { font-size:10px;color:#64748b; }
-        .saved-item-remove { background:none;border:none;cursor:pointer;color:#475569;padding:4px;border-radius:6px;line-height:0;font-size:0;flex-shrink:0;transition:color .15s; }
-        .saved-item-remove:hover { color:#ef4444; }
     </style>
 </head>
 <body class="overflow-x-hidden">
@@ -483,9 +441,6 @@
             </button>
             <!-- Header icon buttons wrapped for mobile hide/show -->
             <div id="headerIcons">
-            <button onclick="openSavedModal()" title="Bookmarks &amp; Reading List" aria-label="Bookmarks and reading list" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
-                <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">bookmarks</span>
-            </button>
             <button id="pushBellBtn" onclick="togglePushSubscription()" title="Enable push notifications" aria-label="Enable push notifications" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
                 <span id="pushBellIcon" class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">notifications</span>
             </button>
@@ -728,9 +683,6 @@
             document.getElementById('previewIcon').textContent = getFileIcon(name);
             document.getElementById('previewDownload').href = url;
             document.getElementById('previewDownload').setAttribute('download', name);
-            // Update preview pin button
-            _previewPinUrl = url; _previewPinName = name;
-            _updatePreviewPinBtn(url);
 
             var body = document.getElementById('previewBody');
             if (isImg) {
@@ -1184,9 +1136,6 @@
                 const sizeLabel = file.file_size ? formatFileSize(file.file_size) : null;
                 const dlCount = (file.download_count && file.download_count > 0)
                     ? '<span title="' + file.download_count + ' download' + (file.download_count !== 1 ? 's' : '') + '" style="display:inline-flex;align-items:center;gap:2px;font-size:9px;background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.2);border-radius:99px;padding:1px 6px;font-weight:700;vertical-align:middle"><span class="material-symbols-outlined" style="font-size:10px">download</span>' + file.download_count + '</span>' : '';
-                const ratingId = file.id || '';
-                const ratingHtml = ratingId ? '<button class="rating-badge" data-rating-id="' + ratingId + '" onclick="toggleRating(\'' + ratingId + '\',this);event.stopPropagation()" aria-label="Like this file">👍</button>' : '';
-                const socialPinHtml = ratingId ? '<button class="rating-badge" data-social-pin-id="' + ratingId + '" onclick="toggleSocialPin(\'' + ratingId + '\',this);event.stopPropagation()" aria-label="Pin this file" style="border:1px solid rgba(255,255,255,0.08);border-radius:8px;background:none;cursor:pointer;color:#64748b;font-size:11px;padding:3px 7px;display:inline-flex;align-items:center;gap:3px;font-family:inherit;transition:all .2s">📌</button>' : '';
                 const descTooltip = (file.description && !isListView())
                     ? '<div class="desc-tooltip" id="tt-'+_ri+'">' + file.description.replace(/</g,'&lt;') + '</div>' : '';
                 const hoverAttrs = (file.description && !isListView())
@@ -1198,7 +1147,7 @@
                     '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="toggleSelect(\'' + safeUrl + '\',\'' + safeName + '\',this,' + (file.file_size||0) + ')" class="w-4 h-4 rounded text-primary cursor-pointer shrink-0">' +
                     '<div class="' + getFileColor(file.name) + ' w-10 h-10 rounded-xl flex items-center justify-center border shrink-0"><span class="material-symbols-outlined text-xl">' + getFileIcon(file.name) + '</span></div>' +
                     '<div class="flex-1 overflow-hidden" style="min-width:0;flex:1 1 0%">' +
-                        '<p class="font-semibold text-white truncate text-sm leading-snug">' + highlightText(file.name, currentSearchTerm) + (isNewFile(file.date) ? ' <span class="badge-new">NEW</span>' : '') + (isPinned(file.url) ? ' <span class="badge-pinned">📌</span>' : '') + ' ' + dlCount + '</p>' +
+                        '<p class="font-semibold text-white truncate text-sm leading-snug">' + highlightText(file.name, currentSearchTerm) + (isNewFile(file.date) ? ' <span class="badge-new">NEW</span>' : '') + ' ' + dlCount + '</p>' +
                         '<div class="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-slate-500">' +
                             '<span class="uppercase truncate max-w-[100px]">' + highlightText(file.folder || 'ROOT', currentSearchTerm) + '</span>' +
                             (sizeLabel ? '<span>·</span><span class="text-slate-400 font-medium">' + sizeLabel + '</span>' : '') +
@@ -1209,11 +1158,6 @@
                         (file.description ? '<p class="mt-0.5 text-[11px] text-slate-400 italic truncate">' + highlightText(file.description, currentSearchTerm) + '</p>' : '') +
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
-                    ratingHtml +
-                    '<button onclick="togglePin(\'' + safeUrl + '\',\'' + safeName + '\',this);event.stopPropagation()" class="pin-btn' + (isPinned(file.url) ? ' pinned' : '') + '" title="Pin" aria-label="Pin"><span class="material-symbols-outlined" style="font-size:18px;display:block">push_pin</span></button>' +
-                    '<button onclick="toggleBookmark(\'' + safeUrl + '\',\'' + safeName + '\',\'' + (file.folder||'').replace(/'/g,"\'") + '\');event.stopPropagation()" class="bookmark-btn' + (isBookmarked(file.url) ? ' bookmarked' : '') + '" title="Save" aria-label="Bookmark"><span class="material-symbols-outlined" style="font-size:18px;display:block">bookmark</span></button>' +
-                    '<button onclick="toggleReadlist(\'' + safeUrl + '\',\'' + safeName + '\',\'' + (file.folder||'').replace(/'/g,"\'") + '\');event.stopPropagation()" class="readlist-btn' + (inReadlist(file.url) ? ' in-readlist' : '') + '" title="Later" aria-label="Read later"><span class="material-symbols-outlined" style="font-size:18px;display:block">schedule</span></button>' +
-                    (file.id ? '<button onclick="openNoteModal(\'' + safeUrl + '\',\'' + safeName + '\');event.stopPropagation()" class="note-btn' + (getFileNote(file.url) ? ' has-note' : '') + '" title="Note" aria-label="Note"><span class="material-symbols-outlined" style="font-size:18px;display:block">sticky_note_2</span></button>' : '') +
                     '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview" aria-label="Preview ' + file.name + '">visibility</button>' +
                     '<button onclick="copyFileLink(\'' + safeUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link" aria-label="Copy link for ' + file.name + '"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block" aria-hidden="true">link</span></button>' +
                     '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\');event.stopPropagation()" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download" aria-label="Download ' + file.name + '">download</a>' +
@@ -2403,46 +2347,6 @@
         };
         previewByIdx = _previewByIdxBase;
 
-        // ══════════════════════════════════════════════════════════
-        // ── 37: PINNED FILES ────────────────────────────────────
-        const PINS_KEY = 'fvPinnedFiles';
-        function getPins() { try { return JSON.parse(localStorage.getItem(PINS_KEY) || '[]'); } catch { return []; } }
-        function savePins(p) { localStorage.setItem(PINS_KEY, JSON.stringify(p)); }
-        function isPinned(url) { return getPins().includes(url); }
-        function togglePin(url, name, btnEl) {
-            let pins = getPins();
-            const wasPinned = pins.includes(url);
-            pins = wasPinned ? pins.filter(u => u !== url) : [url, ...pins];
-            savePins(pins);
-            showToast(wasPinned ? 'Unpinned ' + name : '📌 Pinned ' + name, wasPinned ? 'info' : 'success', 1800);
-            renderFileList(getFilteredFiles());
-        }
-
-        // ── Preview Pin button ──
-        var _previewPinUrl = '', _previewPinName = '';
-        function _updatePreviewPinBtn(url) {
-            const btn = document.getElementById('previewPinBtn');
-            if (!btn) return;
-            const pinned = isPinned(url);
-            btn.innerHTML = pinned ? '📌 Pinned' : '📌 Pin';
-            btn.style.color = pinned ? '#f59e0b' : '#94a3b8';
-            btn.style.background = pinned ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)';
-            btn.style.borderColor = pinned ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.1)';
-        }
-        function togglePreviewPin() {
-            if (!_previewPinUrl) return;
-            togglePin(_previewPinUrl, _previewPinName, null);
-            _updatePreviewPinBtn(_previewPinUrl);
-        }
-        // Wrap applySort to float pinned files to top
-        const _origApplySortPins = applySort;
-        applySort = function(files) {
-            const pins = getPins();
-            const pinned = files.filter(f => pins.includes(f.url));
-            const rest   = _origApplySortPins(files.filter(f => !pins.includes(f.url)));
-            return [...pinned, ...rest];
-        };
-
         // ── 38: RECENTLY DOWNLOADED (session) ───────────────────
         const _recentDL = [];
         function addRecentDL(name, url) {
@@ -2556,32 +2460,6 @@
             applyCompactView();
         };
         applyCompactView();
-
-        // ── FEATURE 3: FILE NOTES ───────────────────────────────
-        const NOTES_KEY = 'fvFileNotes';
-        function getNotesMap() { try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '{}'); } catch { return {}; } }
-        function getFileNote(url) { return getNotesMap()[url] || ''; }
-        function saveFileNote(url, text) {
-            const m = getNotesMap();
-            if (text.trim()) { m[url] = text.trim(); } else { delete m[url]; }
-            localStorage.setItem(NOTES_KEY, JSON.stringify(m));
-        }
-        let _noteUrl = '', _noteName = '';
-        function openNoteModal(url, name) {
-            _noteUrl = url; _noteName = name;
-            document.getElementById('noteFileName').textContent = name;
-            document.getElementById('noteTextarea').value = getFileNote(url);
-            document.getElementById('noteModal').classList.add('open');
-            setTimeout(() => document.getElementById('noteTextarea').focus(), 120);
-        }
-        function closeNoteModal() { document.getElementById('noteModal').classList.remove('open'); }
-        function saveNote() {
-            const text = document.getElementById('noteTextarea').value;
-            saveFileNote(_noteUrl, text);
-            closeNoteModal();
-            showToast(text.trim() ? '📝 Note saved!' : 'Note removed.', 'success', 1800);
-            renderFileList(getFilteredFiles());
-        }
 
         // ══ SETTINGS PANEL TOGGLE ══════════════════════════════
         function toggleSettings() {
@@ -2836,170 +2714,11 @@
             }
         };
 
-        // ══════════════════════════════════════════════════════════
-        // ── SOCIAL PINS (Supabase-backed) ───────────────────────
-        // Table: social_pins (file_id TEXT, user_key TEXT, created_at)
-        // Unique constraint: (file_id, user_key)
-        // ──────────────────────────────────────────────────────────
-        const _socialPinsCache = {}; // fileId -> { count, myPin }
-
-        async function loadSocialPins(fileIds) {
-            if (!fileIds || !fileIds.length) return;
-            try {
-                const userKey = _getUserKey();
-                const [{ data: allPinsData }, { data: myPinsData }] = await Promise.all([
-                    _supabase.from('social_pins').select('file_id').in('file_id', fileIds),
-                    _supabase.from('social_pins').select('file_id').in('file_id', fileIds).eq('user_key', userKey)
-                ]);
-                const mySet = new Set((myPinsData || []).map(p => p.file_id));
-                fileIds.forEach(id => {
-                    const count = (allPinsData || []).filter(p => p.file_id === id).length;
-                    _socialPinsCache[id] = { count, myPin: mySet.has(id) };
-                });
-                _applySocialPinBadges();
-            } catch(e) {}
-        }
-
-        function _applySocialPinBadges() {
-            document.querySelectorAll('[data-social-pin-id]').forEach(el => {
-                const id = el.dataset.socialPinId;
-                const r = _socialPinsCache[id];
-                if (!r) return;
-                el.innerHTML = '📌' + (r.count > 0 ? ' <span style="font-size:10px;font-weight:700;color:' + (r.myPin ? '#34d399' : '#94a3b8') + '">' + r.count + '</span>' : '');
-                el.title = r.count + ' student' + (r.count !== 1 ? 's' : '') + ' pinned this' + (r.myPin ? ' (including you)' : '');
-                el.classList.toggle('social-pinned', r.myPin);
-                el.style.color = r.myPin ? '#34d399' : '#64748b';
-                el.style.borderColor = r.myPin ? 'rgba(52,211,153,0.35)' : 'rgba(255,255,255,0.08)';
-                el.style.background = r.myPin ? 'rgba(52,211,153,0.1)' : 'none';
-            });
-        }
-
-        async function toggleSocialPin(fileId, btnEl) {
-            if (!fileId) return;
-            const userKey = _getUserKey();
-            const cached = _socialPinsCache[fileId] || { count: 0, myPin: false };
-            const newPin = !cached.myPin;
-            _socialPinsCache[fileId] = { count: Math.max(0, cached.count + (newPin ? 1 : -1)), myPin: newPin };
-            _applySocialPinBadges();
-            showToast(newPin ? '📌 Pinned! ' + (_socialPinsCache[fileId].count) + ' student' + (_socialPinsCache[fileId].count !== 1 ? 's' : '') + ' pinned this' : 'Unpinned.', newPin ? 'success' : 'info', 2000);
-            try {
-                if (newPin) {
-                    await _supabase.from('social_pins').upsert({ file_id: fileId, user_key: userKey }, { onConflict: 'file_id,user_key' });
-                } else {
-                    await _supabase.from('social_pins').delete().eq('file_id', fileId).eq('user_key', userKey);
-                }
-            } catch(e) {
-                _socialPinsCache[fileId] = cached;
-                _applySocialPinBadges();
-            }
-        }
-
-        // Patch renderFileList to load social pins for visible files
-        const _origRFLSocialPins = renderFileList;
-        renderFileList = function(files) {
-            _origRFLSocialPins(files);
-            const ids = (files || []).filter(f => f.id && !(f.expires_at && new Date(f.expires_at) <= new Date())).map(f => String(f.id));
-            if (ids.length) setTimeout(() => loadSocialPins(ids), 350);
-        };
-
-        // ── FILE COMMENTS (Supabase) ─────────────────────────────
-        // Table: file_comments (id UUID, file_id TEXT, user_key TEXT, message TEXT, created_at TIMESTAMPTZ)
-        // Shown at the bottom of the preview modal (no login required)
-        // ──────────────────────────────────────────────────────────
-        var _commentsFileId = null;
-
-        async function loadComments(fileId) {
-            if (!fileId) return;
-            const list = document.getElementById('commentsList');
-            const countEl = document.getElementById('commentsCount');
-            if (!list) return;
-            list.innerHTML = '<div style="text-align:center;color:#475569;font-size:12px;padding:12px">Loading…</div>';
-            try {
-                const { data, error } = await _supabase
-                    .from('file_comments')
-                    .select('id, user_key, message, created_at')
-                    .eq('file_id', fileId)
-                    .order('created_at', { ascending: true });
-                if (error) throw error;
-                const rows = data || [];
-                if (countEl) countEl.textContent = rows.length > 0 ? rows.length : '';
-                if (!rows.length) {
-                    list.innerHTML = '<div style="text-align:center;color:#475569;font-size:12px;padding:12px 0">No notes yet — be the first!</div>';
-                    return;
-                }
-                const myKey = _getUserKey();
-                list.innerHTML = rows.map(r => {
-                    const isMe = r.user_key === myKey;
-                    const ago = timeAgo(r.created_at);
-                    const msgHtml = String(r.message).replace(/</g,'&lt;').replace(/\n/g,'<br>');
-                    return '<div style="display:flex;flex-direction:column;gap:3px;padding:9px 12px;border-radius:11px;background:' +
-                        (isMe ? 'rgba(59,130,246,0.1)' : 'rgba(255,255,255,0.04)') +
-                        ';border:1px solid ' + (isMe ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.06)') + '">' +
-                        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
-                            '<span style="font-size:10px;font-weight:800;color:' + (isMe ? '#93c5fd' : '#94a3b8') + ';letter-spacing:.04em">' + (isMe ? 'You' : 'Student') + '</span>' +
-                            '<div style="display:flex;align-items:center;gap:6px">' +
-                                '<span style="font-size:10px;color:#475569">' + ago + '</span>' +
-                                (isMe ? '<button onclick="deleteComment(\'' + r.id + '\',\'' + fileId + '\')" style="background:none;border:none;cursor:pointer;color:#475569;font-size:10px;padding:0 2px;line-height:1;font-family:inherit" title="Delete my note">✕</button>' : '') +
-                            '</div>' +
-                        '</div>' +
-                        '<p style="font-size:13px;color:#e2e8f0;margin:0;line-height:1.5">' + msgHtml + '</p>' +
-                    '</div>';
-                }).join('');
-            } catch(e) {
-                list.innerHTML = '<div style="text-align:center;color:#ef4444;font-size:12px;padding:12px 0">Could not load comments.</div>';
-            }
-        }
-
-        async function submitComment() {
-            const input = document.getElementById('commentInput');
-            const btn = document.getElementById('commentSubmitBtn');
-            if (!input || !_commentsFileId) return;
-            const msg = input.value.trim();
-            if (!msg) return;
-            input.disabled = true; btn.disabled = true;
-            try {
-                const { error } = await _supabase.from('file_comments').insert({
-                    file_id: _commentsFileId,
-                    user_key: _getUserKey(),
-                    message: msg
-                });
-                if (error) throw error;
-                input.value = '';
-                await loadComments(_commentsFileId);
-            } catch(e) {
-                showToast('Could not post note: ' + e.message, 'error', 3000);
-            } finally {
-                input.disabled = false; btn.disabled = false;
-                input.focus();
-            }
-        }
-
-        async function deleteComment(commentId, fileId) {
-            try {
-                await _supabase.from('file_comments').delete().eq('id', commentId).eq('user_key', _getUserKey());
-                await loadComments(fileId);
-            } catch(e) {}
-        }
-
-        // Patch openPreview to wire up comments panel
+        // Patch openPreview to wire up views and reactions
         const _origOpenPreviewComments = openPreview;
         openPreview = function(url, name, folder, size) {
             _origOpenPreviewComments(url, name, folder, size);
             const file = allFiles.find(f => f.url === url);
-            _commentsFileId = file ? String(file.id || '') : '';
-            // Keep commentsSection closed by default; just load badge count
-            const section = document.getElementById('commentsSection');
-            if (section) section.style.display = 'none';
-            // Reset comment toggle button
-            const toggleBtn = document.getElementById('previewCommentToggleBtn');
-            if (toggleBtn) {
-                toggleBtn.style.background = 'rgba(59,130,246,0.12)';
-                toggleBtn.style.color = '#93c5fd';
-                toggleBtn.style.borderColor = 'rgba(59,130,246,0.3)';
-            }
-            const lbl = document.getElementById('previewCommentBtnLabel');
-            if (lbl) lbl.textContent = 'Comments';
-            if (_commentsFileId) loadCommentCount(_commentsFileId);
             // Load view count
             if (file && file.id) loadViewCount(file.id);
             // Load emoji reactions
@@ -3030,107 +2749,6 @@
             if (next) _preloadFile(next.url, next.name);
         };
 
-
-        // ══════════════════════════════════════════════════════
-        // ── FEATURE A: BOOKMARKS ──────────────────────────────
-        const BM_KEY = 'fvBookmarks';
-        function getBookmarks() { try { return JSON.parse(localStorage.getItem(BM_KEY) || '[]'); } catch { return []; } }
-        function saveBookmarks(b) { localStorage.setItem(BM_KEY, JSON.stringify(b)); }
-        function isBookmarked(url) { return getBookmarks().some(b => b.url === url); }
-        function toggleBookmark(url, name, folder) {
-            let bm = getBookmarks();
-            const was = bm.some(b => b.url === url);
-            bm = was ? bm.filter(b => b.url !== url) : [{ url, name, folder, savedAt: Date.now() }, ...bm];
-            saveBookmarks(bm);
-            showToast(was ? 'Bookmark removed' : '🔖 Bookmarked — find it under Saved Files', was ? 'info' : 'success', 2200);
-            renderFileList(getFilteredFiles());
-            _updatePreviewBookmarkBtn(url);
-        }
-
-        var _previewBMUrl = '', _previewBMName = '', _previewBMFolder = '';
-        function _updatePreviewBookmarkBtn(url) {
-            const btn = document.getElementById('previewBookmarkBtn');
-            if (!btn) return;
-            const on = isBookmarked(url);
-            btn.innerHTML = on ? '🔖 Saved' : '🔖 Save';
-            btn.style.color = on ? '#ec4899' : '#94a3b8';
-            btn.style.background = on ? 'rgba(236,72,153,0.1)' : 'rgba(255,255,255,0.05)';
-            btn.style.borderColor = on ? 'rgba(236,72,153,0.3)' : 'rgba(255,255,255,0.1)';
-        }
-        function togglePreviewBookmark() {
-            if (!_previewBMUrl) return;
-            toggleBookmark(_previewBMUrl, _previewBMName, _previewBMFolder);
-        }
-
-        // ── FEATURE B: READING LIST ───────────────────────────
-        const RL_KEY = 'fvReadingList';
-        function getReadlist() { try { return JSON.parse(localStorage.getItem(RL_KEY) || '[]'); } catch { return []; } }
-        function saveReadlist(r) { localStorage.setItem(RL_KEY, JSON.stringify(r)); }
-        function inReadlist(url) { return getReadlist().some(r => r.url === url); }
-        function toggleReadlist(url, name, folder) {
-            let rl = getReadlist();
-            const was = rl.some(r => r.url === url);
-            rl = was ? rl.filter(r => r.url !== url) : [{ url, name, folder, addedAt: Date.now() }, ...rl];
-            saveReadlist(rl);
-            showToast(was ? 'Removed from Reading List' : '📋 Added to Reading List', was ? 'info' : 'success', 2000);
-            _updatePreviewReadlistBtn(url);
-        }
-        function _updatePreviewReadlistBtn(url) {
-            const btn = document.getElementById('previewReadlistBtn');
-            if (!btn) return;
-            const on = inReadlist(url);
-            btn.innerHTML = on ? '📋 In List' : '📋 Later';
-            btn.style.color = on ? '#06b6d4' : '#94a3b8';
-            btn.style.background = on ? 'rgba(6,182,212,0.1)' : 'rgba(255,255,255,0.05)';
-            btn.style.borderColor = on ? 'rgba(6,182,212,0.3)' : 'rgba(255,255,255,0.1)';
-        }
-        function togglePreviewReadlist() {
-            if (!_previewBMUrl) return;
-            toggleReadlist(_previewBMUrl, _previewBMName, _previewBMFolder);
-        }
-
-        // ── SAVED FILES MODAL ─────────────────────────────────
-        let _savedTab = 'bookmarks';
-        function openSavedModal() {
-            document.getElementById('savedModal').classList.add('open');
-            renderSavedList();
-        }
-        function closeSavedModal() { document.getElementById('savedModal').classList.remove('open'); }
-        function switchSavedTab(tab) {
-            _savedTab = tab;
-            document.getElementById('tabBookmarks').classList.toggle('active', tab === 'bookmarks');
-            document.getElementById('tabReadlist').classList.toggle('active', tab === 'readlist');
-            renderSavedList();
-        }
-        function renderSavedList() {
-            const items = _savedTab === 'bookmarks' ? getBookmarks() : getReadlist();
-            const container = document.getElementById('savedListContainer');
-            if (!items.length) {
-                const msg = _savedTab === 'bookmarks'
-                    ? 'No bookmarks yet. Use the 🔖 Save button in a file preview.'
-                    : 'Your reading list is empty. Use 📋 Later in a file preview.';
-                container.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#64748b;font-size:13px">' + msg + '</div>';
-                return;
-            }
-            container.innerHTML = items.map(function(item) {
-                const safeUrl = (item.url||'').replace(/'/g,"\\'");
-                const safeName = (item.name||'').replace(/'/g,"\\'");
-                const safeFolder = (item.folder||'').replace(/'/g,"\\'");
-                return '<div class="saved-item" onclick="closeSavedModal();setTimeout(function(){openPreview(\''+safeUrl+'\',\''+safeName+'\',\''+safeFolder+'\')},80)">' +
-                    '<span class="material-symbols-outlined" style="font-size:18px;flex-shrink:0;color:#64748b">' + getFileIcon(item.name||'') + '</span>' +
-                    '<div style="flex:1;min-width:0">' +
-                        '<div class="saved-item-name">' + (item.name||'Unnamed') + '</div>' +
-                        '<div class="saved-item-meta">' + (item.folder||'Root') + '</div>' +
-                    '</div>' +
-                    '<button class="saved-item-remove" onclick="event.stopPropagation();removeSavedItem(\''+safeUrl+'\')" title="Remove" aria-label="Remove"><span class="material-symbols-outlined" style="font-size:16px;display:block">delete</span></button>' +
-                '</div>';
-            }).join('');
-        }
-        function removeSavedItem(url) {
-            if (_savedTab === 'bookmarks') saveBookmarks(getBookmarks().filter(b => b.url !== url));
-            else saveReadlist(getReadlist().filter(r => r.url !== url));
-            renderSavedList();
-        }
 
         // ── FEATURE C: RECENTLY VIEWED HISTORY ───────────────
         const RV_KEY = 'fvRecentViewed';
@@ -3299,9 +2917,6 @@
         const _origOpenPreviewFeatures = openPreview;
         openPreview = function(url, name, folder, size) {
             _origOpenPreviewFeatures(url, name, folder, size);
-            _previewBMUrl = url; _previewBMName = name; _previewBMFolder = folder || '';
-            _updatePreviewBookmarkBtn(url);
-            _updatePreviewReadlistBtn(url);
             addRecentViewed(url, name, folder);
             _previewZoom = 1.0;
             const label = document.getElementById('zoomLevelLabel');
@@ -3321,55 +2936,6 @@
         };
         // Render on page load from localStorage
         renderRecentViewed();
-
-        // ══ COMMENT PANEL TOGGLE ══════════════════════════════
-        let _commentPanelOpen = false;
-        function toggleCommentPanel() {
-            _commentPanelOpen = !_commentPanelOpen;
-            const section = document.getElementById('commentsSection');
-            const btn = document.getElementById('previewCommentToggleBtn');
-            const lbl = document.getElementById('previewCommentBtnLabel');
-            if (section) section.style.display = _commentPanelOpen ? 'block' : 'none';
-            if (btn) {
-                btn.style.background = _commentPanelOpen ? 'rgba(59,130,246,0.25)' : 'rgba(59,130,246,0.12)';
-                btn.style.borderColor = _commentPanelOpen ? 'rgba(59,130,246,0.5)' : 'rgba(59,130,246,0.3)';
-            }
-            if (lbl) lbl.textContent = _commentPanelOpen ? 'Hide' : 'Comments';
-            if (_commentPanelOpen && _commentsFileId) loadComments(_commentsFileId);
-        }
-
-        // Also reset panel state when preview closes
-        const _origClosePrevCmt = closePreview;
-        closePreview = function() {
-            _origClosePrevCmt();
-            _commentPanelOpen = false;
-        };
-
-        // Load just the comment count (for button badge, without opening panel)
-        async function loadCommentCount(fileId) {
-            if (!fileId) return;
-            try {
-                const { count } = await _supabase
-                    .from('file_comments')
-                    .select('id', { count: 'exact', head: true })
-                    .eq('file_id', fileId);
-                const n = count || 0;
-                const countEl = document.getElementById('commentsCount');
-                if (countEl) countEl.textContent = n > 0 ? n : '';
-                const badge = document.getElementById('previewCommentBtnCount');
-                if (badge) badge.textContent = n > 0 ? n : '';
-            } catch(e) {}
-        }
-
-        // Also update badge when comments load
-        const _origLoadComments = loadComments;
-        loadComments = async function(fileId) {
-            await _origLoadComments(fileId);
-            // Sync badge from count element
-            const countEl = document.getElementById('commentsCount');
-            const badge = document.getElementById('previewCommentBtnCount');
-            if (countEl && badge) badge.textContent = countEl.textContent;
-        };
 
         // ══ VIEW COUNT (file opens, not just downloads) ══════════
         // Uses Supabase RPC increment_view_count or direct upsert on file_views table
@@ -3570,46 +3136,6 @@
     </div>
 
 
-    <!-- ── Bookmarks & Reading List Modal ── -->
-    <div id="savedModal" onclick="if(event.target===this)closeSavedModal()">
-        <div id="savedBox">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.07)">
-                <h3 style="color:white;font-weight:700;font-size:15px;margin:0">Saved Files</h3>
-                <button onclick="closeSavedModal()" style="background:none;border:none;cursor:pointer;color:#64748b"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
-            </div>
-            <!-- Tabs -->
-            <div style="display:flex;border-bottom:1px solid rgba(255,255,255,0.07)">
-                <button class="saved-tab active" id="tabBookmarks" onclick="switchSavedTab('bookmarks')">🔖 Bookmarks</button>
-                <button class="saved-tab" id="tabReadlist" onclick="switchSavedTab('readlist')">📋 Reading List</button>
-            </div>
-            <div id="savedListContainer" style="flex:1;overflow-y:auto;max-height:420px">
-                <!-- Injected by JS -->
-            </div>
-        </div>
-    </div>
-
-    <!-- ── File Note Modal ── -->
-    <div id="noteModal" onclick="if(event.target===this)closeNoteModal()">
-        <div id="noteBox">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-                <div>
-                    <p style="color:rgba(255,255,255,0.4);font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px">Personal Note</p>
-                    <p id="noteFileName" style="color:white;font-weight:700;font-size:13px;margin:0;word-break:break-word;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></p>
-                </div>
-                <button onclick="closeNoteModal()" style="background:none;border:none;cursor:pointer;color:#64748b"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
-            </div>
-            <textarea id="noteTextarea" placeholder="Write a personal reminder, comment, or note… (only you can see this)" rows="4"
-                style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px;color:white;font-size:13px;font-family:inherit;resize:vertical;outline:none;line-height:1.55;box-sizing:border-box"
-                onfocus="this.style.borderColor='rgba(59,130,246,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
-                onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter')saveNote()"></textarea>
-            <p style="color:rgba(255,255,255,0.18);font-size:10px;margin:6px 0 16px">Saved locally in your browser only · Ctrl+Enter to save</p>
-            <div style="display:flex;gap:8px">
-                <button onclick="closeNoteModal()" style="flex:1;padding:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:rgba(255,255,255,0.6);font-weight:700;font-size:13px;cursor:pointer">Cancel</button>
-                <button onclick="saveNote()" style="flex:2;padding:10px;background:linear-gradient(135deg,var(--accent),#8b5cf6);border:none;border-radius:12px;color:white;font-weight:700;font-size:13px;cursor:pointer">Save Note</button>
-            </div>
-        </div>
-    </div>
-
     <!-- ══ 58: ZIP Progress Bar ══ -->
     <div id="zipProgressBar">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -3647,29 +3173,14 @@
                 <button class="preview-nav right" onclick="slideshowNav(1)" title="Next file"><span class="material-symbols-outlined" style="font-size:20px">chevron_right</span></button>
                 <div style="color:#64748b;font-size:14px">Loading preview…</div>
             </div>
-            <!-- ── Action Bar: Pin / Save / Later / View count / Reactions / Comments ── -->
+            <!-- View Count & Reactions -->
             <div id="previewActionBar" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 18px;border-top:1px solid rgba(255,255,255,0.07);background:rgba(0,0,0,0.15)">
-                <!-- Pin -->
-                <button id="previewPinBtn" onclick="togglePreviewPin()" style="display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Pin this file">📌 Pin</button>
-                <!-- Save/Bookmark -->
-                <button id="previewBookmarkBtn" onclick="togglePreviewBookmark()" style="display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Bookmark this file">🔖 Save</button>
-                <!-- Read Later -->
-                <button id="previewReadlistBtn" onclick="togglePreviewReadlist()" style="display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Add to Reading List">📋 Later</button>
-                <!-- View Count -->
                 <span id="previewViewCount" style="display:none;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#64748b;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:99px;padding:5px 11px">
                     <span class="material-symbols-outlined" style="font-size:13px">visibility</span>
                     <span id="previewViewCountNum">0</span> views
                 </span>
-                <!-- Spacer -->
                 <div style="flex:1"></div>
-                <!-- Emoji Reactions -->
                 <div id="previewReactionBar" style="display:flex;align-items:center;gap:4px"></div>
-                <!-- Comment toggle button -->
-                <button id="previewCommentToggleBtn" onclick="toggleCommentPanel()" style="display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border:1px solid rgba(59,130,246,0.3);border-radius:12px;background:rgba(59,130,246,0.12);color:#93c5fd;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Show/hide comments">
-                    <span class="material-symbols-outlined" style="font-size:15px">chat_bubble</span>
-                    <span id="previewCommentBtnLabel">Comments</span>
-                    <span id="previewCommentBtnCount" style="font-size:10px;font-weight:800;background:rgba(59,130,246,0.25);border-radius:99px;padding:1px 6px"></span>
-                </button>
             </div>
             <!-- 39: Related files in same folder -->
             <div id="relatedFilesStrip" class="hidden">
@@ -3682,25 +3193,6 @@
                 <span id="zoomLevelLabel">100%</span>
                 <button class="zoom-btn" onclick="previewZoom(0.25)" title="Zoom in" aria-label="Zoom in"><span class="material-symbols-outlined" style="font-size:16px;display:block">zoom_in</span></button>
                 <button class="zoom-btn" onclick="previewZoomReset()" title="Reset zoom" aria-label="Reset zoom" style="margin-left:4px"><span class="material-symbols-outlined" style="font-size:16px;display:block">fit_page</span></button>
-            </div>
-            <!-- Comments panel -->
-            <div id="commentsSection" style="display:none;border-top:1px solid rgba(59,130,246,0.18);padding:14px 18px 10px;background:rgba(59,130,246,0.04)">
-                <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px">
-                    <span class="material-symbols-outlined" style="font-size:16px;color:#93c5fd">chat_bubble</span>
-                    <span style="font-size:12px;font-weight:700;color:#93c5fd;text-transform:uppercase;letter-spacing:.07em">Notes &amp; Comments</span>
-                    <span id="commentsCount" style="font-size:10px;font-weight:800;color:#64748b;background:rgba(255,255,255,0.06);border-radius:99px;padding:1px 7px"></span>
-                </div>
-                <div id="commentsList" style="display:flex;flex-direction:column;gap:7px;max-height:180px;overflow-y:auto;margin-bottom:10px;padding-right:2px"></div>
-                <div style="display:flex;gap:8px;align-items:flex-end">
-                    <textarea id="commentInput" placeholder="Leave a note for other students…" rows="2"
-                        style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:11px;padding:9px 12px;color:white;font-size:13px;font-family:inherit;resize:none;outline:none;line-height:1.4;transition:border-color .2s;box-sizing:border-box"
-                        onfocus="this.style.borderColor='rgba(59,130,246,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
-                        onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){submitComment();return false}"></textarea>
-                    <button id="commentSubmitBtn" onclick="submitComment()"
-                        style="padding:9px 14px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border:none;border-radius:11px;color:white;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0"
-                        title="Post (Ctrl+Enter)">Post</button>
-                </div>
-                <p style="color:rgba(255,255,255,0.18);font-size:10px;margin:5px 0 0">Visible to all students · Ctrl+Enter to post</p>
             </div>
         </div>
     </div>
