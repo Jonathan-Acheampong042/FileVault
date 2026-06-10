@@ -154,10 +154,19 @@
         .sc-key { display:inline-flex;align-items:center;gap:4px; }
         kbd { background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:2px 7px;font-size:11px;font-family:monospace;color:#e2e8f0; }
 
-        /* ── Announcement banner ── */
-        #announcementBanner { display:none; }
-        #announcementBanner.visible { display:flex; align-items:flex-start; gap:12px; margin:0 0 20px; padding:14px 18px; background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(139,92,246,0.10)); border:1px solid rgba(59,130,246,0.25); border-radius:16px; animation:fadeIn 0.4s ease; }
-        /* ── Countdown timer ── */
+        /* ── Announcement banners (multi-card container) ── */
+        #announcementBanner { display:none; } /* legacy — hidden, replaced by container */
+        #announcementContainer { display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
+        #announcementContainer:empty { margin-bottom:0; }
+        .ann-card { display:flex; align-items:flex-start; gap:12px; padding:14px 18px; background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(139,92,246,0.10)); border:1px solid rgba(59,130,246,0.25); border-radius:16px; animation:fadeIn 0.4s ease; }
+        .ann-card.has-event { background:linear-gradient(135deg,rgba(245,158,11,0.10),rgba(59,130,246,0.10)); border-color:rgba(245,158,11,0.28); }
+        .ann-card-body { flex:1; min-width:0; }
+        .ann-card-text { color:rgba(255,255,255,0.9); font-size:14px; font-weight:600; line-height:1.5; margin:0; }
+        .ann-card-meta { color:rgba(255,255,255,0.35); font-size:10px; margin-top:4px; }
+        /* ── Per-card countdown ── */
+        .ann-countdown { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:10px; }
+        .ann-countdown-label { font-size:10px; font-weight:700; color:#fbbf24; letter-spacing:.04em; white-space:nowrap; display:flex; align-items:center; gap:4px; }
+        /* ── Countdown timer shared styles ── */
         #countdownBanner { display:none; margin-bottom:16px; }
         #countdownBanner.visible { display:flex; align-items:center; gap:12px; padding:14px 18px; background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(239,68,68,0.10)); border:1px solid rgba(245,158,11,0.3); border-radius:16px; animation:fadeIn 0.4s ease; flex-wrap:wrap; }
         .countdown-unit { display:flex; flex-direction:column; align-items:center; min-width:40px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:6px 10px; }
@@ -464,17 +473,14 @@
             </div>
         </header>
         <main class="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full">
-            <!-- Announcement Banner (populated from Supabase) -->
-            <div id="announcementBanner">
-                <span class="material-symbols-outlined text-primary shrink-0" style="font-size:22px;margin-top:1px">campaign</span>
+            <!-- Announcement Banners (populated from Supabase — all active shown simultaneously) -->
+            <div id="announcementContainer"></div>
+            <!-- Legacy single-banner element kept for backward compat (hidden) -->
+            <div id="announcementBanner" style="display:none">
                 <div style="flex:1;min-width:0">
-                    <p id="announcementText" style="color:rgba(255,255,255,0.9);font-size:14px;font-weight:600;line-height:1.5;margin:0"></p>
-                    <p id="announcementMeta" style="color:rgba(255,255,255,0.35);font-size:10px;margin-top:4px"></p>
-                    <!-- Inline countdown (shown when announcement has an event_date) -->
-                    <div id="announcementCountdown">
-                        <span class="material-symbols-outlined" style="color:#fbbf24;font-size:16px;flex-shrink:0;margin-right:2px">alarm</span>
-                        <div id="countdownUnitsInline" style="display:flex;gap:5px;align-items:center;flex-wrap:wrap"></div>
-                    </div>
+                    <p id="announcementText"></p>
+                    <p id="announcementMeta"></p>
+                    <div id="announcementCountdown"><div id="countdownUnitsInline"></div></div>
                 </div>
             </div>
 
@@ -1747,6 +1753,60 @@
         // They only disappear when expires_at passes or the admin deletes them.
         // No localStorage dismiss system.
 
+        // Track per-announcement countdown intervals so each runs independently
+        const _countdownIntervals = {};
+
+        function _buildCountdownHTML(days, hours, mins, secs) {
+            return '<div class="countdown-unit"><span class="countdown-num">' + days + '</span><span class="countdown-lbl">Days</span></div>' +
+                '<span class="countdown-sep">:</span>' +
+                '<div class="countdown-unit"><span class="countdown-num">' + String(hours).padStart(2,'0') + '</span><span class="countdown-lbl">Hrs</span></div>' +
+                '<span class="countdown-sep">:</span>' +
+                '<div class="countdown-unit"><span class="countdown-num">' + String(mins).padStart(2,'0') + '</span><span class="countdown-lbl">Min</span></div>' +
+                '<span class="countdown-sep">:</span>' +
+                '<div class="countdown-unit"><span class="countdown-num">' + String(secs).padStart(2,'0') + '</span><span class="countdown-lbl">Sec</span></div>';
+        }
+
+        function _startCountdownInEl(targetDate, containerEl, cardEl) {
+            // Each call gets its own interval stored on the element
+            if (containerEl._cdInterval) clearInterval(containerEl._cdInterval);
+            function _tick() {
+                const diff = targetDate.getTime() - Date.now();
+                if (diff <= 0) {
+                    clearInterval(containerEl._cdInterval);
+                    // Remove the whole card when its timer expires
+                    if (cardEl && cardEl.parentNode) cardEl.remove();
+                    return;
+                }
+                const days  = Math.floor(diff / 86400000);
+                const hours = Math.floor((diff % 86400000) / 3600000);
+                const mins  = Math.floor((diff % 3600000) / 60000);
+                const secs  = Math.floor((diff % 60000) / 1000);
+                containerEl.innerHTML = _buildCountdownHTML(days, hours, mins, secs);
+            }
+            _tick();
+            containerEl._cdInterval = setInterval(_tick, 1000);
+        }
+
+        // Legacy single-banner countdown (kept for any external callers)
+        let _countdownInterval = null;
+        function _startCountdown(targetDate, inline) {
+            if (_countdownInterval) clearInterval(_countdownInterval);
+            function _tick() {
+                const diff = targetDate.getTime() - Date.now();
+                if (diff <= 0) { clearInterval(_countdownInterval); return; }
+                const days  = Math.floor(diff / 86400000);
+                const hours = Math.floor((diff % 86400000) / 3600000);
+                const mins  = Math.floor((diff % 3600000) / 60000);
+                const secs  = Math.floor((diff % 60000) / 1000);
+                const html  = _buildCountdownHTML(days, hours, mins, secs);
+                const inlineUnits = document.getElementById('countdownUnitsInline');
+                if (inline && inlineUnits) { inlineUnits.innerHTML = html; }
+                else { const u = document.getElementById('countdownUnits'); if (u) u.innerHTML = html; }
+            }
+            _tick();
+            _countdownInterval = setInterval(_tick, 1000);
+        }
+
         async function loadAnnouncement() {
             try {
                 const { data, error } = await _supabase
@@ -1763,78 +1823,70 @@
                 const active = data.filter(a => !a.expires_at || new Date(a.expires_at) > now);
                 if (!active.length) { console.info('No active announcements.'); return; }
 
-                // Show the most recent active announcement
-                const ann = active[0];
-                const bannerEl = document.getElementById('announcementBanner');
-                const textEl   = document.getElementById('announcementText');
-                const metaEl   = document.getElementById('announcementMeta');
-                if (bannerEl && textEl) {
-                    textEl.textContent = ann.message || '';
-                    if (metaEl) metaEl.textContent = ann.created_at
+                const container = document.getElementById('announcementContainer');
+                if (!container) return;
+                container.innerHTML = ''; // clear previous renders
+
+                // Render ALL active announcements, each as its own card
+                active.forEach(function(ann) {
+                    const hasEvent = ann.event_date && new Date(ann.event_date) > now;
+                    const card = document.createElement('div');
+                    card.className = 'ann-card' + (hasEvent ? ' has-event' : '');
+                    card.dataset.annId = ann.id;
+
+                    // Icon
+                    const iconEl = document.createElement('span');
+                    iconEl.className = 'material-symbols-outlined shrink-0';
+                    iconEl.style.cssText = 'font-size:22px;margin-top:2px;color:' + (hasEvent ? '#fbbf24' : '#3b82f6');
+                    iconEl.textContent = hasEvent ? 'alarm' : 'campaign';
+                    card.appendChild(iconEl);
+
+                    // Body
+                    const body = document.createElement('div');
+                    body.className = 'ann-card-body';
+
+                    const textP = document.createElement('p');
+                    textP.className = 'ann-card-text';
+                    textP.textContent = ann.message || '';
+                    body.appendChild(textP);
+
+                    const metaP = document.createElement('p');
+                    metaP.className = 'ann-card-meta';
+                    // Show posted date + optional expiry
+                    let metaStr = ann.created_at
                         ? 'Posted ' + new Date(ann.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short' })
                         : '';
-                    bannerEl.classList.add('visible');
-                }
-
-                // Countdown: find any active announcement with a future event_date
-                const cdAnn = active.find(a => a.event_date && new Date(a.event_date) > now);
-                if (cdAnn) {
-                    if (ann.id === cdAnn.id) {
-                        // Same row as the displayed announcement — show countdown inside the banner
-                        const acd = document.getElementById('announcementCountdown');
-                        if (acd) acd.classList.add('visible');
-                        _startCountdown(new Date(cdAnn.event_date), true);
-                    } else {
-                        // Different row — show the standalone amber countdown banner
-                        const titleEl  = document.getElementById('countdownTitle');
-                        const cdBanner = document.getElementById('countdownBanner');
-                        if (titleEl)  titleEl.textContent = cdAnn.message || 'Upcoming Event';
-                        if (cdBanner) cdBanner.classList.add('visible');
-                        _startCountdown(new Date(cdAnn.event_date), false);
+                    if (ann.expires_at) {
+                        const expDate = new Date(ann.expires_at);
+                        metaStr += (metaStr ? ' · ' : '') + 'Expires ' + expDate.toLocaleDateString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
                     }
-                }
-            } catch(e) { console.warn('loadAnnouncement error:', e); }
-        }
+                    metaP.textContent = metaStr;
+                    body.appendChild(metaP);
 
-        // Countdown timer engine
-        let _countdownInterval = null;
-        function _buildCountdownHTML(days, hours, mins, secs) {
-            return '<div class="countdown-unit"><span class="countdown-num">' + days + '</span><span class="countdown-lbl">Days</span></div>' +
-                '<span class="countdown-sep">:</span>' +
-                '<div class="countdown-unit"><span class="countdown-num">' + String(hours).padStart(2,'0') + '</span><span class="countdown-lbl">Hrs</span></div>' +
-                '<span class="countdown-sep">:</span>' +
-                '<div class="countdown-unit"><span class="countdown-num">' + String(mins).padStart(2,'0') + '</span><span class="countdown-lbl">Min</span></div>' +
-                '<span class="countdown-sep">:</span>' +
-                '<div class="countdown-unit"><span class="countdown-num">' + String(secs).padStart(2,'0') + '</span><span class="countdown-lbl">Sec</span></div>';
-        }
-        function _startCountdown(targetDate, inline) {
-            if (_countdownInterval) clearInterval(_countdownInterval);
-            function _tick() {
-                const diff = targetDate.getTime() - Date.now();
-                if (diff <= 0) {
-                    clearInterval(_countdownInterval);
-                    document.getElementById('countdownBanner').classList.remove('visible');
-                    const acd = document.getElementById('announcementCountdown');
-                    if (acd) acd.classList.remove('visible');
-                    return;
-                }
-                const days  = Math.floor(diff / 86400000);
-                const hours = Math.floor((diff % 86400000) / 3600000);
-                const mins  = Math.floor((diff % 3600000) / 60000);
-                const secs  = Math.floor((diff % 60000) / 1000);
-                const html  = _buildCountdownHTML(days, hours, mins, secs);
-                // Render inside announcement banner if inline=true
-                const inlineUnits = document.getElementById('countdownUnitsInline');
-                if (inline && inlineUnits) {
-                    inlineUnits.innerHTML = html;
-                } else {
-                    // Render in standalone banner
-                    const units = document.getElementById('countdownUnits');
-                    if (units) units.innerHTML = html;
-                }
-            }
-            _tick();
-            _countdownInterval = setInterval(_tick, 1000);
+                    // Countdown section (if event_date is in the future)
+                    if (hasEvent) {
+                        const cdWrap = document.createElement('div');
+                        cdWrap.className = 'ann-countdown';
+
+                        const cdLabel = document.createElement('span');
+                        cdLabel.className = 'ann-countdown-label';
+                        cdLabel.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">timer</span> Countdown:';
+                        cdWrap.appendChild(cdLabel);
+
+                        const cdUnits = document.createElement('div');
+                        cdUnits.style.cssText = 'display:flex;gap:5px;align-items:center;flex-wrap:wrap';
+                        cdWrap.appendChild(cdUnits);
+                        body.appendChild(cdWrap);
+
+                        // Start independent countdown for this card
+                        _startCountdownInEl(new Date(ann.event_date), cdUnits, card);
+                    }
+
+                    card.appendChild(body);
+                    container.appendChild(card);
+                });
+
+            } catch(e) { console.warn('loadAnnouncement error:', e); }
         }
 
         function dismissAnnouncement() {
