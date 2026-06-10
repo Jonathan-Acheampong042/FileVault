@@ -204,6 +204,26 @@
         .fs-btn { display:inline-flex;align-items:center;justify-content:center;width:32px;height:28px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#94a3b8;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;font-size:12px; }
         .fs-btn.active, .fs-btn:hover { background:var(--accent-light);border-color:var(--accent-border);color:var(--accent); }
 
+        /* ── Large font: file cards expand instead of clipping ── */
+        html.fs-large #fileGrid .file-card { align-items:flex-start !important; padding:12px 14px !important; }
+        html.fs-large #fileGrid .file-card .w-10,
+        html.fs-large #fileGrid .file-card .w-12 { width:36px !important; height:36px !important; min-width:36px !important; flex-shrink:0; margin-top:2px; }
+        html.fs-large #fileGrid .file-card p.font-semibold { font-size:14px !important; white-space:normal !important; line-height:1.35 !important; overflow:visible !important; text-overflow:unset !important; word-break:break-word; }
+        html.fs-large #fileGrid .file-card .mt-0\.5.flex { flex-wrap:wrap !important; gap:4px 6px !important; font-size:11px !important; }
+        html.fs-large #fileGrid .file-card p.italic { font-size:11px !important; white-space:normal !important; overflow:visible !important; }
+        html.fs-large #fileGrid .file-card .flex.gap-0\.5 { flex-direction:column; gap:2px !important; align-self:flex-start; }
+        html.fs-large #fileGrid .file-card .flex-1 { overflow:visible !important; }
+        /* same fixes after swipe-inner wraps the content */
+        html.fs-large #fileGrid .swipe-inner { align-items:flex-start !important; padding:12px 14px !important; }
+        html.fs-large #fileGrid .swipe-inner p.font-semibold { font-size:14px !important; white-space:normal !important; line-height:1.35 !important; overflow:visible !important; text-overflow:unset !important; word-break:break-word; }
+        html.fs-large #fileGrid .swipe-inner .mt-0\.5.flex { flex-wrap:wrap !important; font-size:11px !important; }
+        html.fs-large #fileGrid .swipe-inner .w-10,
+        html.fs-large #fileGrid .swipe-inner .w-12 { width:36px !important; height:36px !important; min-width:36px !important; flex-shrink:0; margin-top:2px; }
+        html.fs-large #fileGrid .swipe-inner .flex.gap-0\.5 { flex-direction:column; gap:2px !important; align-self:flex-start; }
+        /* Small font: minor tightening */
+        html.fs-small #fileGrid .file-card p.font-semibold { font-size:12px !important; }
+        html.fs-small #fileGrid .file-card .mt-0\.5.flex { font-size:9px !important; }
+
         /* ── File rating badge ── */
         .rating-badge { display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#f59e0b;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:99px;padding:1px 7px;cursor:pointer;transition:all .2s; }
         .rating-badge:hover { background:rgba(245,158,11,0.2); }
@@ -316,34 +336,37 @@
 
         /* ── Compact / Dense view ── */
         #fileGrid.compact-view { display:flex !important; flex-direction:column; gap:1px !important; }
-        /* Card itself: no padding (swipe-inner handles it), just tight radius */
+        /* Card itself */
         #fileGrid.compact-view .file-card { padding:0 !important; border-radius:8px !important; min-height:0 !important; overflow:hidden; }
         #fileGrid.compact-view .file-card:hover { transform:none !important; background:rgba(30,41,59,0.45) !important; }
-        /* swipe-inner is the real row — target it for padding/gap */
-        #fileGrid.compact-view .swipe-inner { padding:5px 10px !important; gap:8px !important; align-items:center !important; }
+        /* swipe-inner wrapper (added by swipe patch) AND direct card layout */
+        #fileGrid.compact-view .swipe-inner,
+        #fileGrid.compact-view .file-card > .swipe-inner { padding:5px 10px !important; gap:8px !important; align-items:center !important; }
+        /* Also target card direct children when swipe-inner hasn't wrapped yet */
+        #fileGrid.compact-view .file-card > input[type=checkbox] { margin:0 4px !important; }
+        #fileGrid.compact-view .file-card > .flex-1,
+        #fileGrid.compact-view .swipe-inner > .flex-1 { flex:1 !important; min-width:0 !important; overflow:hidden !important; }
         /* Shrink the file-type icon */
-        #fileGrid.compact-view .swipe-inner .w-10,
-        #fileGrid.compact-view .swipe-inner .w-12 { width:24px !important; height:24px !important; min-width:24px !important; border-radius:5px !important; flex-shrink:0 !important; }
-        #fileGrid.compact-view .swipe-inner .w-10 .material-symbols-outlined,
-        #fileGrid.compact-view .swipe-inner .w-12 .material-symbols-outlined { font-size:12px !important; }
+        #fileGrid.compact-view .w-10,
+        #fileGrid.compact-view .w-12 { width:24px !important; height:24px !important; min-width:24px !important; border-radius:5px !important; flex-shrink:0 !important; }
+        #fileGrid.compact-view .w-10 .material-symbols-outlined,
+        #fileGrid.compact-view .w-12 .material-symbols-outlined { font-size:12px !important; }
         /* Compact filename */
-        #fileGrid.compact-view .swipe-inner p.font-semibold { font-size:12px !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; line-height:1.3 !important; }
+        #fileGrid.compact-view p.font-semibold { font-size:12px !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; line-height:1.3 !important; }
         /* Hide secondary meta row and description line */
-        #fileGrid.compact-view .swipe-inner .mt-0\.5.flex { display:none !important; }
-        #fileGrid.compact-view .swipe-inner p.italic,
-        #fileGrid.compact-view .swipe-inner .desc-tooltip { display:none !important; }
-        /* Keep text container flexible */
-        #fileGrid.compact-view .swipe-inner .flex-1 { flex:1 !important; min-width:0 !important; overflow:hidden !important; }
+        #fileGrid.compact-view .mt-0\.5.flex { display:none !important; }
+        #fileGrid.compact-view p.italic,
+        #fileGrid.compact-view .desc-tooltip { display:none !important; }
         /* Shrink action buttons */
-        #fileGrid.compact-view .swipe-inner .pin-btn,
-        #fileGrid.compact-view .swipe-inner .note-btn { padding:3px !important; }
-        #fileGrid.compact-view .swipe-inner .pin-btn .material-symbols-outlined,
-        #fileGrid.compact-view .swipe-inner .note-btn .material-symbols-outlined { font-size:14px !important; }
-        #fileGrid.compact-view .swipe-inner button.p-2,
-        #fileGrid.compact-view .swipe-inner a.p-2 { padding:4px !important; }
-        #fileGrid.compact-view .swipe-inner .material-symbols-outlined.text-xl { font-size:15px !important; }
+        #fileGrid.compact-view .pin-btn,
+        #fileGrid.compact-view .note-btn { padding:3px !important; }
+        #fileGrid.compact-view .pin-btn .material-symbols-outlined,
+        #fileGrid.compact-view .note-btn .material-symbols-outlined { font-size:14px !important; }
+        #fileGrid.compact-view button.p-2,
+        #fileGrid.compact-view a.p-2 { padding:4px !important; }
+        #fileGrid.compact-view .material-symbols-outlined.text-xl { font-size:15px !important; }
         /* Remove bottom border/padding in list view cards */
-        #fileGrid.compact-view .swipe-inner .border-t.border-white\/5 { border:none !important; padding:0 !important; margin:0 !important; }
+        #fileGrid.compact-view .border-t.border-white\/5 { border:none !important; padding:0 !important; margin:0 !important; }
         /* ── File notes ── */
         .note-btn { background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#475569;transition:color .2s,background .2s;font-size:0;line-height:0; }
         .note-btn:hover { color:#f59e0b;background:rgba(245,158,11,.1); }
@@ -459,7 +482,11 @@
                     <h3 class="text-sm font-bold text-white uppercase tracking-wide">Folders</h3>
                 </div>
                 <div id="folderGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
-                    <p class="col-span-full text-slate-500 text-sm italic">No folders yet.</p>
+                    <!-- skeleton placeholders shown while folders load -->
+                    <div class="folder-skeleton skeleton" style="height:64px;border-radius:16px"></div>
+                    <div class="folder-skeleton skeleton" style="height:64px;border-radius:16px;animation-delay:.1s"></div>
+                    <div class="folder-skeleton skeleton" style="height:64px;border-radius:16px;animation-delay:.2s"></div>
+                    <div class="folder-skeleton skeleton" style="height:64px;border-radius:16px;animation-delay:.3s"></div>
                 </div>
             </section>
             <div class="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4 sm:gap-6 mb-6 sm:mb-8">
@@ -944,15 +971,29 @@
                     const seenTypes = new Set(); const dots = [];
                     folderFiles.forEach(f => { const ext = (f.name||'').split('.').pop().toLowerCase(); if (typeColors[ext] && !seenTypes.has(ext)) { seenTypes.add(ext); dots.push('<span style="width:7px;height:7px;border-radius:50%;background:'+typeColors[ext]+';display:inline-block;flex-shrink:0" title="'+ext.toUpperCase()+'"></span>'); } });
                     const dotsHtml = dots.length ? '<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:4px">' + dots.slice(0,6).join('') + '</div>' : '';
-                    return '<button onclick="filterByFolder(\'' + folder + '\',null)" class="folder-btn group flex items-center gap-3 p-3 rounded-2xl bg-white/3 border border-white/5 hover:border-primary/40 hover:bg-primary/5 transition-all text-left w-full">' +
+                    return '<button onclick="filterByFolder(\'' + folder + '\',null)" class="folder-btn group flex items-center gap-3 p-3 rounded-2xl bg-white/3 border border-white/5 hover:border-primary/40 hover:bg-primary/5 transition-all text-left w-full" style="animation:cardIn 0.35s ease-out both">' +
                         '<span class="material-symbols-outlined text-primary text-xl shrink-0">folder</span>' +
                         '<div class="min-w-0 flex-1">' +
                             '<p class="text-sm font-semibold text-white truncate">' + folder + '</p>' +
-                            '<p class="text-[11px] text-slate-500 mt-0.5">' + count + ' file' + (count !== 1 ? 's' : '') + '</p>' +
+                            '<p class="text-[11px] text-slate-500 mt-0.5"><span class="folder-count" data-target="' + count + '">0</span> file' + (count !== 1 ? 's' : '') + '</p>' +
                             dotsHtml +
                         '</div>' +
                     '</button>';
                 }).join('');
+                // Animate file counts counting up
+                requestAnimationFrame(function() {
+                    document.querySelectorAll('#folderGrid .folder-count').forEach(function(el) {
+                        const target = parseInt(el.dataset.target, 10);
+                        if (!target) { el.textContent = 0; return; }
+                        const duration = 600, start = performance.now();
+                        function step(now) {
+                            const pct = Math.min((now - start) / duration, 1);
+                            el.textContent = Math.round(pct * target);
+                            if (pct < 1) requestAnimationFrame(step);
+                        }
+                        requestAnimationFrame(step);
+                    });
+                });
             }
 
             // ── Sidebar folder list (desktop) ──
@@ -997,10 +1038,43 @@
             fileGrid.className = viewType === 'list' ? 'space-y-3 sm:space-y-4' : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6';
             
             if (!files.length) {
-                const emptyMsg = currentSearchTerm
-                    ? 'No files found for <strong style="color:#93c5fd">&ldquo;' + currentSearchTerm + '&rdquo;</strong><br><span style="font-size:12px;margin-top:6px;display:block">Try a different keyword or clear your search.</span>'
-                    : (currentFolder ? 'No files in <strong style="color:#93c5fd">' + currentFolder + '</strong> yet.' : 'No files yet.');
-                fileGrid.innerHTML = '<div class="col-span-full text-center py-20 text-slate-500" style="line-height:1.7">' + emptyMsg + '</div>';
+                const isSearch = !!currentSearchTerm;
+                const isFolder = !!currentFolder;
+                const svgSearch = `<svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="32" cy="32" r="20" stroke="rgba(99,102,241,0.35)" stroke-width="3"/>
+                  <circle cx="32" cy="32" r="20" stroke="rgba(99,102,241,0.12)" stroke-width="10"/>
+                  <line x1="47" y1="47" x2="60" y2="60" stroke="rgba(99,102,241,0.45)" stroke-width="3.5" stroke-linecap="round"/>
+                  <line x1="26" y1="32" x2="38" y2="32" stroke="rgba(255,255,255,0.25)" stroke-width="2.5" stroke-linecap="round"/>
+                  <line x1="32" y1="26" x2="32" y2="38" stroke="rgba(255,255,255,0.12)" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>`;
+                const svgFolder = `<svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="8" y="22" width="56" height="38" rx="8" fill="rgba(59,130,246,0.08)" stroke="rgba(59,130,246,0.2)" stroke-width="2"/>
+                  <path d="M8 30 Q8 22 16 22 H28 L34 28 H56 Q64 28 64 36" fill="rgba(59,130,246,0.12)" stroke="rgba(59,130,246,0.25)" stroke-width="2"/>
+                  <line x1="28" y1="44" x2="44" y2="44" stroke="rgba(255,255,255,0.15)" stroke-width="2.5" stroke-linecap="round"/>
+                  <line x1="32" y1="50" x2="40" y2="50" stroke="rgba(255,255,255,0.08)" stroke-width="2" stroke-linecap="round"/>
+                </svg>`;
+                const svgEmpty = `<svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="14" y="10" width="44" height="52" rx="8" fill="rgba(139,92,246,0.08)" stroke="rgba(139,92,246,0.2)" stroke-width="2"/>
+                  <line x1="24" y1="26" x2="48" y2="26" stroke="rgba(255,255,255,0.15)" stroke-width="2.5" stroke-linecap="round"/>
+                  <line x1="24" y1="34" x2="42" y2="34" stroke="rgba(255,255,255,0.1)" stroke-width="2" stroke-linecap="round"/>
+                  <line x1="24" y1="42" x2="36" y2="42" stroke="rgba(255,255,255,0.07)" stroke-width="2" stroke-linecap="round"/>
+                  <circle cx="52" cy="52" r="12" fill="rgba(15,23,42,0.95)" stroke="rgba(139,92,246,0.3)" stroke-width="2"/>
+                  <line x1="49" y1="52" x2="55" y2="52" stroke="rgba(139,92,246,0.7)" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>`;
+                const icon = isSearch ? svgSearch : (isFolder ? svgFolder : svgEmpty);
+                const heading = isSearch
+                    ? 'No results for &ldquo;<span style="color:#93c5fd">' + currentSearchTerm + '</span>&rdquo;'
+                    : (isFolder ? 'Nothing in <span style="color:#93c5fd">' + currentFolder + '</span> yet' : 'The vault is empty');
+                const sub = isSearch
+                    ? 'Try a different keyword, or <button onclick="filterFiles(\'\');document.getElementById(\'searchInput\').value=\'\'" style="background:none;border:none;color:#93c5fd;font-weight:700;cursor:pointer;font-family:inherit;font-size:inherit;padding:0">clear search</button>.'
+                    : (isFolder ? 'Files uploaded to this folder will appear here.' : 'Files uploaded by the manager will appear here.');
+                fileGrid.innerHTML = '<div class="col-span-full flex flex-col items-center justify-center py-16 gap-4" style="animation:fadeIn .4s ease">' +
+                    '<div style="opacity:0.75">' + icon + '</div>' +
+                    '<div style="text-align:center">' +
+                        '<p style="color:#e2e8f0;font-size:15px;font-weight:700;margin:0 0 6px">' + heading + '</p>' +
+                        '<p style="color:#475569;font-size:13px;line-height:1.6;margin:0">' + sub + '</p>' +
+                    '</div>' +
+                '</div>';
                 return;
             }
             
@@ -1638,6 +1712,32 @@
         window.addEventListener('appinstalled', () => {
             document.getElementById('pwaInstallBtn').classList.remove('visible');
             _pwaPrompt = null;
+            // Confetti burst on first install
+            if (!localStorage.getItem('fvInstallConfettiDone')) {
+                localStorage.setItem('fvInstallConfettiDone', '1');
+                const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+                const colors = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#f472b6','#ffffff'];
+                for (let i = 0; i < 60; i++) {
+                    const el = document.createElement('div');
+                    const angle = (Math.random() * Math.PI * 2);
+                    const spread = 120 + Math.random() * 160;
+                    el.className = 'confetti-piece';
+                    el.style.cssText = [
+                        'left:' + (cx + Math.cos(angle) * 10) + 'px',
+                        'top:' + (cy + Math.sin(angle) * 10) + 'px',
+                        'background:' + colors[i % colors.length],
+                        'width:' + (6 + Math.random() * 6) + 'px',
+                        'height:' + (6 + Math.random() * 6) + 'px',
+                        'border-radius:' + (Math.random() > 0.5 ? '50%' : '2px'),
+                        'animation-duration:' + (0.9 + Math.random() * 0.8) + 's',
+                        'animation-delay:' + (Math.random() * 0.3) + 's',
+                        'transform:translate(' + (Math.cos(angle)*spread*(0.5+Math.random()*0.5)) + 'px,' + (Math.sin(angle)*spread*(0.5+Math.random()*0.5)) + 'px) rotate(' + Math.random()*360 + 'deg)'
+                    ].join(';');
+                    document.body.appendChild(el);
+                    setTimeout(() => el.remove(), 2500);
+                }
+                setTimeout(() => showToast('🎉 FileVault installed! Find it on your home screen.', 'success', 4000), 400);
+            }
         });
         function installPWA() {
             if (!_pwaPrompt) return;
@@ -2000,6 +2100,8 @@
                     }
                 });
                 initSwipeGestures();
+                // Re-apply compact view after swipe-inner wrapping
+                if (compactView) document.getElementById('fileGrid').classList.add('compact-view');
             }, 50);
         };
 
@@ -2266,10 +2368,12 @@
                 }
             }
             // Re-apply after swipe-tray patch settles (it wraps DOM at 50ms)
-            setTimeout(function() {
+            // Use a single deferred re-apply instead of racing timeouts
+            clearTimeout(applyCompactView._t);
+            applyCompactView._t = setTimeout(function() {
                 if (compactView) grid.classList.add('compact-view');
                 else grid.classList.remove('compact-view');
-            }, 80);
+            }, 60);
         }
         function toggleCompactView() {
             compactView = !compactView;
@@ -2382,14 +2486,26 @@
         }
 
         async function togglePushSubscription() {
-            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-                showToast('Push notifications not supported by this browser.', 'warning', 3000);
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        showToast('Push notifications not supported by this browser.', 'warning', 3000);
+        return;
+    }
+    if (!window._vapidPublicKey) {
+        // Key not loaded yet — try fetching it now before giving up
+        try {
+            const res = await fetch(_CHAT_API_URL.replace('/api/chat', '/api/push/vapid-public-key'));
+            const { key } = await res.json();
+            if (key) {
+                window._vapidPublicKey = key;
+            } else {
+                showToast('Push notifications not configured on the server.', 'warning', 4000);
                 return;
             }
-            if (!window._vapidPublicKey) {
-                showToast('Push notifications require VAPID keys on the server. Set VAPID_PUBLIC_KEY & VAPID_PRIVATE_KEY in your Render environment variables.', 'warning', 6000);
-                return;
-            }
+        } catch(e) {
+            showToast('Could not reach the server. Check your connection.', 'error', 4000);
+            return;
+        }
+    }
             try {
                 const reg = await navigator.serviceWorker.ready;
                 if (_pushSubscription) {
