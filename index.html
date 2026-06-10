@@ -108,8 +108,10 @@
         .file-card-animate { animation:cardIn 0.35s ease-out both; }
 
         /* ── Description tooltip on hover ── */
-        .desc-tooltip { position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.97);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:8px 12px;font-size:11px;color:#cbd5e1;white-space:normal;width:220px;text-align:left;z-index:8500;pointer-events:none;opacity:0;transition:opacity .2s;line-height:1.5;box-shadow:0 8px 32px rgba(0,0,0,.5); }
-        .desc-tooltip.show { opacity:1; }
+        #globalDescTooltip { position:fixed;background:rgba(15,23,42,0.97);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:8px 12px;font-size:11px;color:#cbd5e1;white-space:normal;width:220px;text-align:left;z-index:9990;pointer-events:none;opacity:0;transition:opacity .15s;line-height:1.5;box-shadow:0 8px 32px rgba(0,0,0,.5);max-width:calc(100vw - 24px); }
+        #globalDescTooltip.show { opacity:1; }
+        .desc-tooltip { display:none; }
+
         .file-card { position:relative; }
 
         /* ── Mobile toast: bottom-center ── */
@@ -641,6 +643,9 @@
             document.getElementById('previewIcon').textContent = getFileIcon(name);
             document.getElementById('previewDownload').href = url;
             document.getElementById('previewDownload').setAttribute('download', name);
+            // Update preview pin button
+            _previewPinUrl = url; _previewPinName = name;
+            _updatePreviewPinBtn(url);
 
             var body = document.getElementById('previewBody');
             if (isImg) {
@@ -1100,7 +1105,7 @@
                 const descTooltip = (file.description && !isListView())
                     ? '<div class="desc-tooltip" id="tt-'+_ri+'">' + file.description.replace(/</g,'&lt;') + '</div>' : '';
                 const hoverAttrs = (file.description && !isListView())
-                    ? 'onmouseenter="showTip('+_ri+')" onmouseleave="hideTip('+_ri+')"' : '';
+                    ? 'onmouseenter="showTip('+_ri+',this)" onmouseleave="hideTip('+_ri+')"' : '';
                 const staggerStyle = 'animation-delay:' + Math.min(_ci * 40, 400) + 'ms';
                 return '<div class="file-card file-card-animate glass-card p-4 rounded-2xl flex items-center gap-3 group" data-idx="'+_ri+'" style="' + staggerStyle + '" ' + hoverAttrs + ' onclick="handleCardClick(event,'+_ri+')">' +
                     descTooltip +
@@ -1118,7 +1123,6 @@
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
                     ratingHtml +
-                    socialPinHtml +
                     '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview" aria-label="Preview ' + file.name + '">visibility</button>' +
                     '<button onclick="copyFileLink(\'' + safeUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link" aria-label="Copy link for ' + file.name + '"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block" aria-hidden="true">link</span></button>' +
                     '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\');event.stopPropagation()" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download" aria-label="Download ' + file.name + '">download</a>' +
@@ -1651,13 +1655,26 @@
 
         function isListView() { return viewType === 'list'; }
 
-        function showTip(idx) {
+        function showTip(idx, cardEl) {
             const el = document.getElementById('tt-' + idx);
-            if (el) el.classList.add('show');
+            if (!el) return;
+            const tip = document.getElementById('globalDescTooltip');
+            if (!tip) return;
+            tip.textContent = el.textContent;
+            if (cardEl) {
+                const r = cardEl.getBoundingClientRect();
+                const tipW = 220;
+                let left = r.left + r.width / 2 - tipW / 2;
+                left = Math.max(8, Math.min(left, window.innerWidth - tipW - 8));
+                tip.style.left = left + 'px';
+                tip.style.top = (r.top - 8) + 'px';
+                tip.style.transform = 'translateY(-100%)';
+            }
+            tip.classList.add('show');
         }
         function hideTip(idx) {
-            const el = document.getElementById('tt-' + idx);
-            if (el) el.classList.remove('show');
+            const tip = document.getElementById('globalDescTooltip');
+            if (tip) tip.classList.remove('show');
         }
 
         function handleCardClick(e, idx) {
@@ -2269,6 +2286,23 @@
             showToast(wasPinned ? 'Unpinned ' + name : '📌 Pinned ' + name, wasPinned ? 'info' : 'success', 1800);
             renderFileList(getFilteredFiles());
         }
+
+        // ── Preview Pin button ──
+        var _previewPinUrl = '', _previewPinName = '';
+        function _updatePreviewPinBtn(url) {
+            const btn = document.getElementById('previewPinBtn');
+            if (!btn) return;
+            const pinned = isPinned(url);
+            btn.innerHTML = pinned ? '📌 Pinned' : '📌 Pin';
+            btn.style.color = pinned ? '#f59e0b' : '#94a3b8';
+            btn.style.background = pinned ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)';
+            btn.style.borderColor = pinned ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.1)';
+        }
+        function togglePreviewPin() {
+            if (!_previewPinUrl) return;
+            togglePin(_previewPinUrl, _previewPinName, null);
+            _updatePreviewPinBtn(_previewPinUrl);
+        }
         // Wrap applySort to float pinned files to top
         const _origApplySortPins = applySort;
         applySort = function(files) {
@@ -2823,27 +2857,8 @@
             const file = allFiles.find(f => f.url === url);
             _commentsFileId = file ? String(file.id || '') : '';
             const section = document.getElementById('commentsSection');
-            if (section) section.style.display = _commentsFileId ? 'block' : 'none';
+            if (section) section.style.display = 'block';
             if (_commentsFileId) loadComments(_commentsFileId);
-            // Reload social pin count for this file too
-            if (_commentsFileId) {
-                const spBtn = document.getElementById('previewSocialPinBtn');
-                if (spBtn) {
-                    spBtn.dataset.socialPinId = _commentsFileId;
-                    const r = _socialPinsCache[_commentsFileId];
-                    if (r) {
-                        spBtn.innerHTML = '📌 ' + r.count;
-                        spBtn.style.color = r.myPin ? '#34d399' : '#94a3b8';
-                        spBtn.style.background = r.myPin ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.05)';
-                        spBtn.style.borderColor = r.myPin ? 'rgba(52,211,153,0.3)' : 'rgba(255,255,255,0.1)';
-                    } else {
-                        spBtn.innerHTML = '📌 Pin';
-                        spBtn.style.color = '#94a3b8';
-                        loadSocialPins([_commentsFileId]);
-                    }
-                    spBtn.onclick = function() { toggleSocialPin(_commentsFileId, spBtn); event.stopPropagation(); };
-                }
-            }
         };
 
         // ══ PRELOAD ADJACENT FILES IN PREVIEW ══════════════════
@@ -2909,17 +2924,6 @@
                 <button class="fs-btn" id="fs-large" onclick="setFontSize('large')" aria-label="Large font size" aria-pressed="false" style="font-size:18px">A</button>
             </div>
         </div>
-        <!-- 55: Compact View -->
-        <div class="setting-row" style="margin-bottom:12px">
-            <span class="setting-label">View Density</span>
-            <div style="display:flex;align-items:center;justify-content:space-between">
-                <span style="font-size:12px;color:#cbd5e1">Compact / Dense</span>
-                <button id="compactToggle" onclick="toggleCompactView()" title="Toggle compact view" aria-label="Toggle compact view"
-                    style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background-color:rgba(255,255,255,0.5);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
-                    <span class="material-symbols-outlined" style="font-size:15px" aria-hidden="true">density_small</span> Toggle
-                </button>
-            </div>
-        </div>
         <!-- 53: Accent Color -->
         <div class="setting-row">
             <span class="setting-label">Accent Color</span>
@@ -2981,6 +2985,9 @@
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                    <button id="previewPinBtn" onclick="togglePreviewPin()" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Pin this file">
+                        📌 Pin
+                    </button>
                     <a id="previewDownload" href="#" download style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(59,130,246,0.2);color:#93c5fd;border-radius:12px;font-size:12px;font-weight:700;text-decoration:none">
                         <span class="material-symbols-outlined" style="font-size:16px">download</span>Download
                     </a>
@@ -2999,17 +3006,12 @@
                 <p style="color:rgba(255,255,255,0.25);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">More in this folder</p>
                 <div id="relatedList" style="display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none"></div>
             </div>
-            <!-- Comments + Social Pin panel -->
+            <!-- Comments panel -->
             <div id="commentsSection" style="display:none;border-top:1px solid rgba(255,255,255,0.07);padding:14px 18px 10px">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-                    <div style="display:flex;align-items:center;gap:7px">
-                        <span class="material-symbols-outlined" style="font-size:16px;color:#94a3b8">chat_bubble</span>
-                        <span style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em">Notes &amp; Comments</span>
-                        <span id="commentsCount" style="font-size:10px;font-weight:800;color:#64748b;background:rgba(255,255,255,0.06);border-radius:99px;padding:1px 7px"></span>
-                    </div>
-                    <button id="previewSocialPinBtn" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s" title="Pin this file for everyone to see">
-                        📌 Pin
-                    </button>
+                <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px">
+                    <span class="material-symbols-outlined" style="font-size:16px;color:#94a3b8">chat_bubble</span>
+                    <span style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em">Notes &amp; Comments</span>
+                    <span id="commentsCount" style="font-size:10px;font-weight:800;color:#64748b;background:rgba(255,255,255,0.06);border-radius:99px;padding:1px 7px"></span>
                 </div>
                 <div id="commentsList" style="display:flex;flex-direction:column;gap:7px;max-height:180px;overflow-y:auto;margin-bottom:10px;padding-right:2px"></div>
                 <div style="display:flex;gap:8px;align-items:flex-end">
@@ -3086,6 +3088,7 @@
         <span class="material-symbols-outlined" style="font-size:20px">keyboard_arrow_up</span>
     </button>
 
+    <div id="globalDescTooltip"></div>
     <div id="toastContainer" role="status" aria-live="polite" aria-atomic="false"></div>
 
     <!-- Mobile Bottom Navigation -->

@@ -440,9 +440,25 @@
 
                 <div style="margin-bottom:14px">
                     <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px">Folder</label>
-                    <select id="ufr_folder" style="width:100%;padding:10px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:white;font-size:13px;outline:none">
-                        <option value="" class="text-black">No folder (root)</option>
-                    </select>
+                    <div style="display:flex;gap:8px;align-items:stretch">
+                        <select id="ufr_folder" style="flex:1;padding:10px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:white;font-size:13px;outline:none;min-width:0">
+                            <option value="" class="text-black">No folder (root)</option>
+                        </select>
+                        <button type="button" onclick="ufrCreateNewFolder()" title="Create new folder" style="display:flex;align-items:center;gap:5px;padding:10px 12px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);border-radius:10px;color:#60a5fa;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .2s;flex-shrink:0">
+                            <span class="material-symbols-outlined" style="font-size:15px">create_new_folder</span> New
+                        </button>
+                    </div>
+                    <!-- Inline new-folder input (hidden by default) -->
+                    <div id="ufr_newFolderRow" style="display:none;margin-top:8px">
+                        <div style="display:flex;gap:8px;align-items:stretch">
+                            <input type="text" id="ufr_newFolderInput" placeholder="Folder name…" maxlength="60"
+                                style="flex:1;padding:9px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(59,130,246,0.4);border-radius:10px;color:white;font-size:13px;outline:none;min-width:0"
+                                onkeydown="if(event.key==='Enter')ufrConfirmNewFolder();if(event.key==='Escape')ufrCancelNewFolder()"/>
+                            <button type="button" onclick="ufrConfirmNewFolder()" style="padding:9px 12px;background:rgba(16,185,129,0.2);border:1px solid rgba(16,185,129,0.35);border-radius:10px;color:#34d399;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0">Add</button>
+                            <button type="button" onclick="ufrCancelNewFolder()" style="padding:9px 10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;color:#64748b;font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0">✕</button>
+                        </div>
+                        <p id="ufr_newFolderErr" style="color:#f87171;font-size:11px;margin-top:4px;display:none"></p>
+                    </div>
                 </div>
                 <div style="margin-bottom:14px">
                     <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px">Description</label>
@@ -730,6 +746,9 @@
         document.getElementById('ufr_file').value = '';
         document.getElementById('ufr_status').textContent = '';
         document.getElementById('ufr_submitBtn').disabled = false;
+        // Reset inline new-folder row
+        const nfRow = document.getElementById('ufr_newFolderRow');
+        if (nfRow) nfRow.style.display = 'none';
         document.getElementById('uploadForReqModal').style.display = 'flex';
     }
 
@@ -804,6 +823,67 @@
         sel.innerHTML = '<option value="" class="text-black">No folder (root)</option>';
         availableFolders.forEach(f => { sel.innerHTML += `<option value="${f}" class="text-black">${f}</option>`; });
         if (cur) sel.value = cur;
+    }
+
+    // ── Inline "New Folder" inside fulfill-request modal ────────
+    function ufrCreateNewFolder() {
+        const row = document.getElementById('ufr_newFolderRow');
+        const inp = document.getElementById('ufr_newFolderInput');
+        const err = document.getElementById('ufr_newFolderErr');
+        if (!row) return;
+        row.style.display = 'block';
+        if (inp) { inp.value = ''; inp.focus(); }
+        if (err) err.style.display = 'none';
+    }
+
+    function ufrCancelNewFolder() {
+        const row = document.getElementById('ufr_newFolderRow');
+        if (row) row.style.display = 'none';
+    }
+
+    function ufrConfirmNewFolder() {
+        const inp = document.getElementById('ufr_newFolderInput');
+        const err = document.getElementById('ufr_newFolderErr');
+        const sel = document.getElementById('ufr_folder');
+        if (!inp || !sel) return;
+
+        let name = inp.value.trim().replace(/[^a-zA-Z0-9_ -]/g, '');
+        if (!name) {
+            if (err) { err.textContent = 'Please enter a valid folder name.'; err.style.display = 'block'; }
+            inp.focus(); return;
+        }
+        if (availableFolders.includes(name)) {
+            // Folder already exists — just select it
+            sel.value = name;
+            ufrCancelNewFolder();
+            showMgrToast('Folder "' + name + '" already exists — selected.', 'info');
+            return;
+        }
+        // Add to availableFolders, update all dropdowns, select it
+        availableFolders.push(name);
+        availableFolders.sort();
+        // Update main upload folder select
+        const mainSel = document.getElementById('folderSelect');
+        if (mainSel) {
+            mainSel.innerHTML = '<option value="" class="text-black">No folder (root)</option>';
+            availableFolders.forEach(f => { mainSel.innerHTML += `<option value="${f}" class="text-black">${f}</option>`; });
+        }
+        // Update bulk-move selects
+        ['bulkMoveTarget'].forEach(id => {
+            const s = document.getElementById(id);
+            if (!s) return;
+            const cur = s.value;
+            s.innerHTML = '<option value="" class="text-black">Root (no folder)</option>';
+            availableFolders.forEach(f => { s.innerHTML += `<option value="${f}" class="text-black">${f}</option>`; });
+            if (cur) s.value = cur;
+        });
+        // Rebuild the ufr_folder select and select the new folder
+        sel.innerHTML = '<option value="" class="text-black">No folder (root)</option>';
+        availableFolders.forEach(f => { sel.innerHTML += `<option value="${f}" class="text-black">${f}</option>`; });
+        sel.value = name;
+        renderMainFolders();
+        ufrCancelNewFolder();
+        showMgrToast('📁 Folder "' + name + '" created — will be saved on first upload.', 'success');
     }
 
     // ─── FOLDERS ────────────────────────────────────────────────
