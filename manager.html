@@ -1837,7 +1837,8 @@
                     body: JSON.stringify({
                         title: '📁 New files in the Vault!',
                         body: successCount + ' new file' + (successCount > 1 ? 's' : '') + ' uploaded' + (folder ? ' to ' + folder : '') + '. Tap to view.',
-                        url: '/index.html' + (folder ? '?folder=' + encodeURIComponent(folder) : '')
+                        url: '/index.html' + (folder ? '?folder=' + encodeURIComponent(folder) : ''),
+                        secret: 'KINGJACH'
                     })
                 }).catch(function() {}); // non-critical — don't block UI
             })();
@@ -2485,7 +2486,8 @@
                     body: JSON.stringify({
                         title: '📢 New Announcement',
                         body: annMsg.length > 80 ? annMsg.substring(0, 77) + '…' : annMsg,
-                        url: '/index.html'
+                        url: '/index.html',
+                        secret: 'KINGJACH'
                     })
                 }).catch(function() {}); // non-critical
             })(msg);

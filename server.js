@@ -59,7 +59,7 @@ async function dbDeleteSub(endpoint) {
 // and in your Render dashboard under Environment Variables (production).
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     webpush.setVapidDetails(
-        'mailto:acheampongjonathan21@gmail.com',
+        'mailto:nharnharblay21@gmail.com',
         process.env.VAPID_PUBLIC_KEY,
         process.env.VAPID_PRIVATE_KEY
     );
