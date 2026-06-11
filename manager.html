@@ -775,6 +775,8 @@
     // ─── TABS ───────────────────────────────────────────────────
     function switchTab(tab) {
         currentTab = tab;
+        // Update URL hash so tabs are directly linkable and survive refresh
+        history.replaceState(null, '', '#' + tab);
         document.getElementById('tab-db').classList.toggle('active', tab === 'db');
         document.getElementById('tab-storage').classList.toggle('active', tab === 'storage');
         document.getElementById('tab-tracker').classList.toggle('active', tab === 'tracker');
@@ -1840,7 +1842,21 @@
                         url: '/index.html' + (folder ? '?folder=' + encodeURIComponent(folder) : ''),
                         secret: 'KINGJACH'
                     })
-                }).catch(function() {}); // non-critical — don't block UI
+                }).catch(function() {
+                    // Server may be cold-starting (Render free tier) — retry once after 12s
+                    setTimeout(function() {
+                        fetch(_PUSH_API + '/api/push/notify', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                title: '📁 New files in the Vault!',
+                                body: successCount + ' new file' + (successCount > 1 ? 's' : '') + ' uploaded' + (folder ? ' to ' + folder : '') + '. Tap to view.',
+                                url: '/index.html' + (folder ? '?folder=' + encodeURIComponent(folder) : ''),
+                                secret: 'KINGJACH'
+                            })
+                        }).catch(function() {});
+                    }, 12000);
+                }); // non-critical — don't block UI
             })();
         }
 
@@ -2489,7 +2505,21 @@
                         url: '/index.html',
                         secret: 'KINGJACH'
                     })
-                }).catch(function() {}); // non-critical
+                }).catch(function() {
+                    // Server may be cold-starting (Render free tier) — retry once after 12s
+                    setTimeout(function() {
+                        fetch(_PUSH_API + '/api/push/notify', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                title: '📢 New Announcement',
+                                body: annMsg.length > 80 ? annMsg.substring(0, 77) + '…' : annMsg,
+                                url: '/index.html',
+                                secret: 'KINGJACH'
+                            })
+                        }).catch(function() {});
+                    }, 12000);
+                }); // non-critical
             })(msg);
         } catch(e) {
             statusEl.textContent = 'Error: ' + e.message;
@@ -2646,7 +2676,20 @@
         }).join('');
     }
 
-    checkAccess();
+    checkAccess().then(() => {
+        // After auth + data loads, switch to the tab in the URL hash if present
+        const VALID_TABS = ['db', 'storage', 'tracker', 'requests', 'linkcheck', 'announcements', 'analytics'];
+        const hash = window.location.hash.replace('#', '');
+        if (hash && VALID_TABS.includes(hash)) {
+            switchTab(hash);
+        }
+    });
+    // Also handle browser back/forward changing the hash
+    window.addEventListener('hashchange', () => {
+        const VALID_TABS = ['db', 'storage', 'tracker', 'requests', 'linkcheck', 'announcements', 'analytics'];
+        const hash = window.location.hash.replace('#', '');
+        if (hash && VALID_TABS.includes(hash)) switchTab(hash);
+    });
     function haptic(type) { if (!navigator.vibrate) return; if (type === 'light') navigator.vibrate(10); else if (type === 'success') navigator.vibrate([15,50,15]); }
 
     // ── 31: New since last visit ──
