@@ -3,12 +3,55 @@ const express = require('express');
 const cors = require('cors');
 const Groq = require('groq-sdk');
 const webpush = require('web-push');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+// ── Supabase client (for persisting push subscriptions) ─────
+// Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in your .env
+// Use the service_role key (not anon) so the server can bypass RLS.
+const _supa = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
+    ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+    : null;
+
+// ── Supabase push_subscriptions table helper ────────────────
+// Required table (run once in Supabase SQL editor):
+//
+//   create table if not exists push_subscriptions (
+//     endpoint text primary key,
+//     subscription jsonb not null,
+//     created_at timestamptz default now()
+//   );
+//   alter table push_subscriptions enable row level security;
+//   -- Only server (service_role) can read/write:
+//   create policy "Service role only" on push_subscriptions
+//     using (false) with check (false);
+//
+async function dbGetAllSubs() {
+    if (!_supa) return [];
+    const { data } = await _supa.from('push_subscriptions').select('subscription');
+    return (data || []).map(r => r.subscription);
+}
+async function dbGetSubByEndpoint(endpoint) {
+    if (!_supa) return null;
+    const { data } = await _supa.from('push_subscriptions').select('subscription').eq('endpoint', endpoint).single();
+    return data ? data.subscription : null;
+}
+async function dbSaveSub(subscription) {
+    if (!_supa) return;
+    await _supa.from('push_subscriptions').upsert(
+        { endpoint: subscription.endpoint, subscription },
+        { onConflict: 'endpoint' }
+    );
+}
+async function dbDeleteSub(endpoint) {
+    if (!_supa) return;
+    await _supa.from('push_subscriptions').delete().eq('endpoint', endpoint);
+}
 
 // ── Web Push setup ──────────────────────────────────────────
 // Generate VAPID keys once: npx web-push generate-vapid-keys
@@ -22,32 +65,26 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     );
 }
 
-// In-memory subscription store (replace with Supabase for persistence)
-const pushSubscriptions = new Map();
-
 app.get('/api/push/vapid-public-key', (req, res) => {
     res.json({ key: process.env.VAPID_PUBLIC_KEY || null });
 });
 
-app.post('/api/push/subscribe', (req, res) => {
+app.post('/api/push/subscribe', async (req, res) => {
     const { subscription, userId } = req.body;
     if (!subscription || !subscription.endpoint) {
         return res.status(400).json({ error: 'Invalid subscription' });
     }
-    const key = userId || subscription.endpoint;
-    pushSubscriptions.set(key, subscription);
+    await dbSaveSub(subscription);
     res.json({ ok: true, message: 'Subscribed to push notifications.' });
 });
 
-app.post('/api/push/unsubscribe', (req, res) => {
+app.post('/api/push/unsubscribe', async (req, res) => {
     const { endpoint } = req.body;
-    for (const [k, sub] of pushSubscriptions) {
-        if (sub.endpoint === endpoint) { pushSubscriptions.delete(k); break; }
-    }
+    await dbDeleteSub(endpoint);
     res.json({ ok: true });
 });
 
-// Notify all subscribers — call this from manager or a webhook
+// Notify all subscribers — called by manager on new file upload or announcement
 app.post('/api/push/notify', async (req, res) => {
     const { title, body, url, secret } = req.body;
     // Simple secret guard — set PUSH_SECRET in .env
@@ -64,19 +101,20 @@ app.post('/api/push/notify', async (req, res) => {
         icon: '/filevault%20logo.png',
         badge: '/filevault%20logo.png'
     });
+    const allSubs = await dbGetAllSubs();
     let sent = 0, failed = 0;
-    for (const [key, subscription] of pushSubscriptions) {
+    for (const subscription of allSubs) {
         try {
             await webpush.sendNotification(subscription, payload);
             sent++;
         } catch (err) {
             if (err.statusCode === 410 || err.statusCode === 404) {
-                pushSubscriptions.delete(key); // expired
+                await dbDeleteSub(subscription.endpoint); // expired — clean up
             }
             failed++;
         }
     }
-    res.json({ ok: true, sent, failed, total: pushSubscriptions.size });
+    res.json({ ok: true, sent, failed, total: allSubs.length });
 });
 
 // Notify a single subscriber by endpoint — used when manager approves a request
@@ -86,14 +124,9 @@ app.post('/api/push/notify-one', async (req, res) => {
     if (!process.env.VAPID_PUBLIC_KEY) {
         return res.status(503).json({ error: 'Push not configured' });
     }
-    // Find the matching subscription in our in-memory store
-    let targetSub = null;
-    for (const [, sub] of pushSubscriptions) {
-        if (sub.endpoint === endpoint) { targetSub = sub; break; }
-    }
+    // Look up subscription from Supabase first, fall back to keys in request body
+    let targetSub = await dbGetSubByEndpoint(endpoint);
     if (!targetSub) {
-        // Endpoint registered via upload-request.html without subscribing through the main page
-        // Reconstruct a minimal subscription object (keys supplied by client)
         const { keys } = req.body;
         if (keys && keys.p256dh && keys.auth) {
             targetSub = { endpoint, keys };
@@ -113,9 +146,7 @@ app.post('/api/push/notify-one', async (req, res) => {
         res.json({ ok: true });
     } catch (err) {
         if (err.statusCode === 410 || err.statusCode === 404) {
-            for (const [k, sub] of pushSubscriptions) {
-                if (sub.endpoint === endpoint) { pushSubscriptions.delete(k); break; }
-            }
+            await dbDeleteSub(endpoint);
         }
         res.status(500).json({ error: err.message });
     }

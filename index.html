@@ -2788,6 +2788,56 @@
             }
         });
 
+        // ══ FIX: SUPABASE REALTIME — live in-page alerts ════════════
+        // Notifies users who already have the page open when:
+        //   • the manager uploads a new file  (files_list INSERT)
+        //   • the manager posts an announcement (announcements INSERT)
+        // No page refresh required — files grid reloads automatically.
+        (function initRealtime() {
+            // Debounce rapid back-to-back inserts (e.g. multi-file upload)
+            var _realtimeReloadTimer = null;
+
+            _supabase
+                .channel('filevault-live')
+                // ── New file uploaded ──
+                .on('postgres_changes',
+                    { event: 'INSERT', schema: 'public', table: 'files_list' },
+                    function(payload) {
+                        clearTimeout(_realtimeReloadTimer);
+                        _realtimeReloadTimer = setTimeout(function() {
+                            // Bust session cache so fetchFiles pulls fresh data
+                            try { sessionStorage.removeItem('fvFilesCache'); } catch(e) {}
+                            allFiles = [];
+                            fetchFiles();
+                            var fname = (payload.new && payload.new.file_name) ? payload.new.file_name : 'A new file';
+                            var folder = (payload.new && payload.new.folder_name && payload.new.folder_name !== 'Root')
+                                ? ' in ' + payload.new.folder_name : '';
+                            showToast('📁 ' + fname + folder + ' was just added!', 'info', 5000);
+                        }, 800); // 800ms debounce — handles multi-file batch uploads
+                    }
+                )
+                // ── New announcement posted ──
+                .on('postgres_changes',
+                    { event: 'INSERT', schema: 'public', table: 'announcements' },
+                    function() {
+                        loadAnnouncement();
+                        showToast('📢 A new announcement was posted!', 'info', 5000);
+                    }
+                )
+                // ── Announcement deleted/expired ──
+                .on('postgres_changes',
+                    { event: 'DELETE', schema: 'public', table: 'announcements' },
+                    function() {
+                        loadAnnouncement();
+                    }
+                )
+                .subscribe(function(status) {
+                    if (status === 'SUBSCRIBED') {
+                        console.info('[FileVault] Realtime live updates active.');
+                    }
+                });
+        })();
+
         // ══ LIGHT / DARK MODE ══════════════════════════════════
         function initTheme() {
             const saved = localStorage.getItem('fvTheme');

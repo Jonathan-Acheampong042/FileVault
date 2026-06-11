@@ -1824,6 +1824,25 @@
             }
         }
 
+        // ── FIX: Broadcast push notification to ALL subscribed users on successful upload ──
+        if (successCount > 0) {
+            (function() {
+                const _PUSH_API = window.location.hostname === 'localhost'
+                    ? 'http://localhost:3000'
+                    : 'https://project-one-187u.onrender.com';
+                const folder = document.getElementById('folderSelect') ? document.getElementById('folderSelect').value : '';
+                fetch(_PUSH_API + '/api/push/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: '📁 New files in the Vault!',
+                        body: successCount + ' new file' + (successCount > 1 ? 's' : '') + ' uploaded' + (folder ? ' to ' + folder : '') + '. Tap to view.',
+                        url: '/index.html' + (folder ? '?folder=' + encodeURIComponent(folder) : '')
+                    })
+                }).catch(function() {}); // non-critical — don't block UI
+            })();
+        }
+
         btn.disabled = false;
         document.getElementById('btnText').innerText = 'Upload & Share';
         hideProgress();
@@ -2454,6 +2473,22 @@
             setTimeout(() => { statusEl.textContent = ''; }, 3000);
             showMgrToast('Announcement posted!', 'success');
             loadAnnouncements();
+
+            // ── FIX: Push notification to ALL subscribed users for new announcement ──
+            (function(annMsg) {
+                const _PUSH_API = window.location.hostname === 'localhost'
+                    ? 'http://localhost:3000'
+                    : 'https://project-one-187u.onrender.com';
+                fetch(_PUSH_API + '/api/push/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: '📢 New Announcement',
+                        body: annMsg.length > 80 ? annMsg.substring(0, 77) + '…' : annMsg,
+                        url: '/index.html'
+                    })
+                }).catch(function() {}); // non-critical
+            })(msg);
         } catch(e) {
             statusEl.textContent = 'Error: ' + e.message;
             statusEl.style.color = '#f87171';
