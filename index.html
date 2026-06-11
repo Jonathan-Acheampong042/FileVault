@@ -1174,7 +1174,7 @@
                         (file.description ? '<p class="mt-0.5 text-[11px] text-slate-400 italic truncate">' + highlightText(file.description, currentSearchTerm) + '</p>' : '') +
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
-                    '<button class="card-react-btn p-2 text-slate-400 hover:text-pink-400 material-symbols-outlined text-xl" data-fid="' + (file.id||'') + '" title="Add reaction" aria-label="React to ' + file.name + '" onclick="openCardReactionPickerSafe(this.dataset.fid,this,event);event.stopPropagation()">add_reaction</button>' +
+                    '<button class="card-react-btn p-2 text-slate-400 hover:text-pink-400 material-symbols-outlined text-xl" data-fid="' + (file.id||'') + '" title="Add reaction" aria-label="React to ' + file.name + '">add_reaction</button>' +
                     '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview" aria-label="Preview ' + file.name + '">visibility</button>' +
                     '<button onclick="copyFileLink(\'' + safeUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link" aria-label="Copy link for ' + file.name + '"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block" aria-hidden="true">link</span></button>' +
                     '<a href="' + safeUrl + '" download onclick="track(\'' + file.id + '\',\'' + safeName + '\',\'' + safeUrl + '\');event.stopPropagation()" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download" aria-label="Download ' + file.name + '">download</a>' +
@@ -2007,15 +2007,28 @@
         let _pickerHideTimeout = null;
         let _longPressTimer = null;
 
+        // ── Card emoji button handler — event delegation (no inline onclick needed) ──
         function openCardReactionPickerSafe(fidStr, btn, e) {
             if (e) { e.stopPropagation(); e.preventDefault(); }
-            const fid = (fidStr && fidStr !== '') ? String(fidStr) : (btn && btn.dataset.fid !== '' ? btn.dataset.fid : '');
-            if (!fid) { showToast('React feature requires files saved to the database.', 'info', 2500); return; }
-            haptic('light');
+            const fid = fidStr ? String(fidStr) : '';
+            if (!fid || fid === 'undefined' || fid === 'null') {
+                showToast('Reactions require files saved to the database.', 'info', 2500);
+                return;
+            }
+            if (typeof haptic === 'function') haptic('light');
             _openCardReactionPicker(fid, btn);
         }
 
-        // Mobile: touchend fires reliably even when click is swallowed by swipe detection
+        // Delegated click — catches the button even after swipe-inner DOM moves it
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.card-react-btn');
+            if (!btn) return;
+            e.stopPropagation();
+            e.preventDefault();
+            openCardReactionPickerSafe(btn.dataset.fid, btn, null);
+        }, true); // capture phase so it fires before any other handler
+
+        // Mobile touchend (in case click is swallowed by swipe detection)
         (function() {
             let _tStartX = 0, _tStartY = 0, _tMoved = false;
             document.addEventListener('touchstart', function(e) {
@@ -2025,16 +2038,14 @@
                 _tStartY = e.touches[0].clientY;
                 _tMoved = false;
             }, { passive: true });
-            document.addEventListener('touchmove', function() {
-                _tMoved = true;
-            }, { passive: true });
+            document.addEventListener('touchmove', function() { _tMoved = true; }, { passive: true });
             document.addEventListener('touchend', function(e) {
                 const btn = e.target.closest('.card-react-btn');
                 if (!btn || _tMoved) return;
                 const dx = Math.abs(e.changedTouches[0].clientX - _tStartX);
                 const dy = Math.abs(e.changedTouches[0].clientY - _tStartY);
-                if (dx > 10 || dy > 10) return; // was a scroll, not a tap
-                e.preventDefault(); // stop the ghost click
+                if (dx > 10 || dy > 10) return;
+                e.preventDefault();
                 openCardReactionPickerSafe(btn.dataset.fid, btn, null);
             }, { passive: false });
         })();
