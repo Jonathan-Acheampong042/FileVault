@@ -1913,30 +1913,28 @@
                     ? 'http://localhost:3000'
                     : 'https://project-one-187u.onrender.com';
                 const folder = document.getElementById('folderSelect') ? document.getElementById('folderSelect').value : '';
-                fetch(_PUSH_API + '/api/push/notify', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        title: '📁 New files in the Vault!',
-                        body: successCount + ' new file' + (successCount > 1 ? 's' : '') + ' uploaded' + (folder ? ' to ' + folder : '') + '. Tap to view.',
-                        url: '/index.html' + (folder ? '?folder=' + encodeURIComponent(folder) : ''),
-                        secret: 'KINGJACH'
-                    })
+                const _pushPayload = JSON.stringify({
+                    title: '📁 New files in the Vault!',
+                    body: successCount + ' new file' + (successCount > 1 ? 's' : '') + ' uploaded' + (folder ? ' to ' + folder : '') + '. Tap to view.',
+                    url: '/index.html' + (folder ? '?folder=' + encodeURIComponent(folder) : ''),
+                    secret: 'KINGJACH'
+                });
+                function _doUploadPush() {
+                    return fetch(_PUSH_API + '/api/push/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: _pushPayload })
+                        .then(function(r) { return r.json(); });
+                }
+                _doUploadPush().then(function(result) {
+                    if (result && typeof result.sent === 'number') {
+                        if (result.sent > 0) showMgrToast('🔔 Notified ' + result.sent + ' student' + (result.sent > 1 ? 's' : '') + ' via push.', 'success');
+                        else showMgrToast('Push sent — no subscribers yet.', 'info');
+                    }
                 }).catch(function() {
-                    // Server may be cold-starting (Render free tier) — retry once after 12s
                     setTimeout(function() {
-                        fetch(_PUSH_API + '/api/push/notify', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                title: '📁 New files in the Vault!',
-                                body: successCount + ' new file' + (successCount > 1 ? 's' : '') + ' uploaded' + (folder ? ' to ' + folder : '') + '. Tap to view.',
-                                url: '/index.html' + (folder ? '?folder=' + encodeURIComponent(folder) : ''),
-                                secret: 'KINGJACH'
-                            })
+                        _doUploadPush().then(function(result) {
+                            if (result && result.sent > 0) showMgrToast('🔔 Notified ' + result.sent + ' student' + (result.sent > 1 ? 's' : '') + ' via push.', 'success');
                         }).catch(function() {});
-                    }, 12000);
-                }); // non-critical — don't block UI
+                    }, 14000);
+                })
             })();
         }
 
@@ -2288,26 +2286,49 @@
     // ── TARGETED PUSH: notify the student who requested a file ──
     async function _sendApprovalPush(requestId, fileName, folder) {
         try {
-            // Fetch the subscriber_endpoint stored on the request row
             const { data: reqRow } = await _supabase
                 .from('upload_requests')
                 .select('subscriber_endpoint, filename')
                 .eq('id', requestId)
                 .single();
-            if (!reqRow || !reqRow.subscriber_endpoint) return; // student had no push
-            const endpoint = reqRow.subscriber_endpoint;
+
             const _PUSH_API = (window.location.hostname === 'localhost'
                 ? 'http://localhost:3000'
                 : 'https://project-one-187u.onrender.com');
-            await fetch(_PUSH_API + '/api/push/notify-one', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    endpoint,
-                    title: '✅ Your file request was approved!',
-                    body: (fileName || reqRow.filename || 'Your file') + ' is now in the Vault' + (folder ? ' (' + folder + ')' : '') + '.',
-                    url: '/index.html' + (folder ? '?folder=' + encodeURIComponent(folder) : '')
-                })
+
+            if (!reqRow || !reqRow.subscriber_endpoint) {
+                showMgrToast('✅ Request approved! (Student has no push enabled.)', 'success');
+                return;
+            }
+            const endpoint = reqRow.subscriber_endpoint;
+
+            function _doApprovalPush() {
+                return fetch(_PUSH_API + '/api/push/notify-one', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        endpoint,
+                        title: '✅ Your file request was approved!',
+                        body: (fileName || reqRow.filename || 'Your file') + ' is now in the Vault' + (folder ? ' (' + folder + ')' : '') + '.',
+                        url: '/index.html' + (folder ? '?folder=' + encodeURIComponent(folder) : '')
+                    })
+                }).then(function(r) { return r.json(); });
+            }
+
+            _doApprovalPush().then(function(result) {
+                if (result && result.ok) {
+                    showMgrToast('🔔 Student notified via push!', 'success');
+                } else {
+                    showMgrToast('⚠️ Push delivery issue — student may need to re-enable notifications.', 'warning');
+                }
+            }).catch(function() {
+                setTimeout(function() {
+                    _doApprovalPush().then(function(result) {
+                        if (result && result.ok) showMgrToast('🔔 Student notified via push!', 'success');
+                    }).catch(function() {
+                        showMgrToast('Push retry failed — student may need to refresh.', 'warning');
+                    });
+                }, 14000);
             });
         } catch(e) {
             console.warn('Approval push failed (non-critical):', e.message);
@@ -2580,30 +2601,28 @@
                 const _PUSH_API = window.location.hostname === 'localhost'
                     ? 'http://localhost:3000'
                     : 'https://project-one-187u.onrender.com';
-                fetch(_PUSH_API + '/api/push/notify', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        title: '📢 New Announcement',
-                        body: annMsg.length > 80 ? annMsg.substring(0, 77) + '…' : annMsg,
-                        url: '/index.html',
-                        secret: 'KINGJACH'
-                    })
+                const _annPushPayload = JSON.stringify({
+                    title: '📢 New Announcement',
+                    body: annMsg.length > 80 ? annMsg.substring(0, 77) + '…' : annMsg,
+                    url: '/index.html',
+                    secret: 'KINGJACH'
+                });
+                function _doAnnPush() {
+                    return fetch(_PUSH_API + '/api/push/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: _annPushPayload })
+                        .then(function(r) { return r.json(); });
+                }
+                _doAnnPush().then(function(result) {
+                    if (result && typeof result.sent === 'number') {
+                        if (result.sent > 0) showMgrToast('🔔 Notified ' + result.sent + ' student' + (result.sent > 1 ? 's' : '') + ' via push.', 'success');
+                        else showMgrToast('Announcement posted — no push subscribers yet.', 'info');
+                    }
                 }).catch(function() {
-                    // Server may be cold-starting (Render free tier) — retry once after 12s
                     setTimeout(function() {
-                        fetch(_PUSH_API + '/api/push/notify', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                title: '📢 New Announcement',
-                                body: annMsg.length > 80 ? annMsg.substring(0, 77) + '…' : annMsg,
-                                url: '/index.html',
-                                secret: 'KINGJACH'
-                            })
+                        _doAnnPush().then(function(result) {
+                            if (result && result.sent > 0) showMgrToast('🔔 Notified ' + result.sent + ' student' + (result.sent > 1 ? 's' : '') + ' via push.', 'success');
                         }).catch(function() {});
-                    }, 12000);
-                }); // non-critical
+                    }, 14000);
+                })
             })(msg);
         } catch(e) {
             statusEl.textContent = 'Error: ' + e.message;

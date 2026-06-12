@@ -159,6 +159,14 @@
         #announcementBanner { display:none; } /* legacy — hidden, replaced by container */
         #announcementContainer { display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
         #announcementContainer:empty { margin-bottom:0; }
+        /* Scheduled file teaser banner */
+        #scheduledTeaserContainer { display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
+        #scheduledTeaserContainer:empty { margin-bottom:0; }
+        .teaser-card { display:flex; align-items:flex-start; gap:12px; padding:14px 18px; background:linear-gradient(135deg,rgba(16,185,129,0.10),rgba(59,130,246,0.08)); border:1px solid rgba(16,185,129,0.28); border-radius:16px; animation:fadeIn 0.4s ease; }
+        .teaser-card-body { flex:1; min-width:0; }
+        .teaser-card-title { color:rgba(255,255,255,0.92); font-size:14px; font-weight:700; margin:0 0 2px; }
+        .teaser-card-meta { color:rgba(255,255,255,0.38); font-size:11px; margin:0; }
+        .teaser-countdown { display:inline-block; margin-left:6px; color:rgba(16,185,129,0.9); font-weight:700; font-size:11px; font-variant-numeric:tabular-nums; }
         .ann-card { display:flex; align-items:flex-start; gap:12px; padding:14px 18px; background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(139,92,246,0.10)); border:1px solid rgba(59,130,246,0.25); border-radius:16px; animation:fadeIn 0.4s ease; }
         .ann-card.has-event { background:linear-gradient(135deg,rgba(245,158,11,0.10),rgba(59,130,246,0.10)); border-color:rgba(245,158,11,0.28); }
         .ann-card-body { flex:1; min-width:0; }
@@ -475,6 +483,7 @@
         </header>
         <main class="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full">
             <!-- Announcement Banners (populated from Supabase — all active shown simultaneously) -->
+            <div id="scheduledTeaserContainer"></div>
             <div id="announcementContainer"></div>
             <!-- Legacy single-banner element kept for backward compat (hidden) -->
             <div id="announcementBanner" style="display:none">
@@ -1704,6 +1713,7 @@
             if (window.location.href.includes('manager.html')) return;
             fetchFiles();
             loadAnnouncement();
+            loadScheduledTeasers();
         })();
         
         function _restoreInitialFolder() {
@@ -1812,6 +1822,89 @@
             }
             _tick();
             _countdownInterval = setInterval(_tick, 1000);
+        }
+
+        // ── Scheduled file teaser banners ──────────────────────────
+        var _teaserIntervals = [];
+        async function loadScheduledTeasers() {
+            try {
+                const now = new Date();
+                const { data, error } = await _supabase
+                    .from('files_list')
+                    .select('folder_name, scheduled_at, file_name')
+                    .gt('scheduled_at', now.toISOString())
+                    .order('scheduled_at', { ascending: true });
+
+                const container = document.getElementById('scheduledTeaserContainer');
+                if (!container) return;
+                _teaserIntervals.forEach(clearInterval);
+                _teaserIntervals = [];
+                container.innerHTML = '';
+                if (error || !data || !data.length) return;
+
+                // Group by folder + scheduled_at so a batch upload shows as one card
+                const groups = {};
+                data.forEach(function(row) {
+                    const key = (row.folder_name || 'Root') + '|' + row.scheduled_at;
+                    if (!groups[key]) groups[key] = { folder: row.folder_name || 'Root', scheduled_at: row.scheduled_at, count: 0 };
+                    groups[key].count++;
+                });
+
+                Object.values(groups).forEach(function(g) {
+                    const releaseDate = new Date(g.scheduled_at);
+                    const card = document.createElement('div');
+                    card.className = 'teaser-card';
+
+                    const icon = document.createElement('span');
+                    icon.className = 'material-symbols-outlined shrink-0';
+                    icon.style.cssText = 'font-size:22px;margin-top:2px;color:rgba(16,185,129,0.85)';
+                    icon.textContent = 'schedule';
+                    card.appendChild(icon);
+
+                    const body = document.createElement('div');
+                    body.className = 'teaser-card-body';
+
+                    const title = document.createElement('p');
+                    title.className = 'teaser-card-title';
+                    title.textContent = '\ud83d\udcc2 ' + g.folder + (g.count > 1 ? ' (' + g.count + ' files)' : '') + ' \u2014 coming soon';
+                    body.appendChild(title);
+
+                    const meta = document.createElement('p');
+                    meta.className = 'teaser-card-meta';
+                    const releaseDateStr = releaseDate.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' })
+                        + ' at ' + releaseDate.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+
+                    const cdSpan = document.createElement('span');
+                    cdSpan.className = 'teaser-countdown';
+                    function _updateTeaser() {
+                        const diff = releaseDate.getTime() - Date.now();
+                        if (diff <= 0) {
+                            card.remove();
+                            try { sessionStorage.removeItem('fvFilesCache'); } catch(e) {}
+                            allFiles = [];
+                            fetchFiles();
+                            return;
+                        }
+                        const d = Math.floor(diff / 86400000);
+                        const h = Math.floor((diff % 86400000) / 3600000);
+                        const m = Math.floor((diff % 3600000) / 60000);
+                        const s = Math.floor((diff % 60000) / 1000);
+                        if (d > 0) cdSpan.textContent = 'in ' + d + 'd ' + h + 'h';
+                        else if (h > 0) cdSpan.textContent = 'in ' + h + 'h ' + m + 'm';
+                        else cdSpan.textContent = 'in ' + m + 'm ' + s + 's';
+                    }
+                    _updateTeaser();
+                    _teaserIntervals.push(setInterval(_updateTeaser, 1000));
+
+                    meta.appendChild(document.createTextNode('Available ' + releaseDateStr + ' \u00b7 '));
+                    meta.appendChild(cdSpan);
+                    body.appendChild(meta);
+                    card.appendChild(body);
+                    container.appendChild(card);
+                });
+            } catch(e) {
+                console.warn('Teaser load error:', e.message);
+            }
         }
 
         async function loadAnnouncement() {
@@ -2816,7 +2909,12 @@
                             var fname = (payload.new && payload.new.file_name) ? payload.new.file_name : 'A new file';
                             var folder = (payload.new && payload.new.folder_name && payload.new.folder_name !== 'Root')
                                 ? ' in ' + payload.new.folder_name : '';
-                            showToast('📁 ' + fname + folder + ' was just added!', 'info', 5000);
+                            var isScheduled = payload.new && payload.new.scheduled_at && new Date(payload.new.scheduled_at) > new Date();
+                            if (isScheduled) {
+                                loadScheduledTeasers();
+                            } else {
+                                showToast("D83dDcc1 " + fname + folder + " was just added!", "info", 5000);
+                            }
                         }, 800); // 800ms debounce — handles multi-file batch uploads
                     }
                 )
