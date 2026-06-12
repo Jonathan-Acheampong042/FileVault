@@ -930,6 +930,40 @@
         return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
+    // ── AI Auto-Summary helper ────────────────────────────────────────────────
+    // Calls the /api/summarise endpoint and patches the DB description in-place.
+    const _SUMMARISE_API = window.location.hostname === 'localhost'
+        ? 'http://localhost:3000/api/summarise'
+        : 'https://project-one-187u.onrender.com/api/summarise';
+
+    async function _autoSummariseFile(dbId, fileName, folder) {
+        try {
+            const res = await fetch(_SUMMARISE_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileName, folder, fileType: fileName.split('.').pop() })
+            });
+            if (!res.ok) return;
+            const { summary } = await res.json();
+            if (!summary) return;
+            await _supabase.from('files_list').update({ description: summary }).eq('id', dbId);
+            showMgrToast('🤖 AI description generated for "' + fileName + '"', 'success');
+        } catch(e) {
+            console.warn('AI summary failed (non-critical):', e.message);
+        }
+    }
+
+    // Generate AI summary for an existing file (called from file card button)
+    async function generateSummary(dbId, fileName, folder) {
+        if (!dbId || dbId === 'null') {
+            showMgrToast('AI summary requires a file with a DB record.', 'warning');
+            return;
+        }
+        showMgrToast('🤖 Generating AI summary…', 'info');
+        await _autoSummariseFile(dbId, fileName, folder || 'Root');
+        loadManagerFiles();
+    }
+
     async function dismissRequest(id) {
         if (!confirm('Dismiss this request?')) return;
         try {
@@ -1687,6 +1721,10 @@
                     class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-purple-500/20 text-white/60 hover:text-purple-400 text-xs transition-all" title="Edit description" aria-label="Edit description for ${row.file_name}">
                     <span class="material-symbols-outlined text-sm" aria-hidden="true">notes</span>
                 </button>
+                <button onclick="generateSummary(${row.id || 'null'}, '${safeName}', '${(row.folder_name || 'Root').replace(/'/g,"\\'")}')"
+                    class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-emerald-500/20 text-white/60 hover:text-emerald-400 text-xs transition-all" title="Generate AI description" aria-label="AI summary for ${row.file_name}">
+                    <span class="material-symbols-outlined text-sm" aria-hidden="true">auto_awesome</span>
+                </button>
                 <button onclick="deleteFile('${storagePath.replace(/'/g,"\\'")}', ${row.id || 'null'})"
                     class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-red-500/20 text-white/60 hover:text-red-400 text-sm transition-all ml-auto" title="Delete" aria-label="Delete ${row.file_name}">
                     <span class="material-symbols-outlined text-sm" aria-hidden="true">delete</span>
@@ -1935,7 +1973,7 @@
                 insertData.scheduled_at = new Date(scheduleAtVal).toISOString();
             }
 
-            const { error: dbError } = await _supabase.from('files_list').insert(insertData);
+            const { data: insertedRows, error: dbError } = await _supabase.from('files_list').insert(insertData).select('id');
 
             if (dbError) {
                 const dbErrDetail = dbError.message + (dbError.hint ? ` (${dbError.hint})` : '') + (dbError.details ? ` — ${dbError.details}` : '');
@@ -1943,6 +1981,14 @@
                 errorCount++;
             } else {
                 successCount++;
+                // ── AI Auto-Summary: if no description was given, generate one silently ──
+                const _summaryExt = finalName.split('.').pop().toLowerCase();
+                const _summaryTypes = ['pdf', 'pptx', 'ppt', 'docx', 'doc', 'xlsx', 'csv'];
+                const _insertedId = insertedRows && insertedRows[0] && insertedRows[0].id;
+                if (!description && _summaryTypes.includes(_summaryExt) && _insertedId) {
+                    setStatus(`✓ Uploaded "${finalName}" — generating AI summary…`, 'blue');
+                    _autoSummariseFile(_insertedId, finalName, folder || 'Root');
+                }
             }
         }
 

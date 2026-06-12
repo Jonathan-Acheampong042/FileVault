@@ -152,6 +152,120 @@ app.post('/api/push/notify-one', async (req, res) => {
     }
 });
 
+// ── AI File Summary ─────────────────────────────────────────────────────────
+// POST /api/summarise  { fileName, folder, fileType }
+// Returns { summary: "…" }  — a short 2-3 sentence description for the file.
+// Called by manager.html right after a successful upload for PDF/PPTX/DOCX/XLSX files.
+app.post('/api/summarise', async (req, res) => {
+    const { fileName, folder, fileType } = req.body;
+    if (!fileName) return res.status(400).json({ error: 'fileName required' });
+
+    const ext = (fileName.split('.').pop() || '').toLowerCase();
+    const typeMap = {
+        pdf: 'PDF document', pptx: 'PowerPoint presentation', ppt: 'PowerPoint presentation',
+        docx: 'Word document', doc: 'Word document',
+        xlsx: 'Excel spreadsheet', csv: 'CSV data file',
+        jpg: 'image', jpeg: 'image', png: 'image'
+    };
+    const friendlyType = typeMap[ext] || fileType || 'file';
+    const folderHint = folder && folder !== 'Root' ? ` in the "${folder}" folder` : '';
+
+    try {
+        const response = await groq.chat.completions.create({
+            model: 'llama-3.1-8b-instant',
+            max_tokens: 120,
+            messages: [
+                {
+                    role: 'system',
+                    content: `You generate short, accurate file descriptions for an academic file-sharing app called FileVault.
+Given a file name, infer what the file most likely contains and write a concise 1-2 sentence description (max 160 chars) suitable for students.
+Focus on the subject, topic, or course implied by the name. Be specific and helpful.
+Reply with ONLY the description text — no quotes, no preamble, no extra punctuation.`
+                },
+                {
+                    role: 'user',
+                    content: `File name: "${fileName}" — this is a ${friendlyType}${folderHint}. Generate a description.`
+                }
+            ]
+        });
+        const summary = (response.choices[0].message.content || '').trim().slice(0, 200);
+        res.json({ summary });
+    } catch (error) {
+        console.error('Summarise error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ── Expiry Notification Cron ─────────────────────────────────────────────────
+// GET /api/cron/expiry-check  { secret }
+// Checks files_list for files expiring in the next 24 hours and pushes a
+// notification to all subscribers.  Call this from a Render cron job or any
+// external scheduler once per day.
+app.get('/api/cron/expiry-check', async (req, res) => {
+    const secret = req.query.secret || req.headers['x-cron-secret'];
+    if (process.env.PUSH_SECRET && secret !== process.env.PUSH_SECRET) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    if (!_supa) return res.status(503).json({ error: 'Supabase not configured' });
+    if (!process.env.VAPID_PUBLIC_KEY) return res.status(503).json({ error: 'Push not configured' });
+
+    try {
+        const now = new Date();
+        const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+        const { data: expiring, error } = await _supa
+            .from('files_list')
+            .select('file_name, folder_name, expires_at')
+            .gt('expires_at', now.toISOString())
+            .lte('expires_at', in24h.toISOString());
+
+        if (error) throw error;
+        if (!expiring || expiring.length === 0) {
+            return res.json({ ok: true, notified: 0, message: 'No files expiring in next 24h' });
+        }
+
+        // Group by folder for a compact notification body
+        const byFolder = {};
+        expiring.forEach(f => {
+            const key = f.folder_name || 'Root';
+            if (!byFolder[key]) byFolder[key] = [];
+            byFolder[key].push(f.file_name);
+        });
+
+        const folderSummaries = Object.entries(byFolder)
+            .map(([folder, files]) => `${files.length} file${files.length > 1 ? 's' : ''} in ${folder}`)
+            .join(', ');
+
+        const payload = JSON.stringify({
+            title: '⏳ Files expiring soon!',
+            body: `${folderSummaries} will be removed from the Vault within 24 hours. Download them now.`,
+            url: '/index.html',
+            icon: '/filevault%20logo.png',
+            badge: '/filevault%20logo.png'
+        });
+
+        const allSubs = await dbGetAllSubs();
+        let sent = 0, failed = 0;
+        for (const subscription of allSubs) {
+            try {
+                await webpush.sendNotification(subscription, payload);
+                sent++;
+            } catch (err) {
+                if (err.statusCode === 410 || err.statusCode === 404) {
+                    await dbDeleteSub(subscription.endpoint);
+                }
+                failed++;
+            }
+        }
+
+        console.log(`[Expiry cron] ${expiring.length} files expiring. Push sent=${sent} failed=${failed}`);
+        res.json({ ok: true, filesExpiring: expiring.length, sent, failed });
+    } catch (err) {
+        console.error('[Expiry cron] Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/chat', async (req, res) => {
     try {
         const { message, history, systemPrompt } = req.body;

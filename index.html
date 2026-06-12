@@ -543,6 +543,27 @@
                 <div id="suggestedList" class="flex gap-2 flex-wrap"></div>
             </section>
 
+            <!-- Bookmarks -->
+            <section id="bookmarkSidebarSection" class="glass-card p-4 rounded-2xl" style="display:none;margin-bottom:20px">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-amber-400" style="font-size:20px">bookmark</span>
+                        <h3 class="text-sm font-bold text-white uppercase tracking-wide">Bookmarks</h3>
+                    </div>
+                    <button onclick="(function(){localStorage.removeItem('fvBookmarks');if(window._renderBookmarkSidebar)window._renderBookmarkSidebar();})()" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.2);font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;font-family:inherit;transition:color .15s" onmouseover="this.style.color='rgba(255,255,255,0.5)'" onmouseout="this.style.color='rgba(255,255,255,0.2)'">Clear</button>
+                </div>
+                <div id="bookmarkSidebarList" class="flex gap-2 flex-wrap"></div>
+            </section>
+
+            <!-- My Collections -->
+            <section id="collectionsSidebarSection" class="glass-card p-4 rounded-2xl" style="display:none;margin-bottom:20px">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="material-symbols-outlined text-violet-400" style="font-size:20px">playlist_play</span>
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wide">My Collections</h3>
+                </div>
+                <div id="collectionsSidebarWrap"></div>
+            </section>
+
             <!-- Folders Section — always visible, hidden only when truly empty -->
             <section id="foldersSection" class="mb-6 glass-card p-4 sm:p-5 rounded-3xl">
                 <div class="flex items-center gap-2 mb-3">
@@ -3852,6 +3873,18 @@
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                    <!-- Bookmark button -->
+                    <button id="previewBookmarkBtn" onclick="toggleBookmark()" title="Bookmark this file" aria-label="Bookmark"
+                        style="display:none;align-items:center;gap:5px;padding:7px 12px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:12px;color:#fbbf24;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
+                        <span class="material-symbols-outlined" id="previewBookmarkIcon" style="font-size:16px">bookmark</span>
+                        <span id="previewBookmarkLabel">Save</span>
+                    </button>
+                    <!-- Add to collection button -->
+                    <button id="previewCollectionBtn" onclick="openCollectionPicker()" title="Add to collection" aria-label="Add to collection"
+                        style="display:none;align-items:center;gap:5px;padding:7px 12px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.25);border-radius:12px;color:#a78bfa;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
+                        <span class="material-symbols-outlined" style="font-size:16px">playlist_add</span>
+                        <span>Collect</span>
+                    </button>
                     <a id="previewDownload" href="#" download style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(59,130,246,0.2);color:#93c5fd;border-radius:12px;font-size:12px;font-weight:700;text-decoration:none">
                         <span class="material-symbols-outlined" style="font-size:16px">download</span>Download
                     </a>
@@ -3885,6 +3918,16 @@
                 <span id="zoomLevelLabel">100%</span>
                 <button class="zoom-btn" onclick="previewZoom(0.25)" title="Zoom in" aria-label="Zoom in"><span class="material-symbols-outlined" style="font-size:16px;display:block">zoom_in</span></button>
                 <button class="zoom-btn" onclick="previewZoomReset()" title="Reset zoom" aria-label="Reset zoom" style="margin-left:4px"><span class="material-symbols-outlined" style="font-size:16px;display:block">fit_page</span></button>
+            </div>
+            <!-- Reading Progress Bar -->
+            <div id="previewProgressBar" style="display:none;padding:8px 18px 10px;border-top:1px solid rgba(255,255,255,0.05);background:rgba(0,0,0,0.12);flex-shrink:0">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+                    <span style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Reading Progress</span>
+                    <span id="previewProgressLabel" style="font-size:10px;font-weight:700;color:#94a3b8">0%</span>
+                </div>
+                <div style="height:4px;background:rgba(255,255,255,0.07);border-radius:99px;overflow:hidden">
+                    <div id="previewProgressFill" style="height:100%;background:linear-gradient(90deg,var(--accent,#3b82f6),#8b5cf6);border-radius:99px;width:0%;transition:width .4s ease"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -3974,6 +4017,363 @@
     <footer class="text-center text-white/20 text-xs py-4 lg:py-6">Built by <span class="text-white/40 font-semibold">Jonathan Acheampong</span> · FileVault</footer>
     <!-- Mobile bottom padding so content isn't hidden behind nav -->
     <div class="lg:hidden h-16"></div>
+    <!-- Collection Picker Modal -->
+    <div id="collectionPickerModal" onclick="if(event.target===this)closeCollectionPicker()"
+        style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px">
+        <div style="background:rgba(15,23,42,0.98);border:1px solid rgba(255,255,255,0.12);border-radius:20px;width:100%;max-width:360px;padding:24px;box-shadow:0 32px 80px rgba(0,0,0,0.6)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+                <div>
+                    <p style="color:#94a3b8;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px">My Collections</p>
+                    <h3 style="color:white;font-weight:700;font-size:16px;margin:0">Add to Collection</h3>
+                </div>
+                <button onclick="closeCollectionPicker()" style="width:30px;height:30px;background:rgba(255,255,255,.05);border:none;border-radius:9px;cursor:pointer;color:#64748b;display:flex;align-items:center;justify-content:center">
+                    <span class="material-symbols-outlined" style="font-size:17px">close</span>
+                </button>
+            </div>
+            <!-- Create new collection -->
+            <div style="display:flex;gap:8px;margin-bottom:14px">
+                <input id="newCollectionInput" type="text" placeholder="New collection name…" maxlength="40"
+                    style="flex:1;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:white;font-size:13px;outline:none;font-family:inherit"
+                    onkeydown="if(event.key==='Enter')createAndAddCollection()"/>
+                <button onclick="createAndAddCollection()"
+                    style="padding:9px 14px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border:none;border-radius:10px;color:white;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">
+                    + Create
+                </button>
+            </div>
+            <!-- Existing collections list -->
+            <div id="collectionPickerList" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
+                <p style="color:#475569;font-size:12px;text-align:center;padding:16px 0">No collections yet. Create one above.</p>
+            </div>
+        </div>
+    </div>
+
    <script src="chat-widget.js"></script>
-</body>
-</html>
+
+   <script>
+   // ══════════════════════════════════════════════════════════════════
+   // FEATURE 2: READING PROGRESS / BOOKMARKS
+   // ══════════════════════════════════════════════════════════════════
+   (function() {
+       const PROGRESS_KEY = 'fvReadProgress';   // { url: { pct, ts } }
+       const BOOKMARK_KEY = 'fvBookmarks';       // [ { url, name, folder, ts } ]
+
+       function getProgress() { try { return JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}'); } catch { return {}; } }
+       function saveProgress(url, pct) {
+           const p = getProgress();
+           p[url] = { pct: Math.round(pct), ts: Date.now() };
+           // Keep only last 60 entries
+           const entries = Object.entries(p).sort((a,b) => b[1].ts - a[1].ts).slice(0,60);
+           localStorage.setItem(PROGRESS_KEY, JSON.stringify(Object.fromEntries(entries)));
+       }
+
+       function getBookmarks() { try { return JSON.parse(localStorage.getItem(BOOKMARK_KEY) || '[]'); } catch { return []; } }
+       function isBookmarked(url) { return getBookmarks().some(b => b.url === url); }
+       function toggleBookmark() {
+           const url = window._previewCurrentUrl;
+           const name = window._previewCurrentName;
+           const folder = window._previewCurrentFolder;
+           if (!url) return;
+           let bm = getBookmarks();
+           if (isBookmarked(url)) {
+               bm = bm.filter(b => b.url !== url);
+               localStorage.setItem(BOOKMARK_KEY, JSON.stringify(bm));
+               _updateBookmarkBtn(false);
+               if (typeof showToast === 'function') showToast('Bookmark removed.', 'info', 1800);
+           } else {
+               bm.unshift({ url, name, folder, ts: Date.now() });
+               if (bm.length > 50) bm = bm.slice(0, 50);
+               localStorage.setItem(BOOKMARK_KEY, JSON.stringify(bm));
+               _updateBookmarkBtn(true);
+               if (typeof showToast === 'function') showToast('📌 Bookmarked!', 'success', 1800);
+           }
+           _renderBookmarkSidebar();
+       }
+       window.toggleBookmark = toggleBookmark;
+
+       function _updateBookmarkBtn(saved) {
+           const btn = document.getElementById('previewBookmarkBtn');
+           const icon = document.getElementById('previewBookmarkIcon');
+           const lbl = document.getElementById('previewBookmarkLabel');
+           if (!btn) return;
+           if (saved) {
+               btn.style.background = 'rgba(245,158,11,0.25)';
+               btn.style.borderColor = 'rgba(245,158,11,0.5)';
+               icon.textContent = 'bookmark';
+               lbl.textContent = 'Saved';
+           } else {
+               btn.style.background = 'rgba(245,158,11,0.1)';
+               btn.style.borderColor = 'rgba(245,158,11,0.25)';
+               icon.textContent = 'bookmark_border';
+               lbl.textContent = 'Save';
+           }
+       }
+
+       function _renderBookmarkSidebar() {
+           const sec = document.getElementById('bookmarkSidebarSection');
+           const list = document.getElementById('bookmarkSidebarList');
+           if (!sec || !list) return;
+           const bm = getBookmarks();
+           if (!bm.length) { sec.style.display = 'none'; return; }
+           sec.style.display = '';
+           list.innerHTML = bm.slice(0,8).map(function(b) {
+               const prog = getProgress()[b.url];
+               const progBadge = prog && prog.pct > 0
+                   ? `<span style="font-size:9px;color:#64748b;margin-left:4px">${prog.pct}%</span>` : '';
+               return `<button class="rv-chip" onclick="openPreview('${(b.url||'').replace(/'/g,"\\'")}','${(b.name||'').replace(/'/g,"\\'")}','${(b.folder||'').replace(/'/g,"\\'")}')"
+                   title="${b.name || ''}" style="position:relative">
+                   <span class="material-symbols-outlined" style="font-size:13px;flex-shrink:0;color:#fbbf24">bookmark</span>
+                   <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.name||''}</span>
+                   ${progBadge}
+               </button>`;
+           }).join('');
+       }
+
+       // Wire into openPreview
+       const _origOP = window.openPreview;
+       window.openPreview = function(url, name, folder, size) {
+           _origOP && _origOP(url, name, folder, size);
+           window._previewCurrentUrl = url;
+           window._previewCurrentName = name;
+           window._previewCurrentFolder = folder;
+
+           // Show bookmark btn
+           const btn = document.getElementById('previewBookmarkBtn');
+           if (btn) btn.style.display = 'inline-flex';
+
+           // Show collection btn
+           const cBtn = document.getElementById('previewCollectionBtn');
+           if (cBtn) cBtn.style.display = 'inline-flex';
+
+           // Set bookmark state
+           _updateBookmarkBtn(isBookmarked(url));
+
+           // Restore reading progress — hook into iframe scroll
+           const ext = (name || '').split('.').pop().toLowerCase();
+           const isPDF = ext === 'pdf';
+           const isImage = ['jpg','jpeg','png','gif','webp','svg'].includes(ext);
+
+           const progBar = document.getElementById('previewProgressBar');
+           const progFill = document.getElementById('previewProgressFill');
+           const progLabel = document.getElementById('previewProgressLabel');
+
+           if (progBar && (isPDF || isImage)) {
+               progBar.style.display = 'block';
+               const saved = getProgress()[url];
+               const initPct = saved ? saved.pct : 0;
+               if (progFill) { progFill.style.width = initPct + '%'; }
+               if (progLabel) { progLabel.textContent = initPct + '%'; }
+               // Show resume toast if meaningful progress
+               if (saved && saved.pct > 5 && saved.pct < 95) {
+                   setTimeout(function() {
+                       if (typeof showToast === 'function') {
+                           showToast('📖 Resuming from ' + saved.pct + '%', 'info', 2500);
+                       }
+                   }, 600);
+               }
+               // Track scroll progress for images (shown directly)
+               if (isImage) {
+                   const body = document.getElementById('previewBody');
+                   if (body) {
+                       body._progressUrl = url;
+                       body.addEventListener('scroll', _onBodyScroll, { passive: true });
+                   }
+               }
+               // For PDFs in iframe, we can only track time-based pseudo-progress
+               // Reset progress tracking timer
+               clearInterval(window._pdfProgressTimer);
+               if (isPDF && saved) {
+                   // Smoothly advance pseudo-progress to simulate reading
+                   let current = initPct;
+                   window._pdfProgressTimer = setInterval(function() {
+                       const modal = document.getElementById('previewModal');
+                       if (!modal || !modal.classList.contains('open')) {
+                           clearInterval(window._pdfProgressTimer);
+                           return;
+                       }
+                       if (current >= 99) { clearInterval(window._pdfProgressTimer); return; }
+                       current = Math.min(99, current + 0.15);
+                       if (progFill) progFill.style.width = Math.round(current) + '%';
+                       if (progLabel) progLabel.textContent = Math.round(current) + '%';
+                       saveProgress(url, current);
+                   }, 3000); // advances ~3%/min
+               } else if (isPDF) {
+                   let current = 0;
+                   window._pdfProgressTimer = setInterval(function() {
+                       const modal = document.getElementById('previewModal');
+                       if (!modal || !modal.classList.contains('open')) {
+                           clearInterval(window._pdfProgressTimer);
+                           return;
+                       }
+                       if (current >= 99) { clearInterval(window._pdfProgressTimer); return; }
+                       current = Math.min(99, current + 0.15);
+                       if (progFill) progFill.style.width = Math.round(current) + '%';
+                       if (progLabel) progLabel.textContent = Math.round(current) + '%';
+                       saveProgress(url, current);
+                   }, 3000);
+               }
+           } else if (progBar) {
+               progBar.style.display = 'none';
+               clearInterval(window._pdfProgressTimer);
+           }
+       };
+
+       function _onBodyScroll() {
+           const body = document.getElementById('previewBody');
+           if (!body || !body._progressUrl) return;
+           const pct = body.scrollHeight <= body.clientHeight
+               ? 100
+               : Math.round((body.scrollTop / (body.scrollHeight - body.clientHeight)) * 100);
+           const progFill = document.getElementById('previewProgressFill');
+           const progLabel = document.getElementById('previewProgressLabel');
+           if (progFill) progFill.style.width = pct + '%';
+           if (progLabel) progLabel.textContent = pct + '%';
+           saveProgress(body._progressUrl, pct);
+       }
+
+       // Wire into closePreview to clean up
+       const _origClose = window.closePreview;
+       window.closePreview = function() {
+           clearInterval(window._pdfProgressTimer);
+           const body = document.getElementById('previewBody');
+           if (body) body.removeEventListener('scroll', _onBodyScroll);
+           const btn = document.getElementById('previewBookmarkBtn');
+           if (btn) btn.style.display = 'none';
+           const cBtn = document.getElementById('previewCollectionBtn');
+           if (cBtn) cBtn.style.display = 'none';
+           _origClose && _origClose();
+       };
+
+       // Render sidebar on load
+       window.addEventListener('load', function() { _renderBookmarkSidebar(); });
+       window._renderBookmarkSidebar = _renderBookmarkSidebar;
+       window._getBookmarks = getBookmarks;
+       window._getProgress = getProgress;
+   })();
+
+   // ══════════════════════════════════════════════════════════════════
+   // FEATURE 3: FILE COLLECTIONS / PLAYLISTS
+   // ══════════════════════════════════════════════════════════════════
+   (function() {
+       const COLL_KEY = 'fvCollections'; // { id: { name, files: [{url,name,folder}], createdAt } }
+
+       function getCollections() { try { return JSON.parse(localStorage.getItem(COLL_KEY) || '{}'); } catch { return {}; } }
+       function saveCollections(c) { localStorage.setItem(COLL_KEY, JSON.stringify(c)); }
+
+       function openCollectionPicker() {
+           _renderCollectionPickerList();
+           const modal = document.getElementById('collectionPickerModal');
+           if (modal) modal.style.display = 'flex';
+       }
+       function closeCollectionPicker() {
+           const modal = document.getElementById('collectionPickerModal');
+           if (modal) modal.style.display = 'none';
+       }
+       window.openCollectionPicker = openCollectionPicker;
+       window.closeCollectionPicker = closeCollectionPicker;
+
+       function createAndAddCollection() {
+           const input = document.getElementById('newCollectionInput');
+           const name = (input ? input.value.trim() : '');
+           if (!name) { if (typeof showToast === 'function') showToast('Enter a collection name.', 'warning', 2000); return; }
+           const colls = getCollections();
+           const id = 'coll_' + Date.now();
+           colls[id] = { name, files: [], createdAt: Date.now() };
+           saveCollections(colls);
+           if (input) input.value = '';
+           _addToCollection(id);
+       }
+       window.createAndAddCollection = createAndAddCollection;
+
+       function _addToCollection(id) {
+           const url = window._previewCurrentUrl;
+           const name = window._previewCurrentName;
+           const folder = window._previewCurrentFolder;
+           if (!url) return;
+           const colls = getCollections();
+           if (!colls[id]) return;
+           const already = colls[id].files.some(f => f.url === url);
+           if (!already) {
+               colls[id].files.unshift({ url, name, folder });
+               saveCollections(colls);
+           }
+           closeCollectionPicker();
+           _renderCollectionsSidebar();
+           if (typeof showToast === 'function') showToast('Added to "' + colls[id].name + '"', 'success', 2000);
+       }
+       window.addToCollection = _addToCollection;
+
+       function removeFromCollection(collId, fileUrl) {
+           const colls = getCollections();
+           if (!colls[collId]) return;
+           colls[collId].files = colls[collId].files.filter(f => f.url !== fileUrl);
+           saveCollections(colls);
+           _renderCollectionsSidebar();
+           _renderCollectionPickerList();
+       }
+       window.removeFromCollection = removeFromCollection;
+
+       function deleteCollection(id) {
+           const colls = getCollections();
+           const name = colls[id] ? colls[id].name : '';
+           delete colls[id];
+           saveCollections(colls);
+           _renderCollectionsSidebar();
+           if (typeof showToast === 'function') showToast('"' + name + '" deleted.', 'info', 1800);
+       }
+       window.deleteCollection = deleteCollection;
+
+       function _renderCollectionPickerList() {
+           const list = document.getElementById('collectionPickerList');
+           if (!list) return;
+           const colls = getCollections();
+           const ids = Object.keys(colls);
+           if (!ids.length) {
+               list.innerHTML = '<p style="color:#475569;font-size:12px;text-align:center;padding:16px 0">No collections yet. Create one above.</p>';
+               return;
+           }
+           const url = window._previewCurrentUrl;
+           list.innerHTML = ids.map(function(id) {
+               const c = colls[id];
+               const alreadyIn = c.files.some(f => f.url === url);
+               return `<button onclick="addToCollection('${id}')" ${alreadyIn ? 'disabled' : ''}
+                   style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;background:rgba(255,255,255,${alreadyIn?'.03':'.05'});border:1px solid rgba(255,255,255,${alreadyIn?'.05':'.1'});border-radius:12px;color:${alreadyIn?'#334155':'white'};font-size:13px;font-weight:600;cursor:${alreadyIn?'default':'pointer'};text-align:left;font-family:inherit;transition:all .2s">
+                   <span class="material-symbols-outlined" style="font-size:16px;flex-shrink:0;color:${alreadyIn?'#22c55e':'#a78bfa'}">${alreadyIn?'check_circle':'playlist_add'}</span>
+                   <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
+                   <span style="font-size:10px;color:#475569">${c.files.length} file${c.files.length!==1?'s':''}</span>
+               </button>`;
+           }).join('');
+       }
+
+       function _renderCollectionsSidebar() {
+           const sec = document.getElementById('collectionsSidebarSection');
+           const wrap = document.getElementById('collectionsSidebarWrap');
+           if (!sec || !wrap) return;
+           const colls = getCollections();
+           const ids = Object.keys(colls);
+           if (!ids.length) { sec.style.display = 'none'; return; }
+           sec.style.display = '';
+           wrap.innerHTML = ids.map(function(id) {
+               const c = colls[id];
+               return `<div style="margin-bottom:12px">
+                   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                       <p style="color:#94a3b8;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin:0">${c.name} <span style="color:#475569;font-weight:600">(${c.files.length})</span></p>
+                       <button onclick="deleteCollection('${id}')" style="background:none;border:none;color:#475569;cursor:pointer;padding:2px;font-family:inherit" title="Delete collection">
+                           <span class="material-symbols-outlined" style="font-size:14px">delete</span>
+                       </button>
+                   </div>
+                   <div style="display:flex;flex-wrap:wrap;gap:5px">
+                   ${c.files.slice(0,6).map(function(f) {
+                       return `<button class="related-chip" onclick="openPreview('${(f.url||'').replace(/'/g,"\\'")}','${(f.name||'').replace(/'/g,"\\'")}','${(f.folder||'').replace(/'/g,"\\'")}')" title="${f.name||''}">
+                           <span class="material-symbols-outlined" style="font-size:12px;flex-shrink:0">${typeof getFileIcon==='function'?getFileIcon(f.name||''):'description'}</span>
+                           <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px">${f.name||''}</span>
+                       </button>`;
+                   }).join('')}
+                   </div>
+               </div>`;
+           }).join('');
+       }
+
+       window.addEventListener('load', function() { _renderCollectionsSidebar(); });
+       window._renderCollectionsSidebar = _renderCollectionsSidebar;
+   })();
+   </script>
