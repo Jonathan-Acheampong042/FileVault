@@ -2885,11 +2885,57 @@
             }
         });
 
+        // ══ ACTIVITY TRACKING — avoid disrupting the user with auto-refreshes ══
+        var _lastInteractionTime = Date.now();
+        ['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel', 'scroll'].forEach(function(evt) {
+            window.addEventListener(evt, function() { _lastInteractionTime = Date.now(); }, { passive: true, capture: true });
+        });
+
+        function isUserActive() {
+            // Typing in search or any text input/textarea
+            var active = document.activeElement;
+            if (active && (active.id === 'searchInput' || active.tagName === 'TEXTAREA' ||
+                (active.tagName === 'INPUT' && active.type !== 'checkbox' && active.type !== 'radio'))) {
+                return true;
+            }
+            // Bulk-selection mode in progress
+            if (selectedFiles && selectedFiles.size > 0) return true;
+            // Any open modal/overlay a grid refresh would disrupt
+            var overlays = ['previewModal', 'shortcutModal'];
+            for (var i = 0; i < overlays.length; i++) {
+                var el = document.getElementById(overlays[i]);
+                if (el && el.classList.contains('open')) return true;
+            }
+            // Recent pointer/keyboard/scroll activity (within last 4s)
+            if (Date.now() - _lastInteractionTime < 4000) return true;
+            return false;
+        }
+
+        // Refresh the file grid, but wait until the user is idle so an
+        // in-progress search, selection, or preview isn't interrupted.
+        var _refreshFilesPending = false;
+        function _refreshFilesWhenIdle() {
+            _refreshFilesPending = true;
+            _attemptFileRefresh();
+        }
+        function _attemptFileRefresh() {
+            if (!_refreshFilesPending) return;
+            if (isUserActive()) {
+                setTimeout(_attemptFileRefresh, 2000);
+                return;
+            }
+            _refreshFilesPending = false;
+            try { sessionStorage.removeItem('fvFilesCache'); } catch(e) {}
+            allFiles = [];
+            fetchFiles();
+        }
+
         // ══ FIX: SUPABASE REALTIME — live in-page alerts ════════════
         // Notifies users who already have the page open when:
         //   • the manager uploads a new file  (files_list INSERT)
         //   • the manager posts an announcement (announcements INSERT)
-        // No page refresh required — files grid reloads automatically.
+        // No page refresh required — files grid reloads automatically
+        // once the user is idle (so it never interrupts what they're doing).
         (function initRealtime() {
             // Debounce rapid back-to-back inserts (e.g. multi-file upload)
             var _realtimeReloadTimer = null;
@@ -2902,19 +2948,16 @@
                     function(payload) {
                         clearTimeout(_realtimeReloadTimer);
                         _realtimeReloadTimer = setTimeout(function() {
-                            // Bust session cache so fetchFiles pulls fresh data
-                            try { sessionStorage.removeItem('fvFilesCache'); } catch(e) {}
-                            allFiles = [];
-                            fetchFiles();
                             var fname = (payload.new && payload.new.file_name) ? payload.new.file_name : 'A new file';
                             var folder = (payload.new && payload.new.folder_name && payload.new.folder_name !== 'Root')
                                 ? ' in ' + payload.new.folder_name : '';
                             var isScheduled = payload.new && payload.new.scheduled_at && new Date(payload.new.scheduled_at) > new Date();
                             if (isScheduled) {
                                 loadScheduledTeasers();
-                            } else {
-                                showToast("D83dDcc1 " + fname + folder + " was just added!", "info", 5000);
+                                return;
                             }
+                            showToast("📁 " + fname + folder + " was just added!", "info", 5000);
+                            _refreshFilesWhenIdle();
                         }, 800); // 800ms debounce — handles multi-file batch uploads
                     }
                 )
@@ -2936,8 +2979,21 @@
                 .subscribe(function(status) {
                     if (status === 'SUBSCRIBED') {
                         console.info('[FileVault] Realtime live updates active.');
+                    } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                        console.warn('[FileVault] Realtime unavailable (' + status + ') — falling back to periodic refresh.');
+                        _startPollingFallback();
                     }
                 });
+
+            // ── Fallback: if Realtime can't connect, poll quietly every 45s ──
+            var _pollingStarted = false;
+            function _startPollingFallback() {
+                if (_pollingStarted) return;
+                _pollingStarted = true;
+                setInterval(function() {
+                    _refreshFilesWhenIdle();
+                }, 45000);
+            }
         })();
 
         // ══ LIGHT / DARK MODE ══════════════════════════════════
