@@ -131,6 +131,22 @@
         /* ── Bulk-move modal ── */
         #bulkMoveModal { display:none; position:fixed; inset:0; z-index:99998; background:rgba(0,0,0,0.75); backdrop-filter:blur(8px); align-items:center; justify-content:center; padding:16px; }
         #bulkMoveModal.open { display:flex; }
+        /* Duplicate detection modal */
+        #dupModal { display:none; position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.8); backdrop-filter:blur(10px); align-items:center; justify-content:center; padding:16px; }
+        #dupModal.open { display:flex; }
+        #dupBox { background:rgba(15,23,42,0.98); border:1px solid rgba(255,255,255,0.1); border-radius:20px; width:100%; max-width:440px; padding:28px; box-shadow:0 32px 80px rgba(0,0,0,0.7); }
+        .dup-action-btn { flex:1; padding:11px 16px; border-radius:12px; font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; border:1px solid; display:flex; align-items:center; justify-content:center; gap:6px; font-family:inherit; }
+        /* Folder move modal */
+        #folderMoveModal { display:none; position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.8); backdrop-filter:blur(10px); align-items:center; justify-content:center; padding:16px; }
+        #folderMoveModal.open { display:flex; }
+        #folderMoveBox { background:rgba(15,23,42,0.98); border:1px solid rgba(255,255,255,0.1); border-radius:20px; width:100%; max-width:420px; padding:28px; box-shadow:0 32px 80px rgba(0,0,0,0.7); }
+        /* Upload templates */
+        #templatesPanel { display:none; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.07); border-radius:14px; padding:14px 16px; margin-bottom:16px; }
+        #templatesPanel.open { display:block; }
+        .tpl-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:99px; background:rgba(139,92,246,0.12); border:1px solid rgba(139,92,246,0.25); color:#a78bfa; font-size:11px; font-weight:700; cursor:pointer; transition:all .15s; }
+        .tpl-chip:hover { background:rgba(139,92,246,0.22); }
+        .tpl-chip-del { color:#6b7280; font-size:13px; cursor:pointer; transition:color .15s; }
+        .tpl-chip-del:hover { color:#f87171; }
         #bulkMoveBox { background:rgba(15,23,42,0.97); border:1px solid rgba(255,255,255,0.1); border-radius:20px; width:100%; max-width:400px; padding:28px; box-shadow:0 32px 80px rgba(0,0,0,0.6); }
 
         /* ── 32: Expiry progress bar ── */
@@ -272,6 +288,26 @@
             </div>
 
             <div class="space-y-4 mb-6 text-left">
+                <!-- Upload Templates -->
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                        <label class="text-xs font-bold text-white/40 uppercase tracking-wider">Upload Templates</label>
+                        <div style="display:flex;gap:6px">
+                            <button onclick="toggleTemplatesPanel()" id="tplToggleBtn" class="text-xs text-purple-400 hover:text-purple-300 px-2 py-1 rounded-lg transition-all flex items-center gap-1 border border-purple-500/20 hover:bg-purple-500/10">
+                                <span class="material-symbols-outlined text-sm">expand_more</span> Show
+                            </button>
+                            <button onclick="saveCurrentAsTemplate()" title="Save current folder + description as a template" class="text-xs text-purple-400 hover:text-purple-300 px-2 py-1 rounded-lg transition-all flex items-center gap-1 border border-purple-500/20 hover:bg-purple-500/10">
+                                <span class="material-symbols-outlined text-sm">bookmark_add</span> Save
+                            </button>
+                        </div>
+                    </div>
+                    <div id="templatesPanel">
+                        <p style="font-size:11px;color:#475569;margin-bottom:10px">Click a template to pre-fill folder, description, and naming convention.</p>
+                        <div id="templateChips" style="display:flex;flex-wrap:wrap;gap:7px">
+                            <span style="font-size:11px;color:#475569;font-style:italic">No templates saved yet — fill in a folder and description, then click Save.</span>
+                        </div>
+                    </div>
+                </div>
                 <div>
                     <label class="text-xs font-bold text-white/40 uppercase tracking-wider block mb-2">Folder</label>
                     <div class="flex gap-2">
@@ -406,6 +442,63 @@
                 <button onclick="closeBulkMove()" style="flex:1;padding:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:rgba(255,255,255,0.6);font-weight:700;font-size:13px;cursor:pointer">Cancel</button>
                 <button onclick="executeBulkMove()" style="flex:2;padding:12px;background:linear-gradient(135deg,#0891b2,#0e7490);border:none;border-radius:12px;color:white;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
                     <span class="material-symbols-outlined" style="font-size:16px">drive_file_move</span> Move Files
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Duplicate File Modal -->
+    <div id="dupModal">
+        <div id="dupBox">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+                <span class="material-symbols-outlined" style="font-size:28px;color:#f59e0b">warning</span>
+                <div>
+                    <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1px">File Already Exists</p>
+                    <h3 id="dupModalTitle" style="color:white;font-weight:700;font-size:16px;margin:0">Conflict detected</h3>
+                </div>
+            </div>
+            <div id="dupModalMeta" style="background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.15);border-radius:10px;padding:10px 14px;margin:14px 0;font-size:12px;color:#94a3b8;line-height:1.7"></div>
+            <p style="font-size:12px;color:#64748b;margin-bottom:14px">How would you like to handle this?</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="dup-action-btn" id="dupBtnReplace" style="background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.25);color:#f87171">
+                    <span class="material-symbols-outlined" style="font-size:15px">swap_horiz</span> Replace
+                </button>
+                <button class="dup-action-btn" id="dupBtnRename" style="background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.25);color:#93c5fd">
+                    <span class="material-symbols-outlined" style="font-size:15px">drive_file_rename_outline</span> Keep both
+                </button>
+                <button class="dup-action-btn" id="dupBtnSkip" style="background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.1);color:#64748b">
+                    <span class="material-symbols-outlined" style="font-size:15px">block</span> Skip
+                </button>
+            </div>
+            <p id="dupApplyAllWrap" style="margin-top:12px;display:none">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:#64748b">
+                    <input type="checkbox" id="dupApplyAll" style="accent-color:#3b82f6"> Apply this choice to all remaining conflicts in this batch
+                </label>
+            </p>
+        </div>
+    </div>
+
+    <!-- Move Entire Folder Modal -->
+    <div id="folderMoveModal" onclick="if(event.target===this)closeFolderMove()">
+        <div id="folderMoveBox">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+                <div>
+                    <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px">Bulk Reorganize</p>
+                    <h3 style="color:white;font-weight:700;font-size:17px;margin:0">Move Entire Folder</h3>
+                </div>
+                <button onclick="closeFolderMove()" style="width:32px;height:32px;background:rgba(255,255,255,.05);border:none;border-radius:10px;cursor:pointer;color:#64748b;display:flex;align-items:center;justify-content:center">
+                    <span class="material-symbols-outlined" style="font-size:18px">close</span>
+                </button>
+            </div>
+            <p id="folderMoveDesc" style="color:rgba(255,255,255,0.5);font-size:13px;margin-bottom:16px">Renames the folder and migrates all files automatically.</p>
+            <label style="color:rgba(255,255,255,0.4);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:8px">New Folder Name</label>
+            <input id="folderMoveNewName" type="text" placeholder="Enter new folder name…"
+                style="width:100%;padding:12px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:white;font-size:14px;outline:none;margin-bottom:20px;box-sizing:border-box"
+                oninput="this.style.borderColor=this.value.trim()?'rgba(59,130,246,0.5)':'rgba(255,255,255,0.1)'" />
+            <div style="display:flex;gap:10px">
+                <button onclick="closeFolderMove()" style="flex:1;padding:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:rgba(255,255,255,0.6);font-weight:700;font-size:13px;cursor:pointer">Cancel</button>
+                <button onclick="executeFolderMove()" style="flex:2;padding:12px;background:linear-gradient(135deg,#7c3aed,#6d28d9);border:none;border-radius:12px;color:white;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+                    <span class="material-symbols-outlined" style="font-size:16px">drive_file_move</span> Move &amp; Rename
                 </button>
             </div>
         </div>
@@ -785,6 +878,9 @@
                     <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
                         <button onclick="event.stopPropagation();renameFolder('${folder}')" class="p-1 text-white/60 hover:text-white hover:bg-white/10 rounded text-xs" title="Rename">
                             <span class="material-symbols-outlined text-sm">edit</span>
+                        </button>
+                        <button onclick="event.stopPropagation();openFolderMove('${folder}')" class="p-1 text-purple-400/60 hover:text-purple-400 hover:bg-purple-500/10 rounded text-xs" title="Move entire folder (rename + migrate)">
+                            <span class="material-symbols-outlined text-sm">drive_file_move</span>
                         </button>
                         <button onclick="event.stopPropagation();deleteFolder('${folder}')" class="p-1 text-red-400/60 hover:text-red-400 hover:bg-red-500/10 rounded text-xs" title="Delete">
                             <span class="material-symbols-outlined text-sm">delete</span>
@@ -1796,17 +1892,15 @@
     }
 
     // \u2500\u2500\u2500 ENHANCED DUPLICATE CHECK (name + size) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-    async function checkDuplicate(fileName, folder, newFileSize) {
+    async function checkDuplicate(fileName, folder, newFileSize, batchSize) {
         const folderName = folder || 'Root';
 
-        // DB check (now also fetches file_size for comparison)
         const { data: dbData, error: dbErr } = await _supabase
             .from('files_list').select('id, file_size')
             .eq('file_name', fileName)
             .eq('folder_name', folderName)
             .limit(1);
 
-        // Storage check
         const storageFolder = folder || '';
         const { data: storageList } = await _supabase.storage
             .from('vault-files').list(storageFolder, { limit: 500 });
@@ -1819,8 +1913,7 @@
         const exists = existsInDB || existsInStorage;
         if (!exists) return 'new';
 
-        // \u2500 Size comparison: warn if same size (exact dup) or show delta \u2500
-        let sizeNote = '';
+        let sizeHTML = '';
         if (newFileSize) {
             const existingSize = (existsInDB && dbData[0].file_size)
                 || (existingStorage && existingStorage.metadata && existingStorage.metadata.size)
@@ -1829,20 +1922,159 @@
                 const diff = Math.abs(newFileSize - existingSize);
                 const sameSizePct = newFileSize > 0 ? (diff / newFileSize) : 1;
                 if (sameSizePct < 0.01) {
-                    sizeNote = '\n\n\u26a0\ufe0f Same size (' + _fmtBytes(newFileSize) + ') \u2014 this looks like an exact duplicate.';
+                    sizeHTML = '<span style="color:#f59e0b;font-weight:700">⚠ Same size (' + _fmtBytes(newFileSize) + ') — this looks like an exact duplicate.</span>';
                 } else {
                     const bigger = newFileSize > existingSize ? '+' : '';
-                    sizeNote = '\n\nSize: existing ' + _fmtBytes(existingSize) + ' \u2192 new ' + _fmtBytes(newFileSize) + ' (' + bigger + _fmtBytes(newFileSize - existingSize) + ')';
+                    sizeHTML = 'Existing: <b style="color:#e2e8f0">' + _fmtBytes(existingSize) + '</b> → New: <b style="color:#e2e8f0">' + _fmtBytes(newFileSize) + '</b> (<span style="color:' + (newFileSize > existingSize ? '#34d399' : '#f87171') + '">' + bigger + _fmtBytes(newFileSize - existingSize) + '</span>)';
                 }
             }
         }
 
-        const replace = confirm(
-            '"' + fileName + '" already exists in ' + folderName + '.' + sizeNote + '\n\nOK \u2192 Replace it\nCancel \u2192 Keep both (saves a copy with timestamp)'
-        );
-        return replace ? 'replace' : 'keep';
+        if (typeof _dupBatchChoice !== 'undefined' && _dupBatchChoice) return _dupBatchChoice;
+
+        return new Promise(function(resolve) {
+            const modal = document.getElementById('dupModal');
+            document.getElementById('dupModalTitle').textContent = '"' + fileName + '" already exists in ' + folderName;
+            document.getElementById('dupModalMeta').innerHTML = sizeHTML || ('A file named <b style="color:#e2e8f0">' + fileName + '</b> already exists in <b style="color:#e2e8f0">' + folderName + '</b>.');
+            const applyWrap = document.getElementById('dupApplyAllWrap');
+            const applyAll  = document.getElementById('dupApplyAll');
+            applyWrap.style.display = (typeof batchSize !== 'undefined' && batchSize > 1) ? 'block' : 'none';
+            if (applyAll) applyAll.checked = false;
+            modal.classList.add('open');
+            function cleanup(choice) {
+                modal.classList.remove('open');
+                document.getElementById('dupBtnReplace').onclick = null;
+                document.getElementById('dupBtnRename').onclick  = null;
+                document.getElementById('dupBtnSkip').onclick    = null;
+                if (applyAll && applyAll.checked && typeof batchSize !== 'undefined' && batchSize > 1) _dupBatchChoice = choice;
+                resolve(choice);
+            }
+            document.getElementById('dupBtnReplace').onclick = function() { cleanup('replace'); };
+            document.getElementById('dupBtnRename').onclick  = function() { cleanup('keep'); };
+            document.getElementById('dupBtnSkip').onclick    = function() { cleanup('skip'); };
+        });
     }
 
+    let _dupBatchChoice = null;
+
+    // ── MOVE ENTIRE FOLDER
+    let _folderMoveSource = null;
+    function openFolderMove(folderName) {
+        _folderMoveSource = folderName;
+        const desc = document.getElementById('folderMoveDesc');
+        if (desc) desc.textContent = 'Rename "' + folderName + '" and migrate all its files automatically.';
+        const input = document.getElementById('folderMoveNewName');
+        if (input) { input.value = folderName; input.style.borderColor = 'rgba(255,255,255,0.1)'; }
+        document.getElementById('folderMoveModal').classList.add('open');
+        setTimeout(function() { if (input) { input.focus(); input.select(); } }, 80);
+    }
+    function closeFolderMove() {
+        document.getElementById('folderMoveModal').classList.remove('open');
+        _folderMoveSource = null;
+    }
+    async function executeFolderMove() {
+        const newName = (document.getElementById('folderMoveNewName').value || '').trim().replace(/[^a-zA-Z0-9_ -]/g, '');
+        if (!newName) { showMgrToast('Please enter a valid folder name.', 'error'); return; }
+        if (!_folderMoveSource) return;
+        if (newName === _folderMoveSource) { closeFolderMove(); return; }
+        if (availableFolders.includes(newName)) { showMgrToast('A folder named "' + newName + '" already exists.', 'error'); return; }
+        const oldName = _folderMoveSource;
+        closeFolderMove();
+        setStatus('Moving "' + oldName + '" → "' + newName + '"…', 'blue');
+        const marker = '/object/public/vault-files/';
+        try {
+            const { data: dbFiles, error: dbListErr } = await _supabase
+                .from('files_list').select('id, file_name, download_url').eq('folder_name', oldName);
+            if (dbListErr) throw new Error('DB read failed: ' + dbListErr.message);
+            for (const row of (dbFiles || [])) {
+                let oldPath = oldName + '/' + row.file_name;
+                if (row.download_url) {
+                    const idx2 = row.download_url.indexOf(marker);
+                    if (idx2 !== -1) oldPath = decodeURIComponent(row.download_url.substring(idx2 + marker.length));
+                }
+                const newPath = newName + '/' + row.file_name;
+                await _supabase.storage.from('vault-files').remove([newPath]);
+                const { error: copyErr } = await _supabase.storage.from('vault-files').copy(oldPath, newPath);
+                if (copyErr) throw new Error('Copy failed for "' + row.file_name + '": ' + copyErr.message);
+                await _supabase.storage.from('vault-files').remove([oldPath]);
+                const { data: urlData } = _supabase.storage.from('vault-files').getPublicUrl(newPath);
+                const { error: updateErr } = await _supabase.from('files_list')
+                    .update({ folder_name: newName, download_url: urlData.publicUrl }).eq('id', row.id);
+                if (updateErr) throw new Error('DB update failed for "' + row.file_name + '": ' + updateErr.message);
+            }
+            const { data: leftover } = await _supabase.storage.from('vault-files').list(oldName, { limit: 200 });
+            if (leftover && leftover.length > 0)
+                await _supabase.storage.from('vault-files').remove(leftover.map(function(f) { return oldName + '/' + f.name; }));
+            availableFolders = availableFolders.map(function(f) { return f === oldName ? newName : f; }).sort();
+            const fs2 = document.getElementById('folderSelect');
+            fs2.innerHTML = '<option value="" class="text-black">No folder (root)</option>';
+            availableFolders.forEach(function(f) { fs2.innerHTML += '<option value="' + f + '" class="text-black">' + f + '</option>'; });
+            renderMainFolders(); populateRequestFolderSelect();
+            if (currentFolder === oldName) currentFolder = newName;
+            showMgrToast('✓ Moved "' + oldName + '" → "' + newName + '" — ' + (dbFiles||[]).length + ' file(s).', 'success');
+            setStatus('✓ Folder moved to "' + newName + '".', 'green');
+            loadManagerFiles();
+        } catch (err) {
+            console.error('executeFolderMove:', err);
+            setStatus('Move failed: ' + (err.message || 'unknown'), 'red');
+        }
+    }
+
+    // ── UPLOAD TEMPLATES
+    const TPL_KEY = 'fv_upload_templates';
+    function _loadTemplates() { try { return JSON.parse(localStorage.getItem(TPL_KEY) || '[]'); } catch(e) { return []; } }
+    function _saveTemplates(arr) { localStorage.setItem(TPL_KEY, JSON.stringify(arr)); }
+    function _escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function toggleTemplatesPanel() {
+        const panel = document.getElementById('templatesPanel');
+        const btn = document.getElementById('tplToggleBtn');
+        const open = panel.classList.toggle('open');
+        btn.innerHTML = '<span class="material-symbols-outlined text-sm">' + (open ? 'expand_less' : 'expand_more') + '</span> ' + (open ? 'Hide' : 'Show');
+        if (open) renderTemplateChips();
+    }
+    function renderTemplateChips() {
+        const container = document.getElementById('templateChips');
+        if (!container) return;
+        const tpls = _loadTemplates();
+        if (!tpls.length) { container.innerHTML = '<span style="font-size:11px;color:#475569;font-style:italic">No templates yet — fill in folder/description then click Save.</span>'; return; }
+        container.innerHTML = tpls.map(function(t, i) {
+            return '<span class="tpl-chip" onclick="applyTemplate(' + i + ')" title="' + _escHtml(t.folder) + (t.desc ? ' · ' + _escHtml(t.desc.substring(0,40)) : '') + '">' +
+                '<span class="material-symbols-outlined" style="font-size:13px">folder_special</span>' +
+                '<span>' + _escHtml(t.label) + '</span>' +
+                '<span class="tpl-chip-del material-symbols-outlined" onclick="event.stopPropagation();deleteTemplate(' + i + ')" title="Delete">close</span>' +
+                '</span>';
+        }).join('');
+    }
+    function saveCurrentAsTemplate() {
+        const folder = (document.getElementById('folderSelect')||{}).value || '';
+        const desc   = (document.getElementById('fileDescription')||{}).value || '';
+        if (!folder && !desc) { showMgrToast('Fill in a folder or description first.', 'error'); return; }
+        const label = (folder || desc.substring(0,30)).trim();
+        const tpls = _loadTemplates();
+        if (tpls.find(function(t) { return t.folder===folder && t.desc===desc; })) { showMgrToast('Template already exists.', 'info'); return; }
+        tpls.push({ label: label, folder: folder, desc: desc });
+        _saveTemplates(tpls);
+        renderTemplateChips();
+        if (!document.getElementById('templatesPanel').classList.contains('open')) toggleTemplatesPanel();
+        showMgrToast('✓ Template saved: "' + label + '"', 'success');
+    }
+    function applyTemplate(idx) {
+        const t = _loadTemplates()[idx]; if (!t) return;
+        const fs = document.getElementById('folderSelect');
+        const di = document.getElementById('fileDescription');
+        if (fs && t.folder) {
+            const opt = Array.from(fs.options).find(function(o) { return o.value === t.folder; });
+            if (opt) fs.value = t.folder; else showMgrToast('Folder "' + t.folder + '" not found.', 'error');
+        } else if (fs) fs.value = '';
+        if (di) di.value = t.desc || '';
+        showMgrToast('✓ Template applied: "' + t.label + '"', 'success');
+    }
+    function deleteTemplate(idx) {
+        const tpls = _loadTemplates(); tpls.splice(idx, 1); _saveTemplates(tpls); renderTemplateChips();
+        showMgrToast('Template deleted.', 'info');
+    }
+    const _origUploadFile = uploadFile;
+    uploadFile = async function() { _dupBatchChoice = null; return _origUploadFile.apply(this, arguments); };
     function _fmtBytes(b) {
         if (!b) return '0 B';
         const u = ['B','KB','MB','GB']; let i = 0, s = Math.abs(b), orig = b;
@@ -1909,13 +2141,18 @@
             let finalName = file.name;
 
             // ── Duplicate check ──
-            const dupChoice = await checkDuplicate(file.name, folder, file.size);
+            const dupChoice = await checkDuplicate(file.name, folder, file.size, totalFiles);
+            if (dupChoice === 'skip') {
+                skippedCount++;
+                errorCount++;
+                setStatus(`Skipped "${file.name}" (duplicate).`, 'yellow');
+                continue;
+            }
             if (dupChoice === 'keep') {
                 const ext = file.name.includes('.') ? file.name.substring(file.name.lastIndexOf('.')) : '';
                 const base = file.name.includes('.') ? file.name.substring(0, file.name.lastIndexOf('.')) : file.name;
                 finalName = `${base}_${Date.now()}${ext}`;
             }
-            // 'replace' → upsert overwrites existing; 'new' → normal fresh upload
 
             const path = folder ? `${folder}/${finalName}` : finalName;
 

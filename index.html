@@ -354,6 +354,26 @@
         /* ── 39: Related files ── */
         #relatedFilesStrip { border-top:1px solid rgba(255,255,255,0.06);padding:10px 18px 14px;flex-shrink:0;background:rgba(0,0,0,0.1); }
         #relatedFilesStrip.hidden { display:none; }
+        /* ── Study Mode ── */
+        #previewModal.study-mode { padding:0; }
+        #previewModal.study-mode #previewBox { max-width:100%; max-height:100vh; height:100vh; border-radius:0; flex-direction:row; border:none; }
+        #previewModal.study-mode #previewMainCol { display:flex; flex-direction:column; flex:1; min-width:0; overflow:hidden; }
+        #studySidebar { width:260px; min-width:220px; max-width:300px; flex-shrink:0; background:rgba(0,0,0,0.35); border-right:1px solid rgba(255,255,255,0.07); display:none; flex-direction:column; overflow:hidden; }
+        #previewModal.study-mode #studySidebar { display:flex; }
+        #studySidebarList { flex:1; overflow-y:auto; padding:8px; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.1) transparent; }
+        .study-item { display:flex; align-items:center; gap:9px; padding:9px 10px; border-radius:10px; cursor:pointer; transition:all .15s; border:1px solid transparent; }
+        .study-item:hover { background:rgba(255,255,255,0.05); }
+        .study-item.active { background:rgba(59,130,246,0.15); border-color:rgba(59,130,246,0.3); }
+        .study-item-icon { font-size:16px; flex-shrink:0; color:#64748b; }
+        .study-item.active .study-item-icon { color:#3b82f6; }
+        .study-item-name { font-size:12px; color:#94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.3; }
+        .study-item.active .study-item-name { color:#e2e8f0; font-weight:600; }
+        .study-item-badge { font-size:9px; color:#475569; font-weight:700; flex-shrink:0; }
+        #studyModeBtn { display:inline-flex; align-items:center; gap:5px; padding:7px 12px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); border-radius:12px; color:#34d399; font-size:12px; font-weight:700; cursor:pointer; transition:all .2s; font-family:inherit; }
+        #studyModeBtn:hover { background:rgba(16,185,129,0.18); }
+        #studyModeBtn.active { background:rgba(16,185,129,0.2); border-color:rgba(16,185,129,0.45); }
+        #previewModal.study-mode #previewBox { max-height:100vh; }
+        @media(max-width:640px){ #studySidebar { width:180px; min-width:160px; } .study-item-name { font-size:11px; } }
         .related-chip { display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:9px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .18s;white-space:nowrap;max-width:190px;overflow:hidden;text-overflow:ellipsis; }
         .related-chip:hover { background:rgba(59,130,246,0.15);border-color:rgba(59,130,246,0.3);color:#93c5fd; }
 
@@ -756,9 +776,73 @@
 
         function closePreview() {
             document.getElementById('previewModal').classList.remove('open');
+            document.getElementById('previewModal').classList.remove('study-mode');
+            const btn = document.getElementById('studyModeBtn');
+            if (btn) btn.classList.remove('active');
             document.getElementById('previewBody').innerHTML = '<div style="color:#64748b;font-size:14px">Loading preview…</div>';
             document.body.style.overflow = '';
         }
+
+        // ── STUDY MODE ────────────────────────────────────────────
+        let _studyModeActive = false;
+        function toggleStudyMode() {
+            _studyModeActive = !_studyModeActive;
+            const modal = document.getElementById('previewModal');
+            const btn   = document.getElementById('studyModeBtn');
+            if (_studyModeActive) {
+                modal.classList.add('study-mode');
+                btn && btn.classList.add('active');
+                _renderStudySidebar();
+            } else {
+                modal.classList.remove('study-mode');
+                btn && btn.classList.remove('active');
+            }
+        }
+        function _renderStudySidebar() {
+            const list = document.getElementById('studySidebarList');
+            const folderLabel = document.getElementById('studySidebarFolder');
+            const progress = document.getElementById('studyProgress');
+            if (!list || !_fileRegistry || !_fileRegistry.length) return;
+            // Group files by same folder as the current file (or all if none)
+            const cur = _fileRegistry[_previewIdx];
+            const folder = cur ? (cur.folder || '') : '';
+            // Show folder-scoped list; fall back to all files
+            const files = folder ? _fileRegistry.filter(f => (f.folder || '') === folder) : _fileRegistry;
+            if (folderLabel) folderLabel.textContent = folder || 'All files';
+            if (progress) progress.textContent = ((_previewIdx + 1)) + ' / ' + _fileRegistry.length;
+            list.innerHTML = '';
+            files.forEach(function(f) {
+                const globalIdx = _fileRegistry.indexOf(f);
+                const isActive = globalIdx === _previewIdx;
+                const icon = typeof getFileIcon === 'function' ? getFileIcon(f.name) : '📄';
+                const div = document.createElement('div');
+                div.className = 'study-item' + (isActive ? ' active' : '');
+                div.setAttribute('data-idx', globalIdx);
+                div.innerHTML =
+                    '<span class="study-item-icon material-symbols-outlined">' + _studyFileIcon(f.name) + '</span>' +
+                    '<span class="study-item-name" title="' + (f.name||'').replace(/"/g,'&quot;') + '">' + (f.name || 'Unnamed') + '</span>';
+                div.addEventListener('click', function() {
+                    previewByIdx(globalIdx);
+                    _renderStudySidebar();
+                });
+                list.appendChild(div);
+            });
+            // Scroll active item into view
+            const activeEl = list.querySelector('.study-item.active');
+            if (activeEl) activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+        function _studyFileIcon(name) {
+            if (!name) return 'description';
+            const ext = name.split('.').pop().toLowerCase();
+            const map = { pdf:'picture_as_pdf', pptx:'slideshow', ppt:'slideshow', docx:'article', doc:'article', xlsx:'table_chart', xls:'table_chart', csv:'table_chart', jpg:'image', jpeg:'image', png:'image', gif:'image', mp4:'videocam', mp3:'music_note', zip:'folder_zip' };
+            return map[ext] || 'description';
+        }
+        // Patch slideshowNav to refresh sidebar when in study mode
+        const _origSlideshowNav = slideshowNav;
+        slideshowNav = function(dir) {
+            _origSlideshowNav(dir);
+            if (_studyModeActive) _renderStudySidebar();
+        };
 
         // ── SEARCH HIGHLIGHT ────────────────────────────────────
         function highlightText(text, term) {
@@ -2651,6 +2735,10 @@
             var f = _fileRegistry[idx];
             if (!f) return;
             openPreview(f.url, f.name, f.folder, f.file_size);
+            // Refresh study sidebar if active
+            if (typeof _studyModeActive !== 'undefined' && _studyModeActive) {
+                setTimeout(_renderStudySidebar, 60);
+            }
         };
         previewByIdx = _previewByIdxBase;
 
@@ -3864,6 +3952,27 @@
     <!-- Preview Modal -->
     <div id="previewModal" onclick="if(event.target===this)closePreview()">
         <div id="previewBox">
+            <!-- Study Mode sidebar -->
+            <div id="studySidebar">
+                <div style="padding:14px 12px 8px;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0">
+                    <p style="color:rgba(255,255,255,0.25);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1px">Study Mode</p>
+                    <p id="studySidebarFolder" style="color:#94a3b8;font-size:11px;font-weight:600"></p>
+                </div>
+                <div id="studySidebarList"></div>
+                <div style="padding:10px 12px;border-top:1px solid rgba(255,255,255,0.07);flex-shrink:0;display:flex;align-items:center;justify-content:space-between">
+                    <span style="font-size:10px;color:#475569" id="studyProgress">0 / 0</span>
+                    <div style="display:flex;gap:6px">
+                        <button onclick="slideshowNav(-1)" title="Previous" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;cursor:pointer;color:#94a3b8">
+                            <span class="material-symbols-outlined" style="font-size:14px">chevron_left</span>
+                        </button>
+                        <button onclick="slideshowNav(1)" title="Next" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;cursor:pointer;color:#94a3b8">
+                            <span class="material-symbols-outlined" style="font-size:14px">chevron_right</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- Main column -->
+            <div id="previewMainCol" style="display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden">
             <div id="previewHeader">
                 <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1">
                     <span id="previewIcon" class="material-symbols-outlined text-primary" style="font-size:28px;flex-shrink:0">description</span>
@@ -3888,6 +3997,9 @@
                     <a id="previewDownload" href="#" download style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(59,130,246,0.2);color:#93c5fd;border-radius:12px;font-size:12px;font-weight:700;text-decoration:none">
                         <span class="material-symbols-outlined" style="font-size:16px">download</span>Download
                     </a>
+                    <button id="studyModeBtn" onclick="toggleStudyMode()" title="Study Mode — full-screen reader with file list sidebar" aria-label="Study Mode">
+                        <span class="material-symbols-outlined" style="font-size:16px">menu_book</span><span class="study-btn-label">Study</span>
+                    </button>
                     <button onclick="closePreview()" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);border:none;border-radius:10px;cursor:pointer;color:#94a3b8">
                         <span class="material-symbols-outlined" style="font-size:18px">close</span>
                     </button>
@@ -3929,6 +4041,7 @@
                     <div id="previewProgressFill" style="height:100%;background:linear-gradient(90deg,var(--accent,#3b82f6),#8b5cf6);border-radius:99px;width:0%;transition:width .4s ease"></div>
                 </div>
             </div>
+            </div><!-- /previewMainCol -->
         </div>
     </div>
     <!-- Keyboard Shortcut Modal -->
@@ -4048,6 +4161,279 @@
     </div>
 
    <script src="chat-widget.js"></script>
+   <script>
+   // ══════════════════════════════════════════════════════════════════
+   // FEATURE 9: AI "Related Files" suggestions in preview
+   // Uses the /api/chat endpoint (Groq) to suggest related files by name/folder
+   // ══════════════════════════════════════════════════════════════════
+   (function() {
+       const _SUGGEST_CACHE = {}; // url -> [file, ...]
+
+       async function _getAIRelatedFiles(file) {
+           if (_SUGGEST_CACHE[file.url]) return _SUGGEST_CACHE[file.url];
+           if (!allFiles || allFiles.length < 2) return [];
+
+           // Build a small candidate list (same folder + similar names, max 20)
+           const now = new Date();
+           const sameFolder = allFiles.filter(f =>
+               f.url !== file.url && f.folder === file.folder &&
+               (!f.expires_at || new Date(f.expires_at) > now)
+           );
+           const otherFiles = allFiles.filter(f =>
+               f.url !== file.url && f.folder !== file.folder &&
+               (!f.expires_at || new Date(f.expires_at) > now)
+           );
+           const candidates = [...sameFolder, ...otherFiles].slice(0, 20);
+           if (!candidates.length) return [];
+
+           const candidateList = candidates.map((f, i) => `${i}: "${f.name}" [${f.folder || 'Root'}]`).join('\n');
+           const prompt = `You are a file recommendation assistant for FileVault, an academic file-sharing app.\n` +
+               `A student is previewing: "${file.name}" in folder "${file.folder || 'Root'}".\n` +
+               `From the list below, pick up to 4 that are most likely related or useful to this student.\n` +
+               `Reply with ONLY a JSON array of the indices (e.g. [0,3,7]). No explanation.\n\n${candidateList}`;
+
+           try {
+               const res = await fetch(_CHAT_API_URL, {
+                   method: 'POST',
+                   headers: { 'Content-Type': 'application/json' },
+                   body: JSON.stringify({
+                       message: prompt,
+                       history: [],
+                       systemPrompt: 'You are a helpful file recommendation assistant. Output only valid JSON arrays of numbers.'
+                   })
+               });
+               if (!res.ok) return sameFolder.slice(0, 4); // fallback
+               const data = await res.json();
+               const text = (data.text || '').trim();
+               // Parse the JSON array from the response
+               const match = text.match(/\[[\d,\s]+\]/);
+               if (!match) return sameFolder.slice(0, 4);
+               const indices = JSON.parse(match[0]).filter(i => typeof i === 'number' && candidates[i]);
+               const result = indices.map(i => candidates[i]).filter(Boolean).slice(0, 4);
+               _SUGGEST_CACHE[file.url] = result;
+               return result;
+           } catch(e) {
+               return sameFolder.slice(0, 4); // graceful fallback
+           }
+       }
+
+       // Patch renderRelatedFiles to enhance with AI suggestions
+       const _origRRF = window.renderRelatedFiles;
+       window.renderRelatedFiles = function(file) {
+           // First render the standard related files immediately
+           _origRRF && _origRRF(file);
+           if (!file || !file.folder) return;
+
+           // Then async-enhance with AI suggestions
+           const strip = document.getElementById('relatedFilesStrip');
+           const list  = document.getElementById('relatedList');
+           if (!strip || !list) return;
+
+           // Add a subtle "AI" label and loading state to the header
+           const header = strip.querySelector('p');
+           if (header && !header.dataset.aiPatched) {
+               header.dataset.aiPatched = '1';
+               header.innerHTML = 'More in this folder &nbsp;<span id="relatedAIBadge" style="font-size:9px;font-weight:800;color:#8b5cf6;background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.25);padding:1px 6px;border-radius:99px;letter-spacing:.05em;vertical-align:middle">AI ✦</span>';
+           }
+
+           _getAIRelatedFiles(file).then(function(aiFiles) {
+               if (!aiFiles || !aiFiles.length) return;
+               // Check modal is still open for the same file
+               const modal = document.getElementById('previewModal');
+               if (!modal || !modal.classList.contains('open')) return;
+               const curName = document.getElementById('previewName');
+               if (curName && curName.textContent !== file.name) return; // user moved on
+
+               // Add AI chips that aren't already shown
+               const existingUrls = new Set([...list.querySelectorAll('button')].map(b => {
+                   const onclick = b.getAttribute('onclick') || '';
+                   const m = onclick.match(/openPreview\('([^']+)'/);
+                   return m ? m[1] : '';
+               }));
+
+               aiFiles.forEach(function(f) {
+                   if (existingUrls.has(f.url)) return;
+                   const chip = document.createElement('button');
+                   chip.className = 'related-chip';
+                   chip.title = f.name;
+                   chip.style.cssText = 'border-color:rgba(139,92,246,0.25);background:rgba(139,92,246,0.07)';
+                   chip.onclick = function() {
+                       openPreview(f.url, f.name, f.folder, f.file_size);
+                   };
+                   chip.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px;flex-shrink:0;color:#a78bfa">' +
+                       (typeof getFileIcon === 'function' ? getFileIcon(f.name) : 'description') + '</span>' +
+                       '<span style="overflow:hidden;text-overflow:ellipsis">' + f.name + '</span>' +
+                       '<span style="font-size:8px;color:#7c3aed;font-weight:800;flex-shrink:0">AI</span>';
+                   list.appendChild(chip);
+               });
+               strip.classList.remove('hidden');
+           }).catch(function() {});
+       };
+   })();
+
+   // ══════════════════════════════════════════════════════════════════
+   // FEATURE 11: "I Already Have This" toggle on file cards
+   // Purely localStorage, no account required
+   // ══════════════════════════════════════════════════════════════════
+   (function() {
+       const HAVE_KEY = 'fvHaveFiles'; // Set of file URLs
+
+       function getHaveSet() {
+           try { return new Set(JSON.parse(localStorage.getItem(HAVE_KEY) || '[]')); } catch { return new Set(); }
+       }
+       function saveHaveSet(s) {
+           localStorage.setItem(HAVE_KEY, JSON.stringify([...s]));
+       }
+       function toggleHave(url, btn) {
+           const s = getHaveSet();
+           const had = s.has(url);
+           if (had) { s.delete(url); } else { s.add(url); }
+           saveHaveSet(s);
+           _applyHaveBtn(btn, !had);
+           if (typeof showToast === 'function') {
+               showToast(!had ? '✅ Marked as downloaded/reviewed' : 'Removed from your have-list', !had ? 'success' : 'info', 1800);
+           }
+       }
+       function _applyHaveBtn(btn, have) {
+           if (!btn) return;
+           if (have) {
+               btn.style.color = '#22c55e';
+               btn.style.background = 'rgba(34,197,94,0.12)';
+               btn.style.borderColor = 'rgba(34,197,94,0.3)';
+               btn.title = "You have this — click to unmark";
+               btn.setAttribute('aria-label', 'Unmark as downloaded');
+               btn.textContent = 'check_circle';
+           } else {
+               btn.style.color = '';
+               btn.style.background = '';
+               btn.style.borderColor = '';
+               btn.title = "Mark as downloaded / reviewed";
+               btn.setAttribute('aria-label', 'Mark as downloaded');
+               btn.textContent = 'radio_button_unchecked';
+           }
+       }
+       window._toggleHaveFile = toggleHave;
+       window._applyHaveBtn  = _applyHaveBtn;
+       window._getHaveSet    = getHaveSet;
+
+       // Patch renderFileList to inject the "have" button into every card
+       const _origRFLHave = window.renderFileList;
+       window.renderFileList = function(files) {
+           _origRFLHave(files);
+           // After the grid renders, inject a "have" button into each card's action row
+           setTimeout(function() {
+               const haveSet = getHaveSet();
+               document.querySelectorAll('#fileGrid .file-card').forEach(function(card) {
+                   if (card.querySelector('.have-btn')) return; // already patched
+                   const idx = parseInt(card.dataset.idx);
+                   const file = _fileRegistry[idx];
+                   if (!file) return;
+                   const actionDiv = card.querySelector('.flex.gap-0\\.5');
+                   if (!actionDiv) return;
+                   const have = haveSet.has(file.url);
+                   const btn = document.createElement('button');
+                   btn.className = 'have-btn material-symbols-outlined text-xl p-2 text-slate-400';
+                   btn.style.cssText = 'border-radius:8px;border:none;cursor:pointer;font-size:20px;background:none;transition:all .2s;flex-shrink:0';
+                   btn.onclick = function(e) {
+                       e.stopPropagation();
+                       _toggleHaveFile(file.url, btn);
+                       // Dim the card when marked
+                       card.style.opacity = btn.textContent === 'check_circle' ? '0.55' : '';
+                   };
+                   _applyHaveBtn(btn, have);
+                   // Insert before the preview button (first button in action row)
+                   actionDiv.insertBefore(btn, actionDiv.firstChild);
+                   // Dim if already marked
+                   if (have) card.style.opacity = '0.55';
+               });
+           }, 80);
+       };
+   })();
+
+   // ══════════════════════════════════════════════════════════════════
+   // FEATURE 14: Persistent Download History (last 10, with re-download)
+   // Extends the existing session-only "Downloaded This Session" section
+   // with a persistent "Download History" section stored in localStorage
+   // ══════════════════════════════════════════════════════════════════
+   (function() {
+       const DL_HISTORY_KEY = 'fvDLHistory'; // [{name, url, icon, ts}]
+       const DL_HISTORY_MAX = 10;
+
+       function getDLHistory() {
+           try { return JSON.parse(localStorage.getItem(DL_HISTORY_KEY) || '[]'); } catch { return []; }
+       }
+       function addDLHistory(name, url) {
+           let h = getDLHistory().filter(x => x.url !== url);
+           h.unshift({ name, url, icon: (typeof getFileIcon === 'function' ? getFileIcon(name) : 'description'), ts: Date.now() });
+           if (h.length > DL_HISTORY_MAX) h = h.slice(0, DL_HISTORY_MAX);
+           localStorage.setItem(DL_HISTORY_KEY, JSON.stringify(h));
+           _renderDLHistory();
+       }
+       window.addDLHistory = addDLHistory;
+
+       function _renderDLHistory() {
+           const sec  = document.getElementById('dlHistorySection');
+           const list = document.getElementById('dlHistoryList');
+           if (!sec || !list) return;
+           const h = getDLHistory();
+           if (!h.length) { sec.style.display = 'none'; return; }
+           sec.style.display = '';
+           list.innerHTML = h.map(function(item) {
+               const ago = _dlTimeAgo(item.ts);
+               return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;overflow:hidden">' +
+                   '<span class="material-symbols-outlined" style="font-size:14px;flex-shrink:0;color:#64748b">' + (item.icon || 'description') + '</span>' +
+                   '<span style="flex:1;font-size:11px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + item.name + '">' + item.name + '</span>' +
+                   '<span style="font-size:9px;color:#475569;flex-shrink:0;white-space:nowrap">' + ago + '</span>' +
+                   '<a href="' + item.url + '" download onclick="event.stopPropagation()" title="Re-download" ' +
+                       'style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:7px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);color:#60a5fa;flex-shrink:0;text-decoration:none">' +
+                       '<span class="material-symbols-outlined" style="font-size:13px">download</span></a>' +
+               '</div>';
+           }).join('');
+       }
+       function _dlTimeAgo(ts) {
+           const diff = Date.now() - ts;
+           const mins = Math.floor(diff / 60000);
+           const hrs  = Math.floor(diff / 3600000);
+           const days = Math.floor(diff / 86400000);
+           if (mins < 2)  return 'just now';
+           if (mins < 60) return mins + 'm ago';
+           if (hrs < 24)  return hrs + 'h ago';
+           if (days === 1) return 'yesterday';
+           return days + ' days ago';
+       }
+
+       // Inject the DL history section into the DOM after recentDLSection
+       window.addEventListener('DOMContentLoaded', function() {
+           const recentDLSec = document.getElementById('recentDLSection');
+           if (!recentDLSec) return;
+           const sec = document.createElement('section');
+           sec.id = 'dlHistorySection';
+           sec.className = 'glass-card p-4 rounded-2xl';
+           sec.style.cssText = 'display:none;margin-bottom:16px';
+           sec.innerHTML =
+               '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
+                   '<div style="display:flex;align-items:center;gap:8px">' +
+                       '<span class="material-symbols-outlined" style="font-size:20px;color:#60a5fa">history</span>' +
+                       '<h3 style="font-size:12px;font-weight:700;color:white;text-transform:uppercase;letter-spacing:.08em;margin:0">Download History</h3>' +
+                       '<span style="font-size:9px;color:#475569;font-weight:600">Last 10</span>' +
+                   '</div>' +
+                   '<button onclick="(function(){localStorage.removeItem(\'fvDLHistory\');document.getElementById(\'dlHistorySection\').style.display=\'none\';})()" ' +
+                       'style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.2);font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;font-family:inherit;transition:color .15s" ' +
+                       'onmouseover="this.style.color=\'rgba(255,255,255,0.5)\'" onmouseout="this.style.color=\'rgba(255,255,255,0.2)\'">Clear</button>' +
+               '</div>' +
+               '<div id="dlHistoryList" style="display:flex;flex-direction:column;gap:5px"></div>';
+           recentDLSec.parentNode.insertBefore(sec, recentDLSec.nextSibling);
+           _renderDLHistory();
+       });
+
+       // Hook into the track() chain to persist downloads
+       const _origTrackHistory = window.track;
+       window.track = function(id, name, url) {
+           _origTrackHistory && _origTrackHistory(id, name, url);
+           addDLHistory(name, url);
+       };
+   })();
+   </script>
 
    <script>
    // ══════════════════════════════════════════════════════════════════
