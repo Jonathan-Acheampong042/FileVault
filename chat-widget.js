@@ -395,7 +395,7 @@ function initChatWidget() {
                 #aiChatWidget {
                     right: 16px !important;
                     left: auto !important;
-                    bottom: 20px !important;
+                    bottom: calc(var(--mobile-nav-height, 64px) + env(safe-area-inset-bottom, 0px) + 16px) !important;
                     width: auto !important;
                     box-sizing: border-box !important;
                 }

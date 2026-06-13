@@ -89,12 +89,16 @@
         .type-btn.active { box-shadow:0 0 0 1px rgba(59,130,246,.25); }
 
         /* ── Back to top button ── */
+        :root { --mobile-nav-height: 64px; }
         #backToTop { position:fixed;bottom:90px;right:20px;z-index:9000;width:42px;height:42px;border-radius:50%;background:rgba(59,130,246,0.85);border:1px solid rgba(59,130,246,0.5);backdrop-filter:blur(12px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 20px rgba(59,130,246,0.35);opacity:0;pointer-events:none;transition:opacity .3s,transform .3s; }
         #backToTop.visible { opacity:1;pointer-events:auto; }
         #backToTop:hover { transform:translateY(-3px); }
         @media (min-width:1024px) { #backToTop { bottom:100px;right:24px; } }
-        /* ── Chat widget: above bottom nav on mobile ── */
-        @media (max-width:1023px) { #aiChatWidget { bottom:90px !important; } }
+        /* ── Mobile: keep back-to-top and chat widget above the bottom nav bar ── */
+        @media (max-width:1023px) {
+            #backToTop { bottom:calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 16px) !important; right:16px; }
+            #aiChatWidget { bottom:calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 16px) !important; }
+        }
 
         /* ── Skeleton loading ── */
         .skeleton { position:relative;overflow:hidden;background:rgba(30,41,59,0.4);border-radius:12px; }
@@ -4280,7 +4284,7 @@
     <div id="toastContainer" role="status" aria-live="polite" aria-atomic="false"></div>
 
     <!-- Mobile Bottom Navigation -->
-    <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-40 glass-card border-t border-white/10 flex items-center justify-around px-2 py-2 pb-safe" style="padding-bottom:max(8px,env(safe-area-inset-bottom))">
+    <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-40 glass-card border-t border-white/10 flex items-center justify-around px-2 py-2 pb-safe" style="padding-bottom:max(8px,env(safe-area-inset-bottom));z-index:9500">
         <a href="#" onclick="filterByFolder(null,this)" class="flex flex-col items-center gap-0.5 px-3 py-1 text-primary" aria-label="All files">
             <span class="material-symbols-outlined text-xl" aria-hidden="true">folder_shared</span>
             <span class="text-[9px] font-bold uppercase">Vault</span>
