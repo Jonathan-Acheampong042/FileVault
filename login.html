@@ -97,6 +97,31 @@
         @media (max-width:480px) {
             .otp-input { width:40px; height:46px; font-size:18px; }
         }
+
+        /* ── Password strength meter ── */
+        .pwd-rules { margin-top:10px; display:none; }
+        .pwd-rules.visible { display:block; }
+        .pwd-strength-bar { display:flex; gap:4px; margin-bottom:8px; }
+        .pwd-strength-bar span { flex:1; height:4px; border-radius:99px; background:rgba(255,255,255,0.08); transition:background .25s; }
+        .pwd-strength-bar span.weak   { background:#ef4444; }
+        .pwd-strength-bar span.fair   { background:#f59e0b; }
+        .pwd-strength-bar span.good   { background:#3b82f6; }
+        .pwd-strength-bar span.strong { background:#10b981; }
+        .pwd-strength-label { font-size:11px; font-weight:700; margin-bottom:8px; }
+        .pwd-strength-label.weak   { color:#ef4444; }
+        .pwd-strength-label.fair   { color:#f59e0b; }
+        .pwd-strength-label.good   { color:#3b82f6; }
+        .pwd-strength-label.strong { color:#10b981; }
+        .pwd-req-list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:4px; }
+        .pwd-req-list li { font-size:12px; color:#64748b; display:flex; align-items:center; gap:6px; transition:color .2s; }
+        .pwd-req-list li.met { color:#10b981; }
+        .pwd-req-list li::before { content:''; width:14px; height:14px; border-radius:50%; border:1.5px solid #334155; flex-shrink:0; transition:all .2s; background:transparent; }
+        .pwd-req-list li.met::before { background:#10b981; border-color:#10b981; content:'✓'; color:white; font-size:9px; font-weight:900; display:flex; align-items:center; justify-content:center; }
+        /* ── Input validation states ── */
+        .auth-input.input-error { border-color:#ef4444 !important; }
+        .auth-input.input-ok    { border-color:#10b981 !important; }
+        /* ── Reset password full-page state ── */
+        #resetSection .reset-card { background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.15); border-radius:16px; padding:20px; }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4 relative overflow-x-hidden">
@@ -212,10 +237,24 @@
                         </div>
                         <div class="relative">
                             <span class="auth-input-icon material-symbols-outlined">lock</span>
-                            <input type="password" id="sPasswordSignup" class="auth-input" placeholder="Choose a password (min. 6 chars)" autocomplete="new-password" onkeydown="if(event.key==='Enter')studentSignUp()" style="padding-right:46px"/>
+                            <input type="password" id="sPasswordSignup" class="auth-input" placeholder="Choose a password" autocomplete="new-password" oninput="updatePwdStrength(this.value)" onkeydown="if(event.key==='Enter')studentSignUp()" style="padding-right:46px"/>
                             <button type="button" onclick="togglePwd('sPasswordSignup','sEye2')" class="absolute right-4 top-1/2 -translate-y-1/2" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.35);line-height:0">
                                 <span id="sEye2" class="material-symbols-outlined" style="font-size:18px">visibility</span>
                             </button>
+                        </div>
+                        <!-- Password strength meter -->
+                        <div class="pwd-rules" id="pwdRules">
+                            <div class="pwd-strength-bar">
+                                <span id="pBar1"></span><span id="pBar2"></span><span id="pBar3"></span><span id="pBar4"></span>
+                            </div>
+                            <p class="pwd-strength-label" id="pStrengthLabel">Too short</p>
+                            <ul class="pwd-req-list">
+                                <li id="req-len">At least 8 characters</li>
+                                <li id="req-upper">At least one uppercase letter (A–Z)</li>
+                                <li id="req-lower">At least one lowercase letter (a–z)</li>
+                                <li id="req-num">At least one number (0–9)</li>
+                                <li id="req-special">At least one special character (!@#$%^&*)</li>
+                            </ul>
                         </div>
                         <button class="btn-primary" id="sSignUpBtn" onclick="studentSignUp()">
                             <span id="sSignUpText">Create Account</span>
@@ -249,15 +288,15 @@
                                 <p style="font-size:11px;color:#64748b">Use your GitHub account</p>
                             </div>
                         </button>
-                        <button class="btn-social" onclick="socialLogin('facebook')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                        <button class="btn-social" onclick="socialLogin('azure')">
+                            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#f25022" d="M1 1h10v10H1z"/><path fill="#00a4ef" d="M13 1h10v10H13z"/><path fill="#7fba00" d="M1 13h10v10H1z"/><path fill="#ffb900" d="M13 13h10v10H13z"/></svg>
                             <div style="text-align:left">
-                                <p style="font-weight:700;color:white;font-size:13px">Continue with Facebook</p>
-                                <p style="font-size:11px;color:#64748b">Use your Facebook account</p>
+                                <p style="font-weight:700;color:white;font-size:13px">Continue with Microsoft</p>
+                                <p style="font-size:11px;color:#64748b">Use your university Microsoft / Outlook account</p>
                             </div>
                         </button>
                     </div>
-                    <p style="text-align:center;font-size:11px;color:#334155;margin-top:14px">After signing in you'll stay on the student vault.</p>
+                    <p style="text-align:center;font-size:11px;color:#334155;margin-top:14px">After signing in you'll be directed to your student vault.</p>
                 </div>
 
                 <!-- ── Magic Link panel ── -->
@@ -381,17 +420,31 @@
                  RESET PASSWORD (shown via URL hash)
                  ════════════════════════════════════════════ -->
             <div id="resetSection" style="display:none">
-                <div style="text-align:center;margin-bottom:20px">
-                    <div style="width:52px;height:52px;border-radius:16px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
-                        <span class="material-symbols-outlined" style="font-size:26px;color:#34d399">lock_reset</span>
+                <div style="text-align:center;margin-bottom:24px">
+                    <div style="width:56px;height:56px;border-radius:16px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+                        <span class="material-symbols-outlined" style="font-size:28px;color:#34d399">lock_reset</span>
                     </div>
-                    <h3 style="color:white;font-weight:700;font-size:16px;margin-bottom:4px">Set New Password</h3>
-                    <p style="color:#64748b;font-size:13px">Choose a strong password for your account.</p>
+                    <h3 style="color:white;font-weight:700;font-size:18px;margin-bottom:6px">Set a New Password</h3>
+                    <p style="color:#64748b;font-size:13px;line-height:1.5">Your identity has been verified.<br>Choose a strong new password below.</p>
                 </div>
                 <div class="space-y-3">
                     <div class="relative">
                         <span class="auth-input-icon material-symbols-outlined">lock</span>
-                        <input type="password" id="newPwd" class="auth-input" placeholder="New password (min. 6 chars)" autocomplete="new-password"/>
+                        <input type="password" id="newPwd" class="auth-input" placeholder="New password" autocomplete="new-password" oninput="updateResetStrength(this.value)"/>
+                    </div>
+                    <!-- Reset strength meter -->
+                    <div class="pwd-rules" id="resetPwdRules">
+                        <div class="pwd-strength-bar">
+                            <span id="rBar1"></span><span id="rBar2"></span><span id="rBar3"></span><span id="rBar4"></span>
+                        </div>
+                        <p class="pwd-strength-label" id="rStrengthLabel">Too short</p>
+                        <ul class="pwd-req-list">
+                            <li id="r-req-len">At least 8 characters</li>
+                            <li id="r-req-upper">At least one uppercase letter (A–Z)</li>
+                            <li id="r-req-lower">At least one lowercase letter (a–z)</li>
+                            <li id="r-req-num">At least one number (0–9)</li>
+                            <li id="r-req-special">At least one special character (!@#$%^&amp;*)</li>
+                        </ul>
                     </div>
                     <div class="relative">
                         <span class="auth-input-icon material-symbols-outlined">lock_check</span>
@@ -558,21 +611,29 @@
     // ═══════════════════════════════════════════════════════════════
     // STUDENT — EMAIL + PASSWORD SIGN IN
     // ═══════════════════════════════════════════════════════════════
+    // Email format validator
+    function isValidEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+    }
+
     async function studentSignIn() {
         const email = (document.getElementById('sEmail').value || '').trim();
         const pwd   = document.getElementById('sPassword').value;
-        if (!email || !pwd) { setMsg('sSignInMsg', 'Please enter your email and password.', 'error'); return; }
+        if (!email)              { setMsg('sSignInMsg', 'Please enter your email address.', 'error'); shake('sSignInBtn'); return; }
+        if (!isValidEmail(email)){ setMsg('sSignInMsg', 'Please enter a valid email address (e.g. name@university.edu).', 'error'); shake('sSignInBtn'); return; }
+        if (!pwd)                { setMsg('sSignInMsg', 'Please enter your password.', 'error'); shake('sSignInBtn'); return; }
 
         setBtnLoading('sSignInBtn','sSignInText','Signing in…');
         const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pwd });
         clearBtnLoading('sSignInBtn','sSignInText','Sign In');
 
         if (error) {
-            // Supabase returns "Email not confirmed" for unverified accounts
             if (error.message && error.message.toLowerCase().includes('email not confirmed')) {
                 const msgEl = document.getElementById('sSignInMsg');
                 msgEl.innerHTML = '⚠️ Email not verified yet. <button onclick="resendConfirmation(\'' + email.replace(/'/g,"\'") + '\')" style="background:none;border:none;cursor:pointer;color:#60a5fa;font-size:13px;font-weight:700;font-family:inherit;text-decoration:underline;padding:0">Resend confirmation email</button>';
                 msgEl.style.color = '#fcd34d';
+            } else if (error.message && error.message.toLowerCase().includes('invalid login')) {
+                setMsg('sSignInMsg', 'Incorrect email or password. Please try again.', 'error');
             } else {
                 setMsg('sSignInMsg', error.message, 'error');
             }
@@ -589,6 +650,8 @@
         setMsg('sSignInMsg', '✉️ Confirmation email resent! Check your inbox and spam folder.', 'success');
     }
 
+
+    // ═══════════════════════════════════════════════════════════════
     // ═══════════════════════════════════════════════════════════════
     // STUDENT — SIGN UP
     // ═══════════════════════════════════════════════════════════════
@@ -596,9 +659,17 @@
         const name  = (document.getElementById('sName').value || '').trim();
         const email = (document.getElementById('sEmailSignup').value || '').trim();
         const pwd   = document.getElementById('sPasswordSignup').value;
-        if (!name)       { setMsg('sSignUpMsg','Please enter your name.', 'error'); return; }
-        if (!email)      { setMsg('sSignUpMsg','Please enter your email.', 'error'); return; }
-        if (pwd.length < 6) { setMsg('sSignUpMsg','Password must be at least 6 characters.', 'error'); return; }
+
+        if (!name)               { setMsg('sSignUpMsg','Please enter your full name.', 'error'); return; }
+        if (!email)              { setMsg('sSignUpMsg','Please enter your email address.', 'error'); return; }
+        if (!isValidEmail(email)){ setMsg('sSignUpMsg','Please enter a valid email address (e.g. name@university.edu).', 'error'); return; }
+
+        const pwdCheck = checkPwdStrength(pwd);
+        if (pwdCheck.score < 4) {
+            setMsg('sSignUpMsg', 'Your password does not meet all the requirements below. Please strengthen it.', 'error');
+            document.getElementById('pwdRules').classList.add('visible');
+            return;
+        }
 
         setBtnLoading('sSignUpBtn','sSignUpText','Creating account…');
         const { error } = await _supabase.auth.signUp({
@@ -611,8 +682,9 @@
         setMsg('sSignUpMsg', '✅ Account created! Check your inbox — click the confirmation link to activate your account. (Check spam too.)', 'success');
     }
 
+
     // ═══════════════════════════════════════════════════════════════
-    // SOCIAL LOGIN (Google, Discord, GitHub, Facebook)
+    // SOCIAL LOGIN (Google, Discord, GitHub, Microsoft)
     // ═══════════════════════════════════════════════════════════════
     async function socialLogin(provider) {
         const { error } = await _supabase.auth.signInWithOAuth({
@@ -789,11 +861,12 @@
     }
     async function sendPasswordReset() {
         const email = (document.getElementById('forgotEmail').value || '').trim();
-        if (!email) { setMsg('forgotMsg','Please enter your email address.', 'error'); return; }
+        if (!email)               { setMsg('forgotMsg','Please enter your email address.', 'error'); return; }
+        if (!isValidEmail(email)) { setMsg('forgotMsg','Please enter a valid email address (e.g. name@university.edu).', 'error'); return; }
 
         setBtnLoading('forgotBtn','forgotBtnText','Sending…');
         const { error } = await _supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: window.location.origin + '/login.html'
+            redirectTo: 'https://filevault.works/login.html'
         });
         clearBtnLoading('forgotBtn','forgotBtnText','Send Reset Link');
 
@@ -805,26 +878,95 @@
         hideAllSections();
         document.getElementById('resetSection').style.display = '';
         document.getElementById('modeSelector').style.display = 'none';
-        document.getElementById('mainTitle').textContent = 'Set New Password';
-        document.getElementById('mainSubtitle').textContent = 'Choose a strong new password';
+        document.getElementById('mainTitle').textContent    = 'Set New Password';
+        document.getElementById('mainSubtitle').textContent = 'Choose a strong new password below';
     }
+
     async function setNewPassword() {
         const newPwd     = document.getElementById('newPwd').value;
         const confirmPwd = document.getElementById('confirmPwd').value;
-        if (!newPwd)           { setMsg('resetMsg','Please enter a new password.', 'error'); return; }
-        if (newPwd.length < 6) { setMsg('resetMsg','Password must be at least 6 characters.', 'error'); return; }
-        if (newPwd !== confirmPwd) { setMsg('resetMsg','Passwords do not match.', 'error'); return; }
+        if (!newPwd) { setMsg('resetMsg','Please enter a new password.', 'error'); return; }
+
+        const pwdCheck = checkPwdStrength(newPwd);
+        if (pwdCheck.score < 4) {
+            setMsg('resetMsg', 'Your password does not meet all the requirements. Please strengthen it.', 'error');
+            document.getElementById('resetPwdRules').classList.add('visible');
+            return;
+        }
+        if (newPwd !== confirmPwd) { setMsg('resetMsg','Passwords do not match. Please re-enter them.', 'error'); return; }
 
         setBtnLoading('resetBtn','resetBtnText','Updating…');
         const { error } = await _supabase.auth.updateUser({ password: newPwd });
         clearBtnLoading('resetBtn','resetBtnText','Update Password');
 
         if (error) { setMsg('resetMsg', error.message, 'error'); return; }
-        setMsg('resetMsg','✅ Password updated! Redirecting…', 'success');
+        setMsg('resetMsg','✅ Password updated successfully! Redirecting you to the app…', 'success');
         setTimeout(() => { window.location.href = 'index.html'; }, 2000);
     }
 
+
     // ═══════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════
+    // PASSWORD STRENGTH
+    // ═══════════════════════════════════════════════════════════════
+    function checkPwdStrength(pwd) {
+        const rules = {
+            len:     pwd.length >= 8,
+            upper:   /[A-Z]/.test(pwd),
+            lower:   /[a-z]/.test(pwd),
+            num:     /[0-9]/.test(pwd),
+            special: /[!@#$%^&*()_+\-=\[\]{};':"\|,.<>\/?`~]/.test(pwd),
+        };
+        const score = Object.values(rules).filter(Boolean).length;
+        return { rules, score };
+    }
+
+    function applyStrengthUI(pwd, barIds, labelId, reqIds) {
+        const rules_el = document.getElementById(reqIds.wrap);
+        if (rules_el) rules_el.classList.add('visible');
+
+        const { rules, score } = checkPwdStrength(pwd);
+        const bars   = barIds.map(id => document.getElementById(id));
+        const label  = document.getElementById(labelId);
+        const levels = ['','weak','fair','good','strong'];
+        const names  = ['','Too weak','Fair','Good','Strong ✓'];
+
+        // colour bars
+        bars.forEach((b,i) => {
+            b.className = '';
+            if (pwd.length === 0) return;
+            if (i < score) b.className = levels[Math.min(score, 4)];
+        });
+        if (label) {
+            label.className = 'pwd-strength-label ' + (levels[Math.min(score,4)] || '');
+            label.textContent = pwd.length === 0 ? '' : (names[Math.min(score,4)] || 'Too short');
+        }
+
+        // tick individual rules
+        const reqMap = { len:'req-len', upper:'req-upper', lower:'req-lower', num:'req-num', special:'req-special' };
+        Object.entries(reqMap).forEach(([k,suffix]) => {
+            const prefix = reqIds.prefix;
+            const el = document.getElementById(prefix + suffix);
+            if (el) el.classList.toggle('met', !!rules[k]);
+        });
+    }
+
+    function updatePwdStrength(pwd) {
+        applyStrengthUI(pwd,
+            ['pBar1','pBar2','pBar3','pBar4'],
+            'pStrengthLabel',
+            { wrap: 'pwdRules', prefix: '' }
+        );
+    }
+
+    function updateResetStrength(pwd) {
+        applyStrengthUI(pwd,
+            ['rBar1','rBar2','rBar3','rBar4'],
+            'rStrengthLabel',
+            { wrap: 'resetPwdRules', prefix: 'r-' }
+        );
+    }
+
     // HELPERS
     // ═══════════════════════════════════════════════════════════════
     function hideAllSections() {

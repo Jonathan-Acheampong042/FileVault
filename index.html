@@ -545,9 +545,14 @@
                 <!-- Dropdown -->
                 <div id="profileDropdown" onclick="event.stopPropagation()">
                     <div class="pd-header">
-                        <p style="font-size:13px;font-weight:800;color:#e2e8f0" id="pdName">—</p>
-                        <p class="pd-email" id="pdEmail">—</p>
-                        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+                            <div id="pdPhotoWrap" style="flex-shrink:0;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:white;overflow:hidden;border:2px solid rgba(255,255,255,0.1)">?</div>
+                            <div style="min-width:0;flex:1">
+                                <p style="font-size:13px;font-weight:800;color:#e2e8f0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="pdName">—</p>
+                                <p class="pd-email" id="pdEmail" style="margin:2px 0 0">—</p>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:5px;flex-wrap:wrap">
                             <span class="pd-badge student"><span class="material-symbols-outlined" style="font-size:10px">school</span> Student</span>
                             <span class="pd-badge" id="pdVerifiedBadge"></span>
                         </div>
@@ -1067,20 +1072,48 @@
 
         function populateProfileUI(user) {
             if (!user) return;
-            const email = user.email || '';
-            const meta  = user.user_metadata || {};
+            const email       = user.email || '';
+            const meta        = user.user_metadata || {};
             const displayName = meta.display_name || meta.full_name || meta.name || email.split('@')[0] || 'Student';
-            const initials = displayName.slice(0,2);
-            const verified = !!user.email_confirmed_at;
+            const initials    = displayName.slice(0,2).toUpperCase();
+            const verified    = !!user.email_confirmed_at;
+            // Google OAuth sends the Gmail profile picture here
+            const photoUrl    = meta.avatar_url || meta.picture || meta.photo_url || null;
 
-            // Header chip
+            // Utility: inject photo or initials into a container element
+            function setAvatar(el, size) {
+                if (!el) return;
+                el.innerHTML = '';
+                if (photoUrl) {
+                    const img = document.createElement('img');
+                    img.src   = photoUrl;
+                    img.alt   = initials;
+                    img.style.cssText = 'width:' + size + 'px;height:' + size + 'px;border-radius:50%;object-fit:cover;display:block';
+                    img.onerror = function() { el.innerHTML = ''; el.textContent = initials; };
+                    el.appendChild(img);
+                } else {
+                    el.textContent = initials;
+                }
+            }
+
+            // ── Header chip ──
             const chip = document.getElementById('profileChip');
             if (chip) {
                 chip.style.display = 'flex';
-                document.getElementById('profileAvatar').textContent = initials;
-                document.getElementById('profileName').textContent   = displayName.length > 14 ? displayName.slice(0,14) + '…' : displayName;
-                document.getElementById('pdName').textContent        = displayName;
-                document.getElementById('pdEmail').textContent       = email;
+                setAvatar(document.getElementById('profileAvatar'), 26);
+                document.getElementById('profileName').textContent = displayName.length > 14 ? displayName.slice(0,14) + '\u2026' : displayName;
+
+                // Dropdown header — Gmail photo shown large next to name + email
+                const pdWrap = document.getElementById('pdPhotoWrap');
+                if (pdWrap) {
+                    if (photoUrl) {
+                        pdWrap.style.background = 'transparent';
+                        pdWrap.style.border     = 'none';
+                    }
+                    setAvatar(pdWrap, 44);
+                }
+                document.getElementById('pdName').textContent  = displayName;
+                document.getElementById('pdEmail').textContent = email;
                 const vb = document.getElementById('pdVerifiedBadge');
                 if (vb) {
                     vb.className = 'pd-badge ' + (verified ? 'verified' : 'unverified');
@@ -1090,24 +1123,23 @@
                 }
             }
 
-            // Sidebar user block
+            // ── Sidebar ──
             const sBlock = document.getElementById('sidebarUserBlock');
             const sLink  = document.getElementById('sidebarSignInLink');
             if (sBlock) {
                 sBlock.style.display = 'flex';
-                document.getElementById('sidebarAvatar').textContent    = initials;
+                setAvatar(document.getElementById('sidebarAvatar'), 32);
                 document.getElementById('sidebarUserName').textContent  = displayName;
                 document.getElementById('sidebarUserEmail').textContent = email;
             }
             if (sLink) sLink.style.display = 'none';
 
-            // Mobile bottom nav
+            // ── Mobile bottom nav ──
             const mSign   = document.getElementById('mobileSignInTab');
             const mProf   = document.getElementById('mobileProfileTab');
-            const mAvatar = document.getElementById('mobileAvatar');
-            if (mSign)   mSign.style.display   = 'none';
-            if (mProf)   mProf.style.display   = 'flex';
-            if (mAvatar) mAvatar.textContent    = initials;
+            if (mSign)   mSign.style.display = 'none';
+            if (mProf)   mProf.style.display = 'flex';
+            setAvatar(document.getElementById('mobileAvatar'), 22);
         }
 
         function toggleProfileDropdown() {
