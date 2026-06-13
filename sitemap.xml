@@ -29,6 +29,20 @@
   </url>
 
   <url>
+    <loc>https://filevault.works/terms.html</loc>
+    <lastmod>2026-06-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://filevault.works/privacy.html</loc>
+    <lastmod>2026-06-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
     <loc>https://filevault.works/upload-request.html</loc>
     <lastmod>2026-06-07</lastmod>
     <changefreq>monthly</changefreq>

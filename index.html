@@ -89,10 +89,12 @@
         .type-btn.active { box-shadow:0 0 0 1px rgba(59,130,246,.25); }
 
         /* ── Back to top button ── */
-        #backToTop { position:fixed;bottom:80px;right:20px;z-index:9000;width:42px;height:42px;border-radius:50%;background:rgba(59,130,246,0.85);border:1px solid rgba(59,130,246,0.5);backdrop-filter:blur(12px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 20px rgba(59,130,246,0.35);opacity:0;pointer-events:none;transition:opacity .3s,transform .3s; }
+        #backToTop { position:fixed;bottom:90px;right:20px;z-index:9000;width:42px;height:42px;border-radius:50%;background:rgba(59,130,246,0.85);border:1px solid rgba(59,130,246,0.5);backdrop-filter:blur(12px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 20px rgba(59,130,246,0.35);opacity:0;pointer-events:none;transition:opacity .3s,transform .3s; }
         #backToTop.visible { opacity:1;pointer-events:auto; }
         #backToTop:hover { transform:translateY(-3px); }
         @media (min-width:1024px) { #backToTop { bottom:100px;right:24px; } }
+        /* ── Chat widget: above bottom nav on mobile ── */
+        @media (max-width:1023px) { #aiChatWidget { bottom:90px !important; } }
 
         /* ── Skeleton loading ── */
         .skeleton { position:relative;overflow:hidden;background:rgba(30,41,59,0.4);border-radius:12px; }
@@ -4300,7 +4302,13 @@
             <span class="text-[9px] font-bold uppercase text-primary">Me</span>
         </button>
     </nav>
-    <footer class="text-center text-white/20 text-xs py-4 lg:py-6">Built by <span class="text-white/40 font-semibold">Jonathan Acheampong</span> · FileVault</footer>
+    <footer class="text-center text-white/20 text-xs py-4 lg:py-6">
+        Built by <span class="text-white/40 font-semibold">Jonathan Acheampong</span> · FileVault
+        <span class="mx-1">·</span>
+        <a href="/privacy.html" style="color:rgba(255,255,255,0.3);text-decoration:none" onmouseover="this.style.color='rgba(255,255,255,0.6)'" onmouseout="this.style.color='rgba(255,255,255,0.3)'">Privacy</a>
+        <span class="mx-1">·</span>
+        <a href="/terms.html" style="color:rgba(255,255,255,0.3);text-decoration:none" onmouseover="this.style.color='rgba(255,255,255,0.6)'" onmouseout="this.style.color='rgba(255,255,255,0.3)'">Terms</a>
+    </footer>
     <!-- Mobile bottom padding so content isn't hidden behind nav -->
     <div class="lg:hidden h-16"></div>
     <!-- Collection Picker Modal -->

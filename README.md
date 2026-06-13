@@ -8,6 +8,8 @@ FileVault is a lightweight, installable web app for sharing and managing files (
 - **`manager.html`** — the admin dashboard. Upload single or multiple files, organize folders, schedule uploads, post announcements, review and fulfil file requests, run analytics, and check for broken links.
 - **`login.html`** — manager authentication, backed by Supabase Auth.
 - **`upload-request.html`** — a simple form users can submit to request a file that isn't in the vault yet.
+- **`privacy.html`** — Privacy Policy page, required for Google OAuth consent screen approval.
+- **`terms.html`** — Terms of Service page.
 
 ## How it works
 
@@ -23,6 +25,23 @@ FileVault is a lightweight, installable web app for sharing and managing files (
 - [Supabase](https://supabase.com/) (Postgres, Storage, Auth, Realtime)
 - Node.js + Express for the push-notification backend, deployed on Render
 - Web Push (VAPID) for browser notifications
+
+## Google OAuth Setup
+
+FileVault uses Google Sign-In via Supabase Auth. To configure it:
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com) → **APIs & Services → OAuth consent screen**
+2. Set the app name to **FileVault** and add the logo
+3. Under **App domain**, set:
+   - Homepage URL: `https://filevault.works`
+   - Privacy Policy URL: `https://filevault.works/privacy.html`
+   - Terms of Service URL: `https://filevault.works/terms.html`
+4. Add `filevault.works` as an **Authorized domain**
+5. Under **Credentials**, ensure the redirect URI includes:
+   ```
+   https://<your-supabase-project-id>.supabase.co/auth/v1/callback
+   ```
+6. **Publish** the app (move out of Testing mode) so the consent screen shows "FileVault" instead of the raw Supabase URL
 
 ## Running the backend locally
 
