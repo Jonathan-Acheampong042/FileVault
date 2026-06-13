@@ -431,6 +431,31 @@
         .sugg-file-chip { display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:9px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .18s;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis; }
         .sugg-file-chip:hover { background:rgba(139,92,246,0.14);border-color:rgba(139,92,246,0.3);color:#c084fc; }
 
+
+        /* ── User profile chip & dropdown ── */
+        #profileChip { display:flex;align-items:center;gap:8px;padding:5px 10px 5px 6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);border-radius:99px;cursor:pointer;transition:all .2s;flex-shrink:0;position:relative; }
+        #profileChip:hover { background:rgba(59,130,246,0.14);border-color:rgba(59,130,246,0.35); }
+        #profileAvatar { width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:white;flex-shrink:0;text-transform:uppercase; }
+        #profileName { font-size:12px;font-weight:700;color:#cbd5e1;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+        #profileDropdown { position:absolute;top:calc(100% + 8px);right:0;min-width:220px;background:rgba(10,18,35,0.97);border:1px solid rgba(255,255,255,0.10);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,0.55);backdrop-filter:blur(20px);z-index:9999;overflow:hidden;display:none;animation:fadeSlideDown .18s ease; }
+        #profileDropdown.open { display:block; }
+        @keyframes fadeSlideDown { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+        .pd-header { padding:14px 16px 10px;border-bottom:1px solid rgba(255,255,255,0.07); }
+        .pd-email { font-size:11px;color:#64748b;margin-top:2px;word-break:break-all; }
+        .pd-badge { display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;margin-top:5px; }
+        .pd-badge.student { background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.25); }
+        .pd-badge.verified { background:rgba(16,185,129,0.13);color:#6ee7b7;border:1px solid rgba(16,185,129,0.25); }
+        .pd-badge.unverified { background:rgba(245,158,11,0.13);color:#fcd34d;border:1px solid rgba(245,158,11,0.25); }
+        .pd-item { display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:13px;font-weight:600;color:#94a3b8;cursor:pointer;transition:background .15s;border:none;background:none;width:100%;text-align:left;font-family:inherit; }
+        .pd-item:hover { background:rgba(255,255,255,0.05);color:#e2e8f0; }
+        .pd-item.danger { color:#f87171; }
+        .pd-item.danger:hover { background:rgba(239,68,68,0.08);color:#fca5a5; }
+        .pd-item .material-symbols-outlined { font-size:17px;flex-shrink:0; }
+        /* Sidebar user block */
+        #sidebarUserBlock { display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);margin-top:8px; }
+        #sidebarAvatar { width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:white;flex-shrink:0;text-transform:uppercase; }
+        #sidebarUserName { font-size:12px;font-weight:700;color:#cbd5e1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+        #sidebarUserEmail { font-size:10px;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
     </style>
 </head>
 <body class="overflow-x-hidden">
@@ -459,9 +484,21 @@
             <a class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 text-sm hover:text-primary" href="upload-request.html">
                 <span class="material-symbols-outlined">upload_file</span> Request a File
             </a>
-            <a class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-red-400/80 text-sm" href="login.html">
-                <span class="material-symbols-outlined">logout</span> Sign In
+            <!-- Signed-out state -->
+            <a id="sidebarSignInLink" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-red-400/80 text-sm" href="login.html">
+                <span class="material-symbols-outlined">login</span> Sign In
             </a>
+            <!-- Signed-in state -->
+            <div id="sidebarUserBlock" style="display:none">
+                <div id="sidebarAvatar">?</div>
+                <div style="min-width:0;flex:1">
+                    <p id="sidebarUserName">—</p>
+                    <p id="sidebarUserEmail">—</p>
+                </div>
+                <button onclick="signOutUser()" title="Sign out" style="background:none;border:none;cursor:pointer;color:#ef4444;padding:4px;border-radius:8px;line-height:0;flex-shrink:0" aria-label="Sign out">
+                    <span class="material-symbols-outlined" style="font-size:18px">logout</span>
+                </button>
+            </div>
         </div>
     </aside>
     <div class="lg:ml-64 flex flex-col min-h-screen overflow-x-hidden">
@@ -499,6 +536,28 @@
             <button onclick="toggleSettings()" title="Display settings" aria-label="Open display settings" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
                 <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">palette</span>
             </button>
+            </div>
+            <!-- Profile chip (shown when signed in) -->
+            <div id="profileChip" onclick="toggleProfileDropdown()" style="display:none" aria-label="User account" role="button" tabindex="0">
+                <div id="profileAvatar">?</div>
+                <span id="profileName">Account</span>
+                <span class="material-symbols-outlined" style="font-size:14px;color:#64748b">expand_more</span>
+                <!-- Dropdown -->
+                <div id="profileDropdown" onclick="event.stopPropagation()">
+                    <div class="pd-header">
+                        <p style="font-size:13px;font-weight:800;color:#e2e8f0" id="pdName">—</p>
+                        <p class="pd-email" id="pdEmail">—</p>
+                        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">
+                            <span class="pd-badge student"><span class="material-symbols-outlined" style="font-size:10px">school</span> Student</span>
+                            <span class="pd-badge" id="pdVerifiedBadge"></span>
+                        </div>
+                    </div>
+                    <div style="padding:6px 0">
+                        <button class="pd-item danger" onclick="signOutUser()">
+                            <span class="material-symbols-outlined">logout</span> Sign Out
+                        </button>
+                    </div>
+                </div>
             </div>
         </header>
         <main class="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full">
@@ -993,9 +1052,87 @@
             const { data: { session } } = await _supabase.auth.getSession();
             if (session && ADMIN_EMAILS.includes(session.user.email)) {
                 window.location.href = 'manager.html';
+                return;
+            }
+            if (session) {
+                populateProfileUI(session.user);
+            }
+            // Show welcome toast if arriving fresh from login
+            const justSignedIn = sessionStorage.getItem('fv_just_signed_in');
+            if (justSignedIn) {
+                sessionStorage.removeItem('fv_just_signed_in');
+                setTimeout(() => showToast('✓ Signed in! Welcome back.', 'success', 3500), 300);
             }
         }
-        
+
+        function populateProfileUI(user) {
+            if (!user) return;
+            const email = user.email || '';
+            const meta  = user.user_metadata || {};
+            const displayName = meta.display_name || meta.full_name || meta.name || email.split('@')[0] || 'Student';
+            const initials = displayName.slice(0,2);
+            const verified = !!user.email_confirmed_at;
+
+            // Header chip
+            const chip = document.getElementById('profileChip');
+            if (chip) {
+                chip.style.display = 'flex';
+                document.getElementById('profileAvatar').textContent = initials;
+                document.getElementById('profileName').textContent   = displayName.length > 14 ? displayName.slice(0,14) + '…' : displayName;
+                document.getElementById('pdName').textContent        = displayName;
+                document.getElementById('pdEmail').textContent       = email;
+                const vb = document.getElementById('pdVerifiedBadge');
+                if (vb) {
+                    vb.className = 'pd-badge ' + (verified ? 'verified' : 'unverified');
+                    vb.innerHTML = verified
+                        ? '<span class="material-symbols-outlined" style="font-size:10px">verified</span> Verified'
+                        : '<span class="material-symbols-outlined" style="font-size:10px">warning</span> Email unverified';
+                }
+            }
+
+            // Sidebar user block
+            const sBlock = document.getElementById('sidebarUserBlock');
+            const sLink  = document.getElementById('sidebarSignInLink');
+            if (sBlock) {
+                sBlock.style.display = 'flex';
+                document.getElementById('sidebarAvatar').textContent    = initials;
+                document.getElementById('sidebarUserName').textContent  = displayName;
+                document.getElementById('sidebarUserEmail').textContent = email;
+            }
+            if (sLink) sLink.style.display = 'none';
+
+            // Mobile bottom nav
+            const mSign   = document.getElementById('mobileSignInTab');
+            const mProf   = document.getElementById('mobileProfileTab');
+            const mAvatar = document.getElementById('mobileAvatar');
+            if (mSign)   mSign.style.display   = 'none';
+            if (mProf)   mProf.style.display   = 'flex';
+            if (mAvatar) mAvatar.textContent    = initials;
+        }
+
+        function toggleProfileDropdown() {
+            const dd = document.getElementById('profileDropdown');
+            if (!dd) return;
+            dd.classList.toggle('open');
+            // Close on outside click
+            if (dd.classList.contains('open')) {
+                setTimeout(() => {
+                    document.addEventListener('click', _closeDropdownOutside, { once: true });
+                }, 10);
+            }
+        }
+        function _closeDropdownOutside(e) {
+            const dd = document.getElementById('profileDropdown');
+            const chip = document.getElementById('profileChip');
+            if (dd && !chip.contains(e.target)) dd.classList.remove('open');
+        }
+
+        async function signOutUser() {
+            document.getElementById('profileDropdown') && document.getElementById('profileDropdown').classList.remove('open');
+            await _supabase.auth.signOut();
+            showToast('Signed out. See you next time!', 'info', 2500);
+            setTimeout(() => { window.location.href = 'login.html'; }, 900);
+        }
         function getFileIcon(name) {
             name = (name || '').toLowerCase();
             if (name.endsWith('.pdf')) return 'picture_as_pdf';
@@ -4122,10 +4259,14 @@
             <span class="material-symbols-outlined text-xl" aria-hidden="true">upload_file</span>
             <span class="text-[9px] font-bold uppercase">Request</span>
         </a>
-        <a href="login.html" class="flex flex-col items-center gap-0.5 px-3 py-1 text-slate-400" aria-label="Sign in">
+        <a href="login.html" id="mobileSignInTab" class="flex flex-col items-center gap-0.5 px-3 py-1 text-slate-400" aria-label="Sign in">
             <span class="material-symbols-outlined text-xl" aria-hidden="true">login</span>
             <span class="text-[9px] font-bold uppercase">Sign In</span>
         </a>
+        <button id="mobileProfileTab" onclick="toggleProfileDropdown()" class="flex flex-col items-center gap-0.5 px-3 py-1 text-slate-400" aria-label="Account" style="display:none;background:none;border:none;cursor:pointer;font-family:inherit">
+            <div id="mobileAvatar" style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:white;text-transform:uppercase">?</div>
+            <span class="text-[9px] font-bold uppercase text-primary">Me</span>
+        </button>
     </nav>
     <footer class="text-center text-white/20 text-xs py-4 lg:py-6">Built by <span class="text-white/40 font-semibold">Jonathan Acheampong</span> · FileVault</footer>
     <!-- Mobile bottom padding so content isn't hidden behind nav -->

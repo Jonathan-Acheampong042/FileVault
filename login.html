@@ -452,6 +452,7 @@
     let _currentMode   = 'student'; // 'student' | 'admin'
     let _studentSubTab = 'signin';
     let _otpEmail      = '';
+    let _redirecting   = false;   // prevents double-fire from onAuthStateChange
 
     // ═══════════════════════════════════════════════════════════════
     // INIT — check existing session + handle URL tokens
@@ -483,7 +484,8 @@
 
     // ── Route user based on role ──────────────────────────────────
     async function routeUser(user) {
-        if (!user) return;
+        if (!user || _redirecting) return;
+        _redirecting = true;
 
         // 1. Check user_profiles table for explicit role
         try {
@@ -503,9 +505,10 @@
             return;
         }
 
-        // 3. Regular student — go to main page
+        // 3. Regular student — go to main page, pass a flag so index.html shows welcome
         showToast('✓ Signed in! Welcome back.', 'success');
-        setTimeout(() => { window.location.href = 'index.html'; }, 600);
+        sessionStorage.setItem('fv_just_signed_in', user.email || '1');
+        setTimeout(() => { window.location.href = 'index.html'; }, 800);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -564,9 +567,26 @@
         const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pwd });
         clearBtnLoading('sSignInBtn','sSignInText','Sign In');
 
-        if (error) { setMsg('sSignInMsg', error.message, 'error'); shake('sSignInBtn'); return; }
+        if (error) {
+            // Supabase returns "Email not confirmed" for unverified accounts
+            if (error.message && error.message.toLowerCase().includes('email not confirmed')) {
+                const msgEl = document.getElementById('sSignInMsg');
+                msgEl.innerHTML = '⚠️ Email not verified yet. <button onclick="resendConfirmation(\'' + email.replace(/'/g,"\'") + '\')" style="background:none;border:none;cursor:pointer;color:#60a5fa;font-size:13px;font-weight:700;font-family:inherit;text-decoration:underline;padding:0">Resend confirmation email</button>';
+                msgEl.style.color = '#fcd34d';
+            } else {
+                setMsg('sSignInMsg', error.message, 'error');
+            }
+            shake('sSignInBtn');
+            return;
+        }
         setMsg('sSignInMsg','', 'info');
         await routeUser(data.user);
+    }
+
+    async function resendConfirmation(email) {
+        const { error } = await _supabase.auth.resend({ type: 'signup', email });
+        if (error) { setMsg('sSignInMsg', 'Could not resend: ' + error.message, 'error'); return; }
+        setMsg('sSignInMsg', '✉️ Confirmation email resent! Check your inbox and spam folder.', 'success');
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -588,7 +608,7 @@
         clearBtnLoading('sSignUpBtn','sSignUpText','Create Account');
 
         if (error) { setMsg('sSignUpMsg', error.message, 'error'); return; }
-        setMsg('sSignUpMsg', '✅ Check your email to confirm your account!', 'success');
+        setMsg('sSignUpMsg', '✅ Account created! Check your inbox — click the confirmation link to activate your account. (Check spam too.)', 'success');
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -735,6 +755,7 @@
             return;
         }
 
+        _redirecting = true;
         clearBtnLoading('aSignInBtn','aSignInText','✓ Redirecting to Manager…');
         showToast('✓ Admin verified! Redirecting…', 'success');
         setTimeout(() => { window.location.href = 'manager.html'; }, 700);
