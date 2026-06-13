@@ -128,7 +128,7 @@
                     <p style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin:0">Scan to visit the Vault</p>
                 </div>
                 <div id="qrCanvas" style="display:inline-flex;align-items:center;justify-content:center;background:white;border-radius:16px;padding:12px;margin-bottom:10px">
-                    <canvas id="qrCodeCanvas" width="160" height="160" style="display:block;border-radius:8px"></canvas>
+                    <div id="qrCodeCanvas" style="width:160px;height:160px;border-radius:8px;overflow:hidden;line-height:0"></div>
                 </div>
                 <p id="qrUrl" style="color:#64748b;font-size:10px;word-break:break-all;margin:0"></p>
             </div>
@@ -257,27 +257,19 @@
         @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
     </style>
 
-    <!-- ── QR Code generation (Feature 15) ── -->
+    <!-- ── QR Code generation ── -->
     <script>
     (function() {
-        // Minimal QR Code generator using the qrcodejs library from cdnjs
         const script = document.createElement('script');
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
         script.onload = function() {
             const vaultUrl = window.location.origin + '/index.html';
             const urlEl = document.getElementById('qrUrl');
             if (urlEl) urlEl.textContent = vaultUrl;
-
             const container = document.getElementById('qrCodeCanvas');
             if (!container) return;
-
-            // QRCode writes into a div; we'll use a wrapper then copy to canvas
-            const tempDiv = document.createElement('div');
-            tempDiv.style.cssText = 'position:absolute;left:-9999px;top:-9999px';
-            document.body.appendChild(tempDiv);
-
             try {
-                new QRCode(tempDiv, {
+                new QRCode(container, {
                     text: vaultUrl,
                     width: 160,
                     height: 160,
@@ -285,25 +277,7 @@
                     colorLight: '#ffffff',
                     correctLevel: QRCode.CorrectLevel.H
                 });
-                // QRCode renders either a canvas or img; copy it
-                setTimeout(function() {
-                    const qrImg = tempDiv.querySelector('img') || tempDiv.querySelector('canvas');
-                    const canvas = document.getElementById('qrCodeCanvas');
-                    if (!qrImg || !canvas) return;
-                    const ctx = canvas.getContext('2d');
-                    if (qrImg.tagName === 'CANVAS') {
-                        ctx.drawImage(qrImg, 0, 0, 160, 160);
-                    } else {
-                        const img = new Image();
-                        img.onload = function() { ctx.drawImage(img, 0, 0, 160, 160); };
-                        img.src = qrImg.src;
-                    }
-                    document.body.removeChild(tempDiv);
-                }, 150);
             } catch(e) {
-                document.body.removeChild(tempDiv);
-                // Fallback: show the URL as text
-                const sec = document.getElementById('qrSection');
                 const cv = document.getElementById('qrCanvas');
                 if (cv) cv.innerHTML = '<p style="color:#64748b;font-size:11px;padding:12px">QR unavailable</p>';
             }
