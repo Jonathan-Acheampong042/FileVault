@@ -1,279 +1,872 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
     <title>FileVault | Sign In</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="icon" href="filevault%20logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <link rel="icon" href="filevault%20logo.png">
     <style>
+        * { box-sizing: border-box; }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0; }
-        .bg-fixed-image { position: fixed; inset: 0; background-image: url('screen.png'); background-size: cover; background-position: center; background-repeat: no-repeat; filter: saturate(0.72) brightness(0.5); z-index: -2; }
-        .bg-overlay { position: fixed; inset: 0; background: radial-gradient(circle at top left, rgba(59,130,246,0.15), transparent 24%), radial-gradient(circle at bottom right, rgba(139,92,246,0.14), transparent 20%), linear-gradient(180deg, rgba(8, 12, 27, 0.88), rgba(4, 7, 18, 0.96)); z-index: -1; pointer-events: none; }
-        @keyframes slideUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
-        @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-10px)} 40%,80%{transform:translateX(10px)} }
-        .animate-slide-up { animation: slideUp 0.5s ease-out forwards; }
-        .animate-fade-in { animation: fadeIn 0.8s ease-out 0.3s both; }
-        .error-shake { animation: shake 0.5s ease-in-out; }
-        .login-btn { position: relative; overflow: hidden; }
-        .login-btn::before { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent); transition:left 0.5s ease; }
-        .login-btn:hover::before { left:100%; }
-        .site-logo { width: 56px; height: 56px; border-radius: 1rem; overflow: hidden; box-shadow: 0 24px 48px rgba(59,130,246,0.2); }
-        .site-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
-        .login-btn:hover { transform:translateY(-3px); box-shadow:0 20px 40px -15px rgba(37,99,235,0.5); }
-        input:-webkit-autofill,
-        input:-webkit-autofill:hover,
-        input:-webkit-autofill:focus,
-        input:-webkit-autofill:active {
-            -webkit-box-shadow: 0 0 0px 1000px rgba(255,255,255,0.05) inset !important;
-            box-shadow: 0 0 0px 1000px rgba(255,255,255,0.05) inset !important;
-            -webkit-text-fill-color: #ffffff !important;
-            color: #ffffff !important;
-            transition: background-color 5000s ease-in-out 0s !important;
-            background-color: rgba(255,255,255,0.05) !important;
+
+        .bg-fixed-image { position: fixed; inset: 0; background-image: url('screen.png'); background-size: cover; background-position: center; background-repeat: no-repeat; filter: saturate(0.72) brightness(0.4); z-index: -2; }
+        .bg-overlay { position: fixed; inset: 0; background: radial-gradient(circle at top left, rgba(59,130,246,0.18), transparent 30%), radial-gradient(circle at bottom right, rgba(139,92,246,0.16), transparent 25%), linear-gradient(180deg, rgba(4,7,18,0.90), rgba(2,6,23,0.97)); z-index: -1; pointer-events: none; }
+
+        /* ── Animations ── */
+        @keyframes slideUp   { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn    { from{opacity:0} to{opacity:1} }
+        @keyframes shake     { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }
+        @keyframes pulse-glow { 0%,100%{box-shadow:0 0 0 0 rgba(59,130,246,0.4)} 50%{box-shadow:0 0 0 8px rgba(59,130,246,0)} }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .animate-slide-up   { animation: slideUp 0.45s cubic-bezier(0.22,1,0.36,1) forwards; }
+        .animate-fade-in    { animation: fadeIn 0.6s ease-out 0.2s both; }
+        .error-shake        { animation: shake 0.45s ease-in-out; }
+
+        /* ── Glass card ── */
+        .glass-card { background: rgba(15,23,42,0.82); backdrop-filter: blur(28px); border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 32px 80px rgba(0,0,0,0.55); }
+
+        /* ── Inputs ── */
+        .auth-input { width:100%; padding:12px 14px 12px 46px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; color:white; font-size:14px; font-family:inherit; outline:none; transition:border-color .2s, background .2s; }
+        .auth-input:focus { border-color:rgba(59,130,246,0.55); background:rgba(255,255,255,0.08); }
+        .auth-input::placeholder { color:rgba(255,255,255,0.3); }
+        .auth-input-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:rgba(255,255,255,0.35); font-size:18px; pointer-events:none; }
+        input:-webkit-autofill,input:-webkit-autofill:hover,input:-webkit-autofill:focus { -webkit-box-shadow:0 0 0 1000px rgba(255,255,255,0.05) inset !important; -webkit-text-fill-color:#fff !important; transition:background-color 5000s ease-in-out 0s !important; }
+
+        /* ── Primary button ── */
+        .btn-primary { position:relative; overflow:hidden; width:100%; padding:13px; border:none; border-radius:13px; background:linear-gradient(135deg,#3b82f6,#7c3aed); color:white; font-weight:800; font-size:14px; cursor:pointer; font-family:inherit; transition:transform .2s, box-shadow .2s, opacity .2s; display:flex; align-items:center; justify-content:center; gap:8px; }
+        .btn-primary::before { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent); transition:left .5s; }
+        .btn-primary:hover:not(:disabled)::before { left:100%; }
+        .btn-primary:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 16px 32px -8px rgba(59,130,246,0.5); }
+        .btn-primary:disabled { opacity:.55; cursor:not-allowed; transform:none; }
+
+        /* ── Social / provider buttons ── */
+        .btn-social { display:flex; align-items:center; gap:10px; width:100%; padding:11px 16px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; color:rgba(255,255,255,0.8); font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; transition:all .2s; }
+        .btn-social:hover { background:rgba(255,255,255,0.10); border-color:rgba(255,255,255,0.2); transform:translateY(-1px); }
+        .btn-social svg { flex-shrink:0; }
+
+        /* ── Tabs ── */
+        .tab-pill { flex:1; padding:9px 8px; border:none; border-radius:10px; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; transition:all .22s; }
+        .tab-pill.active { background:rgba(59,130,246,0.22); color:#93c5fd; border:1px solid rgba(59,130,246,0.35); }
+        .tab-pill:not(.active) { background:rgba(255,255,255,0.04); color:#64748b; border:1px solid rgba(255,255,255,0.07); }
+        .tab-pill:not(.active):hover { background:rgba(255,255,255,0.08); color:#94a3b8; }
+
+        /* ── Divider ── */
+        .divider { display:flex; align-items:center; gap:12px; margin:16px 0; }
+        .divider span { height:1px; flex:1; background:rgba(255,255,255,0.08); }
+        .divider p { color:#475569; font-size:11px; font-weight:600; white-space:nowrap; }
+
+        /* ── OTP input row ── */
+        .otp-input { width:48px; height:52px; text-align:center; font-size:20px; font-weight:800; background:rgba(255,255,255,0.07); border:1.5px solid rgba(255,255,255,0.12); border-radius:10px; color:white; outline:none; transition:border-color .2s, background .2s; caret-color:transparent; }
+        .otp-input:focus { border-color:rgba(59,130,246,0.6); background:rgba(59,130,246,0.08); }
+        .otp-input.filled { border-color:rgba(59,130,246,0.45); background:rgba(59,130,246,0.1); }
+
+        /* ── Role badge ── */
+        .role-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:99px; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+        .role-admin { background:rgba(239,68,68,0.15); color:#fca5a5; border:1px solid rgba(239,68,68,0.25); }
+        .role-student { background:rgba(59,130,246,0.15); color:#93c5fd; border:1px solid rgba(59,130,246,0.25); }
+
+        /* ── Toast ── */
+        #toastWrap { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+        .toast { display:flex; align-items:center; gap:10px; padding:11px 16px; border-radius:14px; font-size:13px; font-weight:600; color:white; backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.12); box-shadow:0 8px 32px rgba(0,0,0,0.4); min-width:220px; animation:slideUp .3s ease; }
+        .toast.success { background:rgba(16,185,129,0.18); border-color:rgba(16,185,129,0.3); }
+        .toast.error   { background:rgba(239,68,68,0.18); border-color:rgba(239,68,68,0.3); }
+        .toast.info    { background:rgba(59,130,246,0.18); border-color:rgba(59,130,246,0.3); }
+
+        /* ── Spinner ── */
+        .spinner { width:18px; height:18px; border:2.5px solid rgba(255,255,255,0.3); border-top-color:white; border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0; }
+
+        /* ── Panel transitions ── */
+        .panel { display:none; }
+        .panel.active { display:block; animation:fadeIn .3s ease; }
+
+        /* ── Mode selector at top ── */
+        .mode-btn { flex:1; padding:10px 12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:12px; color:#64748b; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; transition:all .2s; display:flex; flex-direction:column; align-items:center; gap:3px; }
+        .mode-btn.active { background:linear-gradient(135deg,rgba(59,130,246,0.18),rgba(139,92,246,0.14)); border-color:rgba(59,130,246,0.3); color:#93c5fd; }
+        .mode-btn:hover:not(.active) { background:rgba(255,255,255,0.07); color:#94a3b8; }
+        .mode-btn .material-symbols-outlined { font-size:22px; }
+
+        /* ── Auth option cards ── */
+        .auth-opt { display:flex; align-items:center; gap:12px; padding:13px 16px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:14px; cursor:pointer; transition:all .2s; }
+        .auth-opt:hover { background:rgba(59,130,246,0.1); border-color:rgba(59,130,246,0.3); }
+        .auth-opt .icon-wrap { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+
+        @media (max-width:480px) {
+            .otp-input { width:40px; height:46px; font-size:18px; }
         }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4 relative overflow-x-hidden">
     <div class="bg-fixed-image"></div>
     <div class="bg-overlay"></div>
+    <div id="toastWrap"></div>
 
-    <!-- Back Button -->
-    <a href="https://filevault.works/index.html" class="fixed top-6 left-6 flex items-center gap-2 text-white/70 hover:text-white text-sm font-medium px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all z-10">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-        Back to FileVault
+    <!-- Back button -->
+    <a href="index.html" class="fixed top-5 left-5 flex items-center gap-2 text-white/60 hover:text-white text-sm font-semibold px-4 py-2 rounded-full bg-white/8 backdrop-blur-sm border border-white/12 hover:bg-white/15 transition-all z-10" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12)">
+        <span class="material-symbols-outlined" style="font-size:16px">arrow_back</span>
+        FileVault
     </a>
 
-    <div class="relative w-full max-w-md">
-        <div class="absolute -inset-1 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 rounded-3xl blur-2xl opacity-30"></div>
+    <div class="relative w-full max-w-md animate-slide-up">
+        <!-- Glow halo -->
+        <div class="absolute -inset-1 rounded-3xl blur-2xl opacity-25" style="background:linear-gradient(135deg,#3b82f6,#8b5cf6,#06b6d4)"></div>
 
-        <div id="loginCard" class="relative bg-slate-900/80 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl animate-slide-up">
-            <!-- Logo -->
+        <div class="glass-card relative rounded-3xl p-7">
+
+            <!-- Logo + title -->
             <div class="text-center mb-6">
-                <div class="site-logo mx-auto mb-3">
-                    <img src="filevault%20logo.png" alt="FileVault logo" />
+                <div class="w-14 h-14 rounded-2xl overflow-hidden mx-auto mb-3 shadow-lg" style="box-shadow:0 8px 32px rgba(59,130,246,0.3)">
+                    <img src="filevault%20logo.png" alt="FileVault" class="w-full h-full object-contain"/>
                 </div>
-                <h2 class="text-2xl font-bold text-white mb-1">Admin Login</h2>
-                <p class="text-white/50 text-sm">Sign in to access the manager portal</p>
+                <h1 class="text-2xl font-extrabold text-white" id="mainTitle">Welcome to FileVault</h1>
+                <p class="text-sm mt-1" id="mainSubtitle" style="color:#64748b">Choose how you'd like to continue</p>
             </div>
 
-            <div class="space-y-4" id="formFields">
-                <!-- Email -->
-                <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <svg class="w-5 h-5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/></svg>
-                    </div>
-                    <input type="email" id="email" placeholder="Admin email address" class="w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-xl outline-none text-white placeholder-white/40 focus:border-blue-500/50 focus:bg-white/10 transition-all"/>
+            <!-- ══ MODE SELECTOR ══ -->
+            <div id="modeSelector" class="flex gap-3 mb-6">
+                <button class="mode-btn active" id="modeStudentBtn" onclick="setMode('student')">
+                    <span class="material-symbols-outlined">school</span>
+                    <span>Student</span>
+                </button>
+                <button class="mode-btn" id="modeAdminBtn" onclick="setMode('admin')">
+                    <span class="material-symbols-outlined">admin_panel_settings</span>
+                    <span>Admin</span>
+                </button>
+            </div>
+
+            <!-- ════════════════════════════════════════════
+                 STUDENT PANELS
+                 ════════════════════════════════════════════ -->
+            <div id="studentSection">
+
+                <!-- Student sub-tabs -->
+                <div class="flex gap-2 mb-5">
+                    <button class="tab-pill active" id="tabStudentSignin" onclick="switchStudentTab('signin')">Sign In</button>
+                    <button class="tab-pill" id="tabStudentSignup" onclick="switchStudentTab('signup')">Create Account</button>
+                    <button class="tab-pill" id="tabStudentSocial" onclick="switchStudentTab('social')">Social Login</button>
                 </div>
 
-                <!-- Password -->
-                <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <svg class="w-5 h-5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                <!-- ── Student Sign In ── -->
+                <div id="panelStudentSignin" class="panel active">
+                    <div class="space-y-4">
+                        <div class="relative">
+                            <span class="auth-input-icon material-symbols-outlined">mail</span>
+                            <input type="email" id="sEmail" class="auth-input" placeholder="Your university email" autocomplete="email"/>
+                        </div>
+                        <div class="relative">
+                            <span class="auth-input-icon material-symbols-outlined">lock</span>
+                            <input type="password" id="sPassword" class="auth-input" placeholder="Your password" autocomplete="current-password" onkeydown="if(event.key==='Enter')studentSignIn()" style="padding-right:46px"/>
+                            <button type="button" onclick="togglePwd('sPassword','sEye')" class="absolute right-4 top-1/2 -translate-y-1/2" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.35);line-height:0">
+                                <span id="sEye" class="material-symbols-outlined" style="font-size:18px">visibility</span>
+                            </button>
+                        </div>
+
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
+                                <input type="checkbox" id="sRemember" class="w-4 h-4 rounded" style="accent-color:#3b82f6"/>
+                                <span style="color:#64748b;font-size:13px">Remember me</span>
+                            </label>
+                            <button onclick="openForgotPassword()" style="background:none;border:none;cursor:pointer;color:#60a5fa;font-size:13px;font-weight:600;font-family:inherit">Forgot password?</button>
+                        </div>
+
+                        <button class="btn-primary" id="sSignInBtn" onclick="studentSignIn()">
+                            <span id="sSignInText">Sign In</span>
+                        </button>
+
+                        <div class="divider"><span></span><p>or sign in faster</p><span></span></div>
+
+                        <!-- Magic link option -->
+                        <button onclick="switchStudentTab('magiclink')" class="btn-social">
+                            <span class="material-symbols-outlined" style="color:#a78bfa;font-size:20px">magic_button</span>
+                            <div style="text-align:left">
+                                <p style="font-weight:700;color:white;font-size:13px">Magic Link (Passwordless)</p>
+                                <p style="font-size:11px;color:#64748b">We'll email you a one-click sign-in link</p>
+                            </div>
+                        </button>
+
+                        <!-- OTP option -->
+                        <button onclick="switchStudentTab('otp')" class="btn-social">
+                            <span class="material-symbols-outlined" style="color:#34d399;font-size:20px">pin</span>
+                            <div style="text-align:left">
+                                <p style="font-weight:700;color:white;font-size:13px">One-Time Password (OTP)</p>
+                                <p style="font-size:11px;color:#64748b">Get a 6-digit code sent to your email</p>
+                            </div>
+                        </button>
                     </div>
-                    <input type="password" id="password" placeholder="Password" class="w-full pl-12 pr-12 py-3.5 bg-white/5 border border-white/10 rounded-xl outline-none text-white placeholder-white/40 focus:border-blue-500/50 focus:bg-white/10 transition-all"/>
-                    <button type="button" onclick="togglePassword()" class="absolute inset-y-0 right-0 pr-4 flex items-center">
-                        <svg id="eyeIcon" class="w-5 h-5 text-white/40 hover:text-white/70 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                        </svg>
+                    <p id="sSignInMsg" class="mt-3 text-center text-sm min-h-5" style="color:#f87171"></p>
+                </div>
+
+                <!-- ── Student Sign Up ── -->
+                <div id="panelStudentSignup" class="panel">
+                    <div class="space-y-3">
+                        <div class="relative">
+                            <span class="auth-input-icon material-symbols-outlined">badge</span>
+                            <input type="text" id="sName" class="auth-input" placeholder="Your full name" autocomplete="name"/>
+                        </div>
+                        <div class="relative">
+                            <span class="auth-input-icon material-symbols-outlined">mail</span>
+                            <input type="email" id="sEmailSignup" class="auth-input" placeholder="Your university email" autocomplete="email"/>
+                        </div>
+                        <div class="relative">
+                            <span class="auth-input-icon material-symbols-outlined">lock</span>
+                            <input type="password" id="sPasswordSignup" class="auth-input" placeholder="Choose a password (min. 6 chars)" autocomplete="new-password" onkeydown="if(event.key==='Enter')studentSignUp()" style="padding-right:46px"/>
+                            <button type="button" onclick="togglePwd('sPasswordSignup','sEye2')" class="absolute right-4 top-1/2 -translate-y-1/2" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.35);line-height:0">
+                                <span id="sEye2" class="material-symbols-outlined" style="font-size:18px">visibility</span>
+                            </button>
+                        </div>
+                        <button class="btn-primary" id="sSignUpBtn" onclick="studentSignUp()">
+                            <span id="sSignUpText">Create Account</span>
+                        </button>
+                    </div>
+                    <p id="sSignUpMsg" class="mt-3 text-center text-sm min-h-5"></p>
+                </div>
+
+                <!-- ── Social Login ── -->
+                <div id="panelStudentSocial" class="panel">
+                    <p style="font-size:12px;color:#64748b;margin-bottom:14px;text-align:center">Sign in instantly with your existing account</p>
+                    <div class="space-y-3">
+                        <button class="btn-social" onclick="socialLogin('google')">
+                            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                            <div style="text-align:left">
+                                <p style="font-weight:700;color:white;font-size:13px">Continue with Google</p>
+                                <p style="font-size:11px;color:#64748b">Use your Google / Gmail account</p>
+                            </div>
+                        </button>
+                        <button class="btn-social" onclick="socialLogin('discord')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="#5865F2"><path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.175 13.175 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028z"/></svg>
+                            <div style="text-align:left">
+                                <p style="font-weight:700;color:white;font-size:13px">Continue with Discord</p>
+                                <p style="font-size:11px;color:#64748b">Use your Discord account</p>
+                            </div>
+                        </button>
+                        <button class="btn-social" onclick="socialLogin('github')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+                            <div style="text-align:left">
+                                <p style="font-weight:700;color:white;font-size:13px">Continue with GitHub</p>
+                                <p style="font-size:11px;color:#64748b">Use your GitHub account</p>
+                            </div>
+                        </button>
+                        <button class="btn-social" onclick="socialLogin('facebook')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                            <div style="text-align:left">
+                                <p style="font-weight:700;color:white;font-size:13px">Continue with Facebook</p>
+                                <p style="font-size:11px;color:#64748b">Use your Facebook account</p>
+                            </div>
+                        </button>
+                    </div>
+                    <p style="text-align:center;font-size:11px;color:#334155;margin-top:14px">After signing in you'll stay on the student vault.</p>
+                </div>
+
+                <!-- ── Magic Link panel ── -->
+                <div id="panelStudentMagiclink" class="panel">
+                    <div style="text-align:center;margin-bottom:20px">
+                        <div style="width:52px;height:52px;border-radius:16px;background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                            <span class="material-symbols-outlined" style="font-size:28px;color:#a78bfa">magic_button</span>
+                        </div>
+                        <h3 style="color:white;font-weight:700;font-size:16px;margin-bottom:4px">Magic Link Sign-In</h3>
+                        <p style="color:#64748b;font-size:13px">Enter your email and we'll send you a one-click sign-in link — no password needed.</p>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="relative">
+                            <span class="auth-input-icon material-symbols-outlined">mail</span>
+                            <input type="email" id="mlEmail" class="auth-input" placeholder="Your email address" autocomplete="email" onkeydown="if(event.key==='Enter')sendMagicLink()"/>
+                        </div>
+                        <button class="btn-primary" id="mlBtn" onclick="sendMagicLink()">
+                            <span id="mlBtnText">Send Magic Link</span>
+                        </button>
+                    </div>
+                    <p id="mlMsg" class="mt-3 text-center text-sm min-h-5"></p>
+                    <button onclick="switchStudentTab('signin')" style="margin-top:14px;background:none;border:none;cursor:pointer;color:#64748b;font-size:12px;width:100%;text-align:center;font-family:inherit">
+                        ← Back to sign in
                     </button>
                 </div>
 
-                <div class="flex items-center justify-between">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" class="w-4 h-4 rounded border-white/20 bg-white/5 text-blue-500"/>
-                        <span class="text-white/50 text-sm">Remember me</span>
-                    </label>
-                    <a href="#" onclick="forgotPassword()" class="text-sm text-blue-400 hover:text-blue-300 transition-colors">Forgot password?</a>
+                <!-- ── OTP panel (step 1: enter email) ── -->
+                <div id="panelStudentOtp" class="panel">
+                    <div id="otpStep1">
+                        <div style="text-align:center;margin-bottom:20px">
+                            <div style="width:52px;height:52px;border-radius:16px;background:rgba(52,211,153,0.12);border:1px solid rgba(52,211,153,0.28);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                                <span class="material-symbols-outlined" style="font-size:28px;color:#34d399">pin</span>
+                            </div>
+                            <h3 style="color:white;font-weight:700;font-size:16px;margin-bottom:4px">Email OTP Sign-In</h3>
+                            <p style="color:#64748b;font-size:13px">We'll send a 6-digit code to your email. Codes expire in 10 minutes.</p>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="relative">
+                                <span class="auth-input-icon material-symbols-outlined">mail</span>
+                                <input type="email" id="otpEmail" class="auth-input" placeholder="Your email address" autocomplete="email" onkeydown="if(event.key==='Enter')sendOTP()"/>
+                            </div>
+                            <button class="btn-primary" id="otpSendBtn" onclick="sendOTP()">
+                                <span id="otpSendText">Send Code</span>
+                            </button>
+                        </div>
+                        <p id="otpSendMsg" class="mt-3 text-center text-sm min-h-5" style="color:#f87171"></p>
+                    </div>
+
+                    <!-- OTP Step 2: enter code -->
+                    <div id="otpStep2" style="display:none">
+                        <div style="text-align:center;margin-bottom:20px">
+                            <div style="width:52px;height:52px;border-radius:16px;background:rgba(52,211,153,0.12);border:1px solid rgba(52,211,153,0.28);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                                <span class="material-symbols-outlined" style="font-size:28px;color:#34d399">mark_email_read</span>
+                            </div>
+                            <h3 style="color:white;font-weight:700;font-size:16px;margin-bottom:4px">Enter Your Code</h3>
+                            <p style="color:#64748b;font-size:13px">Check your inbox for a 6-digit code sent to <span id="otpEmailDisplay" style="color:#93c5fd;font-weight:700"></span></p>
+                        </div>
+                        <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px">
+                            <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="otp0" oninput="otpMove(0)" onkeydown="otpBack(event,0)" onpaste="otpPaste(event)"/>
+                            <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="otp1" oninput="otpMove(1)" onkeydown="otpBack(event,1)"/>
+                            <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="otp2" oninput="otpMove(2)" onkeydown="otpBack(event,2)"/>
+                            <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="otp3" oninput="otpMove(3)" onkeydown="otpBack(event,3)"/>
+                            <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="otp4" oninput="otpMove(4)" onkeydown="otpBack(event,4)"/>
+                            <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="otp5" oninput="otpMove(5)" onkeydown="otpBack(event,5)"/>
+                        </div>
+                        <button class="btn-primary" id="otpVerifyBtn" onclick="verifyOTP()">
+                            <span id="otpVerifyText">Verify Code</span>
+                        </button>
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px">
+                            <button onclick="switchStudentTab('otp');document.getElementById('otpStep1').style.display='';document.getElementById('otpStep2').style.display='none'" style="background:none;border:none;cursor:pointer;color:#64748b;font-size:12px;font-family:inherit">← Change email</button>
+                            <button id="otpResendBtn" onclick="resendOTP()" style="background:none;border:none;cursor:pointer;color:#60a5fa;font-size:12px;font-weight:600;font-family:inherit">Resend code</button>
+                        </div>
+                        <p id="otpVerifyMsg" class="mt-3 text-center text-sm min-h-5" style="color:#f87171"></p>
+                    </div>
+                    <button onclick="switchStudentTab('signin')" style="margin-top:10px;background:none;border:none;cursor:pointer;color:#64748b;font-size:12px;width:100%;text-align:center;font-family:inherit">
+                        ← Back to sign in
+                    </button>
                 </div>
 
-                <button onclick="handleSubmit()" id="loginBtn" class="login-btn w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3.5 rounded-xl font-bold hover:from-blue-600 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2">
-                    <span id="btnText">Sign In</span>
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+            </div><!-- /studentSection -->
+
+
+            <!-- ════════════════════════════════════════════
+                 ADMIN PANELS
+                 ════════════════════════════════════════════ -->
+            <div id="adminSection" style="display:none">
+                <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:12px;margin-bottom:18px">
+                    <span class="material-symbols-outlined" style="color:#fca5a5;font-size:18px;flex-shrink:0">shield_person</span>
+                    <p style="font-size:12px;font-weight:600;color:#fca5a5">Admin access only. Unauthorised sign-ins will be rejected.</p>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="relative">
+                        <span class="auth-input-icon material-symbols-outlined">admin_panel_settings</span>
+                        <input type="email" id="aEmail" class="auth-input" placeholder="Admin email address" autocomplete="email"/>
+                    </div>
+                    <div class="relative">
+                        <span class="auth-input-icon material-symbols-outlined">lock</span>
+                        <input type="password" id="aPassword" class="auth-input" placeholder="Admin password" autocomplete="current-password" onkeydown="if(event.key==='Enter')adminSignIn()" style="padding-right:46px"/>
+                        <button type="button" onclick="togglePwd('aPassword','aEye')" class="absolute right-4 top-1/2 -translate-y-1/2" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.35);line-height:0">
+                            <span id="aEye" class="material-symbols-outlined" style="font-size:18px">visibility</span>
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <label class="flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" id="aRemember" class="w-4 h-4 rounded" style="accent-color:#ef4444"/>
+                            <span style="color:#64748b;font-size:13px">Remember me</span>
+                        </label>
+                        <button onclick="openAdminForgotPassword()" style="background:none;border:none;cursor:pointer;color:#fca5a5;font-size:13px;font-weight:600;font-family:inherit">Forgot password?</button>
+                    </div>
+                    <button class="btn-primary" id="aSignInBtn" onclick="adminSignIn()" style="background:linear-gradient(135deg,#dc2626,#9f1239)">
+                        <span class="material-symbols-outlined" style="font-size:16px">admin_panel_settings</span>
+                        <span id="aSignInText">Sign In as Admin</span>
+                    </button>
+                </div>
+                <p id="aSignInMsg" class="mt-3 text-center text-sm min-h-5" style="color:#f87171"></p>
+            </div><!-- /adminSection -->
+
+
+            <!-- ════════════════════════════════════════════
+                 RESET PASSWORD (shown via URL hash)
+                 ════════════════════════════════════════════ -->
+            <div id="resetSection" style="display:none">
+                <div style="text-align:center;margin-bottom:20px">
+                    <div style="width:52px;height:52px;border-radius:16px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                        <span class="material-symbols-outlined" style="font-size:26px;color:#34d399">lock_reset</span>
+                    </div>
+                    <h3 style="color:white;font-weight:700;font-size:16px;margin-bottom:4px">Set New Password</h3>
+                    <p style="color:#64748b;font-size:13px">Choose a strong password for your account.</p>
+                </div>
+                <div class="space-y-3">
+                    <div class="relative">
+                        <span class="auth-input-icon material-symbols-outlined">lock</span>
+                        <input type="password" id="newPwd" class="auth-input" placeholder="New password (min. 6 chars)" autocomplete="new-password"/>
+                    </div>
+                    <div class="relative">
+                        <span class="auth-input-icon material-symbols-outlined">lock_check</span>
+                        <input type="password" id="confirmPwd" class="auth-input" placeholder="Confirm new password" autocomplete="new-password" onkeydown="if(event.key==='Enter')setNewPassword()"/>
+                    </div>
+                    <button class="btn-primary" id="resetBtn" onclick="setNewPassword()" style="background:linear-gradient(135deg,#10b981,#059669)">
+                        <span id="resetBtnText">Update Password</span>
+                    </button>
+                </div>
+                <p id="resetMsg" class="mt-3 text-center text-sm min-h-5"></p>
+            </div>
+
+            <!-- Forgot password inline -->
+            <div id="forgotSection" style="display:none">
+                <div style="text-align:center;margin-bottom:20px">
+                    <div style="width:52px;height:52px;border-radius:16px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.28);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                        <span class="material-symbols-outlined" style="font-size:26px;color:#60a5fa">mail_lock</span>
+                    </div>
+                    <h3 style="color:white;font-weight:700;font-size:16px;margin-bottom:4px">Reset Your Password</h3>
+                    <p style="color:#64748b;font-size:13px">Enter your email and we'll send a password reset link.</p>
+                </div>
+                <div class="space-y-3">
+                    <div class="relative">
+                        <span class="auth-input-icon material-symbols-outlined">mail</span>
+                        <input type="email" id="forgotEmail" class="auth-input" placeholder="Your email address" autocomplete="email" onkeydown="if(event.key==='Enter')sendPasswordReset()"/>
+                    </div>
+                    <button class="btn-primary" id="forgotBtn" onclick="sendPasswordReset()">
+                        <span id="forgotBtnText">Send Reset Link</span>
+                    </button>
+                </div>
+                <p id="forgotMsg" class="mt-3 text-center text-sm min-h-5"></p>
+                <button onclick="closeForgotPassword()" style="margin-top:12px;background:none;border:none;cursor:pointer;color:#64748b;font-size:12px;width:100%;text-align:center;font-family:inherit">
+                    ← Back to sign in
                 </button>
             </div>
 
-            <p id="msg" class="mt-3 text-center text-sm min-h-[20px] text-red-400"></p>
-        </div>
+        </div><!-- /glass-card -->
 
-        <!-- Reset Password Card (shown when recovery link is clicked) -->
-        <div id="resetCard" class="hidden relative bg-slate-900/80 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl animate-slide-up">
-            <div class="text-center mb-6">
-                <div class="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-green-500 to-teal-600 rounded-2xl mb-3 shadow-lg">
-                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
-                    </svg>
-                </div>
-                <h2 class="text-2xl font-bold text-white mb-1">Set New Password</h2>
-                <p class="text-white/50 text-sm">Enter your new password below</p>
-            </div>
-            <div class="space-y-4">
-                <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <svg class="w-5 h-5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                    </div>
-                    <input type="password" id="newPassword" placeholder="New password" class="w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-xl outline-none text-white placeholder-white/40 focus:border-green-500/50 focus:bg-white/10 transition-all"/>
-                </div>
-                <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <svg class="w-5 h-5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    </div>
-                    <input type="password" id="confirmNewPassword" placeholder="Confirm new password" class="w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-xl outline-none text-white placeholder-white/40 focus:border-green-500/50 focus:bg-white/10 transition-all"/>
-                </div>
-                <button onclick="setNewPassword()" id="resetBtn" class="login-btn w-full bg-gradient-to-r from-green-500 to-teal-600 text-white py-3.5 rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2">
-                    <span id="resetBtnText">Update Password</span>
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                </button>
-            </div>
-            <p id="resetMsg" class="mt-3 text-center text-sm min-h-[20px] text-red-400"></p>
-        </div>
-
-        <p class="text-center text-white/30 text-xs mt-5 animate-fade-in">Secure admin access · FileVault</p>
-        <p class="text-center text-white/20 text-xs mt-2 animate-fade-in">Built by <span class="text-white/40 font-semibold">Jonathan Acheampong</span></p>
-    </div>
+        <p class="text-center mt-5 animate-fade-in" style="color:#334155;font-size:12px">FileVault · Built by <span style="color:#475569;font-weight:600">Jonathan Acheampong</span></p>
+    </div><!-- /max-w-md -->
 
     <script>
-        const BASE = 'https://filevault.works';
-        const _supabase = supabase.createClient(
-            'https://lvhecpvwpzmstciewziv.supabase.co',
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI'
-        );
+    // ═══════════════════════════════════════════════════════════════
+    // CONFIG
+    // ═══════════════════════════════════════════════════════════════
+    const BASE = 'https://filevault.works';
+    const _supabase = supabase.createClient(
+        'https://lvhecpvwpzmstciewziv.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI'
+    );
 
-        // ── Handle password recovery link 
-       // Detect recovery token in URL hash on page load
-        if (window.location.hash.includes('type=recovery')) {
-            document.getElementById('loginCard').classList.add('hidden');
-            document.getElementById('resetCard').classList.remove('hidden');
+    // Admin emails — users in this list get directed to manager.html
+    const ADMIN_EMAILS = ['nharnharblay21@gmail.com'];
+
+    // ═══════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════
+    let _currentMode   = 'student'; // 'student' | 'admin'
+    let _studentSubTab = 'signin';
+    let _otpEmail      = '';
+
+    // ═══════════════════════════════════════════════════════════════
+    // INIT — check existing session + handle URL tokens
+    // ═══════════════════════════════════════════════════════════════
+    (async () => {
+        // Handle password recovery token in URL hash
+        if (window.location.hash.includes('type=recovery') || window.location.hash.includes('#access_token')) {
+            showReset();
+            return;
         }
 
-        _supabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'PASSWORD_RECOVERY') {
-                document.getElementById('loginCard').classList.add('hidden');
-                document.getElementById('resetCard').classList.remove('hidden');
-            }
-        });
-
-        (async () => {
-            const { data: { session } } = await _supabase.auth.getSession();
-            if (session) {
-                try {
-                    const { data: profile } = await _supabase
-                        .from('user_profiles').select('role').eq('id', session.user.id).single();
-                    if (profile?.role === 'admin' || profile?.role === 'manager') {
-                        window.location.href = BASE + '/manager.html';
-                    }
-                } catch(e) {}
-            }
-        })();
-
-        function setLoading(loading, text) {
-            const btn = document.getElementById('loginBtn');
-            btn.disabled = loading;
-            btn.classList.toggle('opacity-70', loading);
-            document.getElementById('btnText').innerText = text || 'Sign In';
+        // Handle email confirmation / magic link callback
+        const params = new URLSearchParams(window.location.hash.replace('#','?'));
+        if (params.get('type') === 'magiclink' || params.get('type') === 'signup' || params.get('access_token')) {
+            // Let Supabase pick up the session, then redirect
+            await new Promise(r => setTimeout(r, 800));
         }
 
-        function showMsg(text, color = 'red') {
-            const el = document.getElementById('msg');
-            el.innerText = text;
-            el.className = `mt-3 text-center text-sm min-h-[20px] text-${color}-400`;
+        const { data: { session } } = await _supabase.auth.getSession();
+        if (session) await routeUser(session.user);
+    })();
+
+    _supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'PASSWORD_RECOVERY') { showReset(); return; }
+        if (event === 'SIGNED_IN' && session) {
+            await routeUser(session.user);
         }
+    });
 
-        async function handleSubmit() {
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
-            if (!email || !password) { showMsg('Please enter both email and password'); return; }
+    // ── Route user based on role ──────────────────────────────────
+    async function routeUser(user) {
+        if (!user) return;
 
-            setLoading(true, 'Signing in...');
-
-            const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
-
-            if (error) {
-                setLoading(false);
-                showMsg(error.message);
-                document.getElementById('loginBtn').classList.add('error-shake');
-                setTimeout(() => document.getElementById('loginBtn').classList.remove('error-shake'), 500);
+        // 1. Check user_profiles table for explicit role
+        try {
+            const { data: profile } = await _supabase
+                .from('user_profiles').select('role').eq('id', user.id).single();
+            if (profile?.role === 'admin' || profile?.role === 'manager') {
+                showToast('✓ Welcome, Admin!', 'success');
+                setTimeout(() => { window.location.href = 'manager.html'; }, 600);
                 return;
             }
+        } catch(e) {}
 
-        
+        // 2. Fallback: check against hardcoded admin emails
+        if (ADMIN_EMAILS.includes(user.email)) {
+            showToast('✓ Welcome, Admin!', 'success');
+            setTimeout(() => { window.location.href = 'manager.html'; }, 600);
+            return;
+        }
+
+        // 3. Regular student — go to main page
+        showToast('✓ Signed in! Welcome back.', 'success');
+        setTimeout(() => { window.location.href = 'index.html'; }, 600);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // MODE SWITCHING (Student / Admin)
+    // ═══════════════════════════════════════════════════════════════
+    function setMode(mode) {
+        _currentMode = mode;
+        document.getElementById('modeStudentBtn').classList.toggle('active', mode === 'student');
+        document.getElementById('modeAdminBtn').classList.toggle('active', mode === 'admin');
+        document.getElementById('studentSection').style.display = mode === 'student' ? '' : 'none';
+        document.getElementById('adminSection').style.display   = mode === 'admin'   ? '' : 'none';
+
+        if (mode === 'student') {
+            document.getElementById('mainTitle').textContent    = 'Student Sign In';
+            document.getElementById('mainSubtitle').textContent = 'Access your lecture materials';
+        } else {
+            document.getElementById('mainTitle').textContent    = 'Admin Login';
+            document.getElementById('mainSubtitle').textContent = 'Manager portal access only';
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // STUDENT TAB SWITCHING
+    // ═══════════════════════════════════════════════════════════════
+    const STUDENT_PANELS = ['signin','signup','social','magiclink','otp'];
+    const STUDENT_TABS   = ['signin','signup','social'];
+
+    function switchStudentTab(tab) {
+        _studentSubTab = tab;
+        // Update visible tab pills
+        STUDENT_TABS.forEach(t => {
+            const btn = document.getElementById('tabStudent' + t.charAt(0).toUpperCase() + t.slice(1));
+            if (btn) btn.classList.toggle('active', t === tab);
+        });
+        // Show correct panel
+        STUDENT_PANELS.forEach(p => {
+            const el = document.getElementById('panelStudent' + p.charAt(0).toUpperCase() + p.slice(1));
+            if (el) el.className = 'panel' + (p === tab ? ' active' : '');
+        });
+        // OTP: reset to step 1
+        if (tab === 'otp') {
+            document.getElementById('otpStep1').style.display = '';
+            document.getElementById('otpStep2').style.display = 'none';
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // STUDENT — EMAIL + PASSWORD SIGN IN
+    // ═══════════════════════════════════════════════════════════════
+    async function studentSignIn() {
+        const email = (document.getElementById('sEmail').value || '').trim();
+        const pwd   = document.getElementById('sPassword').value;
+        if (!email || !pwd) { setMsg('sSignInMsg', 'Please enter your email and password.', 'error'); return; }
+
+        setBtnLoading('sSignInBtn','sSignInText','Signing in…');
+        const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pwd });
+        clearBtnLoading('sSignInBtn','sSignInText','Sign In');
+
+        if (error) { setMsg('sSignInMsg', error.message, 'error'); shake('sSignInBtn'); return; }
+        setMsg('sSignInMsg','', 'info');
+        await routeUser(data.user);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // STUDENT — SIGN UP
+    // ═══════════════════════════════════════════════════════════════
+    async function studentSignUp() {
+        const name  = (document.getElementById('sName').value || '').trim();
+        const email = (document.getElementById('sEmailSignup').value || '').trim();
+        const pwd   = document.getElementById('sPasswordSignup').value;
+        if (!name)       { setMsg('sSignUpMsg','Please enter your name.', 'error'); return; }
+        if (!email)      { setMsg('sSignUpMsg','Please enter your email.', 'error'); return; }
+        if (pwd.length < 6) { setMsg('sSignUpMsg','Password must be at least 6 characters.', 'error'); return; }
+
+        setBtnLoading('sSignUpBtn','sSignUpText','Creating account…');
+        const { error } = await _supabase.auth.signUp({
+            email, password: pwd,
+            options: { data: { display_name: name } }
+        });
+        clearBtnLoading('sSignUpBtn','sSignUpText','Create Account');
+
+        if (error) { setMsg('sSignUpMsg', error.message, 'error'); return; }
+        setMsg('sSignUpMsg', '✅ Check your email to confirm your account!', 'success');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // SOCIAL LOGIN (Google, Discord, GitHub, Facebook)
+    // ═══════════════════════════════════════════════════════════════
+    async function socialLogin(provider) {
+        const { error } = await _supabase.auth.signInWithOAuth({
+            provider,
+            options: { redirectTo: window.location.origin + '/login.html' }
+        });
+        if (error) showToast(error.message, 'error');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // MAGIC LINK
+    // ═══════════════════════════════════════════════════════════════
+    async function sendMagicLink() {
+        const email = (document.getElementById('mlEmail').value || '').trim();
+        if (!email) { setMsg('mlMsg','Please enter your email address.', 'error'); return; }
+
+        setBtnLoading('mlBtn','mlBtnText','Sending…');
+        const { error } = await _supabase.auth.signInWithOtp({
+            email,
+            options: {
+                emailRedirectTo: window.location.origin + '/login.html',
+                shouldCreateUser: true
+            }
+        });
+        clearBtnLoading('mlBtn','mlBtnText','Send Magic Link');
+
+        if (error) { setMsg('mlMsg', error.message, 'error'); return; }
+        setMsg('mlMsg', '✉️ Magic link sent! Check your inbox and spam folder. The link expires in 1 hour.', 'success');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // OTP (Email One-Time Password)
+    // ═══════════════════════════════════════════════════════════════
+    async function sendOTP() {
+        const email = (document.getElementById('otpEmail').value || '').trim();
+        if (!email) { setMsg('otpSendMsg','Please enter your email address.', 'error'); return; }
+        _otpEmail = email;
+
+        setBtnLoading('otpSendBtn','otpSendText','Sending code…');
+        const { error } = await _supabase.auth.signInWithOtp({
+            email,
+            options: { shouldCreateUser: true }
+        });
+        clearBtnLoading('otpSendBtn','otpSendText','Send Code');
+
+        if (error) { setMsg('otpSendMsg', error.message, 'error'); return; }
+
+        // Move to step 2
+        document.getElementById('otpStep1').style.display = 'none';
+        document.getElementById('otpStep2').style.display = '';
+        document.getElementById('otpEmailDisplay').textContent = email;
+        document.getElementById('otp0').focus();
+        setMsg('otpSendMsg','', 'info');
+    }
+
+    async function resendOTP() {
+        if (!_otpEmail) return;
+        const btn = document.getElementById('otpResendBtn');
+        btn.disabled = true; btn.textContent = 'Sending…';
+        await _supabase.auth.signInWithOtp({ email: _otpEmail, options: { shouldCreateUser: true } });
+        btn.textContent = 'Sent!';
+        setTimeout(() => { btn.disabled = false; btn.textContent = 'Resend code'; }, 30000);
+        showToast('Code resent to ' + _otpEmail, 'info');
+    }
+
+    async function verifyOTP() {
+        const token = [0,1,2,3,4,5].map(i => (document.getElementById('otp'+i).value || '').trim()).join('');
+        if (token.length !== 6) { setMsg('otpVerifyMsg','Please enter all 6 digits.', 'error'); return; }
+
+        setBtnLoading('otpVerifyBtn','otpVerifyText','Verifying…');
+        const { data, error } = await _supabase.auth.verifyOtp({
+            email: _otpEmail,
+            token,
+            type: 'email'
+        });
+        clearBtnLoading('otpVerifyBtn','otpVerifyText','Verify Code');
+
+        if (error) { setMsg('otpVerifyMsg', error.message, 'error'); [0,1,2,3,4,5].forEach(i => { document.getElementById('otp'+i).value=''; document.getElementById('otp'+i).classList.remove('filled'); }); document.getElementById('otp0').focus(); return; }
+        setMsg('otpVerifyMsg','', 'info');
+        await routeUser(data.user);
+    }
+
+    // OTP input helpers
+    function otpMove(idx) {
+        const el = document.getElementById('otp'+idx);
+        const v = el.value.replace(/\D/g,'');
+        el.value = v.slice(-1);
+        el.classList.toggle('filled', !!el.value);
+        if (el.value && idx < 5) document.getElementById('otp'+(idx+1)).focus();
+        if (idx === 5 && [0,1,2,3,4,5].every(i => document.getElementById('otp'+i).value)) verifyOTP();
+    }
+    function otpBack(e, idx) {
+        if (e.key === 'Backspace' && !document.getElementById('otp'+idx).value && idx > 0) {
+            document.getElementById('otp'+(idx-1)).focus();
+        }
+    }
+    function otpPaste(e) {
+        e.preventDefault();
+        const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g,'').slice(0,6);
+        paste.split('').forEach((ch, i) => {
+            if (i < 6) { const el = document.getElementById('otp'+i); el.value = ch; el.classList.add('filled'); }
+        });
+        if (paste.length === 6) { document.getElementById('otp5').focus(); verifyOTP(); }
+        else if (paste.length > 0) document.getElementById('otp'+Math.min(paste.length,5)).focus();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ADMIN SIGN IN
+    // ═══════════════════════════════════════════════════════════════
+    async function adminSignIn() {
+        const email = (document.getElementById('aEmail').value || '').trim();
+        const pwd   = document.getElementById('aPassword').value;
+        if (!email || !pwd) { setMsg('aSignInMsg','Please enter both email and password.', 'error'); return; }
+
+        setBtnLoading('aSignInBtn','aSignInText','Signing in…');
+        const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pwd });
+
+        if (error) {
+            clearBtnLoading('aSignInBtn','aSignInText','Sign In as Admin');
+            setMsg('aSignInMsg', error.message, 'error');
+            shake('aSignInBtn');
+            return;
+        }
+
+        // Verify admin role
+        let isAdmin = ADMIN_EMAILS.includes(email);
+        if (!isAdmin) {
             try {
                 const { data: profile } = await _supabase
                     .from('user_profiles').select('role').eq('id', data.user.id).single();
-
-                if (profile?.role === 'admin' || profile?.role === 'manager') {
-                    setLoading(false, '✓ Redirecting...');
-                    setTimeout(() => { window.location.href = BASE + '/manager.html'; }, 500);
-                } else {
-                    await _supabase.auth.signOut();
-                    setLoading(false);
-                    showMsg('Access denied. Admin credentials only.');
-                }
-            } catch(e) {
-                await _supabase.auth.signOut();
-                setLoading(false);
-                showMsg('Could not verify role. Please try again.');
-            }
+                isAdmin = profile?.role === 'admin' || profile?.role === 'manager';
+            } catch(e) {}
         }
 
-        function togglePassword() {
-            const input = document.getElementById('password');
-            const icon = document.getElementById('eyeIcon');
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>';
-            } else {
-                input.type = 'password';
-                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>';
-            }
+        if (!isAdmin) {
+            await _supabase.auth.signOut();
+            clearBtnLoading('aSignInBtn','aSignInText','Sign In as Admin');
+            setMsg('aSignInMsg','Access denied. This portal is for administrators only.', 'error');
+            shake('aSignInBtn');
+            return;
         }
 
-        async function setNewPassword() {
-            const newPwd = document.getElementById('newPassword').value;
-            const confirmPwd = document.getElementById('confirmNewPassword').value;
-            const resetMsg = document.getElementById('resetMsg');
+        clearBtnLoading('aSignInBtn','aSignInText','✓ Redirecting to Manager…');
+        showToast('✓ Admin verified! Redirecting…', 'success');
+        setTimeout(() => { window.location.href = 'manager.html'; }, 700);
+    }
 
-            if (!newPwd) { resetMsg.className = 'mt-3 text-center text-sm min-h-[20px] text-red-400'; resetMsg.innerText = 'Please enter a new password'; return; }
-            if (newPwd.length < 6) { resetMsg.className = 'mt-3 text-center text-sm min-h-[20px] text-red-400'; resetMsg.innerText = 'Password must be at least 6 characters'; return; }
-            if (newPwd !== confirmPwd) { resetMsg.className = 'mt-3 text-center text-sm min-h-[20px] text-red-400'; resetMsg.innerText = 'Passwords do not match'; return; }
+    // ═══════════════════════════════════════════════════════════════
+    // FORGOT / RESET PASSWORD
+    // ═══════════════════════════════════════════════════════════════
+    function openForgotPassword() {
+        const emailVal = document.getElementById('sEmail').value.trim() || '';
+        document.getElementById('forgotEmail').value = emailVal;
+        hideAllSections();
+        document.getElementById('forgotSection').style.display = '';
+        document.getElementById('modeSelector').style.display = 'none';
+        document.getElementById('mainTitle').textContent = 'Reset Password';
+        document.getElementById('mainSubtitle').textContent = 'We\'ll send a reset link to your email';
+    }
+    function openAdminForgotPassword() {
+        const emailVal = document.getElementById('aEmail').value.trim() || '';
+        document.getElementById('forgotEmail').value = emailVal;
+        hideAllSections();
+        document.getElementById('forgotSection').style.display = '';
+        document.getElementById('modeSelector').style.display = 'none';
+        document.getElementById('mainTitle').textContent = 'Reset Password';
+        document.getElementById('mainSubtitle').textContent = 'We\'ll send a reset link to your email';
+    }
+    function closeForgotPassword() {
+        document.getElementById('forgotSection').style.display = 'none';
+        document.getElementById('modeSelector').style.display = '';
+        setMode(_currentMode);
+    }
+    async function sendPasswordReset() {
+        const email = (document.getElementById('forgotEmail').value || '').trim();
+        if (!email) { setMsg('forgotMsg','Please enter your email address.', 'error'); return; }
 
-            const btn = document.getElementById('resetBtn');
-            btn.disabled = true;
-            document.getElementById('resetBtnText').innerText = 'Updating...';
-
-            const { error } = await _supabase.auth.updateUser({ password: newPwd });
-
-            if (error) {
-                btn.disabled = false;
-                document.getElementById('resetBtnText').innerText = 'Update Password';
-                resetMsg.className = 'mt-3 text-center text-sm min-h-[20px] text-red-400';
-                resetMsg.innerText = error.message;
-            } else {
-                document.getElementById('resetBtnText').innerText = '✓ Password updated!';
-                resetMsg.className = 'mt-3 text-center text-sm min-h-[20px] text-green-400';
-                resetMsg.innerText = 'Password updated successfully. Redirecting to manager...';
-                setTimeout(() => { window.location.href = BASE + '/manager.html'; }, 2000);
-            }
-        }
-
-        function forgotPassword() {
-            const email = document.getElementById('email').value.trim();
-            if (!email) { showMsg('Enter your email first'); return; }
-            _supabase.auth.resetPasswordForEmail(email, { redirectTo: BASE + '/login.html' })
-                .then(() => showMsg('Password reset link sent!', 'green'))
-                .catch(e => showMsg(e.message));
-        }
-
-        ['email', 'password'].forEach(id => {
-            document.getElementById(id)?.addEventListener('keypress', e => { if (e.key === 'Enter') handleSubmit(); });
+        setBtnLoading('forgotBtn','forgotBtnText','Sending…');
+        const { error } = await _supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.origin + '/login.html'
         });
+        clearBtnLoading('forgotBtn','forgotBtnText','Send Reset Link');
 
-        window.addEventListener('offline', () => showMsg('You are offline', 'yellow'));
+        if (error) { setMsg('forgotMsg', error.message, 'error'); return; }
+        setMsg('forgotMsg', '✅ Reset link sent! Check your inbox. The link expires in 1 hour.', 'success');
+    }
+
+    function showReset() {
+        hideAllSections();
+        document.getElementById('resetSection').style.display = '';
+        document.getElementById('modeSelector').style.display = 'none';
+        document.getElementById('mainTitle').textContent = 'Set New Password';
+        document.getElementById('mainSubtitle').textContent = 'Choose a strong new password';
+    }
+    async function setNewPassword() {
+        const newPwd     = document.getElementById('newPwd').value;
+        const confirmPwd = document.getElementById('confirmPwd').value;
+        if (!newPwd)           { setMsg('resetMsg','Please enter a new password.', 'error'); return; }
+        if (newPwd.length < 6) { setMsg('resetMsg','Password must be at least 6 characters.', 'error'); return; }
+        if (newPwd !== confirmPwd) { setMsg('resetMsg','Passwords do not match.', 'error'); return; }
+
+        setBtnLoading('resetBtn','resetBtnText','Updating…');
+        const { error } = await _supabase.auth.updateUser({ password: newPwd });
+        clearBtnLoading('resetBtn','resetBtnText','Update Password');
+
+        if (error) { setMsg('resetMsg', error.message, 'error'); return; }
+        setMsg('resetMsg','✅ Password updated! Redirecting…', 'success');
+        setTimeout(() => { window.location.href = 'index.html'; }, 2000);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════════════
+    function hideAllSections() {
+        document.getElementById('studentSection').style.display = 'none';
+        document.getElementById('adminSection').style.display   = 'none';
+        document.getElementById('resetSection').style.display   = 'none';
+        document.getElementById('forgotSection').style.display  = 'none';
+    }
+
+    function togglePwd(inputId, iconId) {
+        const inp  = document.getElementById(inputId);
+        const icon = document.getElementById(iconId);
+        if (inp.type === 'password') { inp.type = 'text'; icon.textContent = 'visibility_off'; }
+        else                         { inp.type = 'password'; icon.textContent = 'visibility'; }
+    }
+
+    function setBtnLoading(btnId, textId, text) {
+        const btn = document.getElementById(btnId);
+        const txt = document.getElementById(textId);
+        btn.disabled = true;
+        if (txt) txt.textContent = text;
+        // inject spinner if not present
+        if (!btn.querySelector('.spinner')) {
+            const sp = document.createElement('div'); sp.className = 'spinner';
+            btn.insertBefore(sp, btn.firstChild);
+        }
+    }
+    function clearBtnLoading(btnId, textId, text) {
+        const btn = document.getElementById(btnId);
+        const txt = document.getElementById(textId);
+        btn.disabled = false;
+        if (txt) txt.textContent = text;
+        const sp = btn.querySelector('.spinner');
+        if (sp) sp.remove();
+    }
+
+    function setMsg(id, text, type) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = text;
+        el.style.color = type === 'error' ? '#f87171' : type === 'success' ? '#34d399' : '#94a3b8';
+    }
+
+    function shake(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.add('error-shake');
+        setTimeout(() => el.classList.remove('error-shake'), 500);
+    }
+
+    function showToast(msg, type) {
+        const wrap = document.getElementById('toastWrap');
+        const icons = { success:'check_circle', error:'error', info:'info' };
+        const t = document.createElement('div');
+        t.className = 'toast ' + (type || 'info');
+        t.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;flex-shrink:0">' + (icons[type]||'info') + '</span><span style="flex:1">' + msg + '</span>';
+        wrap.appendChild(t);
+        setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 3500);
+    }
+
+    // Keyboard shortcuts
+    window.addEventListener('offline',  () => showToast('You are offline — check your connection.', 'error'));
+    window.addEventListener('online',   () => showToast('Back online!', 'success'));
     </script>
 </body>
 </html>
