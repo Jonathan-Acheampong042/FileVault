@@ -4272,6 +4272,29 @@
                     <div id="previewProgressFill" style="height:100%;background:linear-gradient(90deg,var(--accent,#3b82f6),#8b5cf6);border-radius:99px;width:0%;transition:width .4s ease"></div>
                 </div>
             </div>
+            <!-- ── AI Summary strip ── -->
+            <div id="previewSummaryStrip" style="display:none;padding:10px 18px 12px;border-top:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.1);flex-shrink:0">
+                <p style="font-size:10px;font-weight:800;color:rgba(255,255,255,0.22);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px">About this file</p>
+                <p id="previewSummaryText" style="font-size:12px;color:#94a3b8;line-height:1.55;margin:0"></p>
+            </div>
+            <!-- ── Comment thread ── -->
+            <div id="previewCommentsSection" style="display:none;border-top:1px solid rgba(255,255,255,0.07);flex-shrink:0;max-height:260px;display:none;flex-direction:column">
+                <div style="padding:10px 18px 6px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+                    <span style="font-size:10px;font-weight:800;color:rgba(255,255,255,0.22);text-transform:uppercase;letter-spacing:.1em">Comments</span>
+                    <span id="previewCommentCount" style="font-size:10px;color:#475569"></span>
+                </div>
+                <div id="previewCommentList" style="flex:1;overflow-y:auto;padding:0 18px 8px;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.1) transparent"></div>
+                <div style="padding:8px 18px 12px;flex-shrink:0;display:flex;gap:8px;align-items:flex-end">
+                    <textarea id="previewCommentInput" placeholder="Ask a question or leave a note…" rows="2"
+                        style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:white;font-size:12px;font-family:inherit;padding:8px 10px;resize:none;line-height:1.45;outline:none;transition:border-color .2s"
+                        onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){postComment();event.preventDefault()}"
+                        oninput="this.style.borderColor=this.value?'rgba(59,130,246,0.4)':'rgba(255,255,255,0.1)'"></textarea>
+                    <button onclick="postComment()" title="Post comment (Ctrl+Enter)"
+                        style="padding:8px 14px;background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.3);border-radius:10px;color:#93c5fd;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .2s;flex-shrink:0">
+                        Post
+                    </button>
+                </div>
+            </div>
             </div><!-- /previewMainCol -->
         </div>
     </div>
@@ -5004,6 +5027,258 @@
        window._renderCollectionsSidebar = _renderCollectionsSidebar;
    })();
    </script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     FEATURE BLOCK: Comments, AI Summary display, Need button
+     ══════════════════════════════════════════════════════════════ -->
+<style>
+    /* Comment bubbles */
+    .fv-comment { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:8px 11px; }
+    .fv-comment-meta { font-size:10px; color:#475569; margin-bottom:3px; display:flex; align-items:center; gap:6px; }
+    .fv-comment-body { font-size:12px; color:#cbd5e1; line-height:1.5; word-break:break-word; }
+    .fv-comment-del { background:none; border:none; cursor:pointer; color:#475569; font-size:11px; margin-left:auto; padding:0 2px; transition:color .15s; }
+    .fv-comment-del:hover { color:#f87171; }
+    /* Need button on cards */
+    .need-btn { border-radius:8px; border:none; cursor:pointer; font-size:20px; background:none; transition:all .2s; flex-shrink:0; padding:8px; color:#94a3b8; }
+    .need-btn.active { color:#f472b6 !important; }
+    /* Comments section toggle in action bar */
+    #previewCommentsToggleBtn { display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);border-radius:99px;color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit }
+    #previewCommentsToggleBtn.active { background:rgba(59,130,246,0.12);border-color:rgba(59,130,246,0.3);color:#93c5fd; }
+</style>
+<script>
+(function() {
+    /* ─── Helpers ──────────────────────────────────────────────────── */
+    function getUserKey() {
+        // Reuse existing _getUserKey if available, else fallback
+        if (typeof _getUserKey === 'function') return _getUserKey();
+        let k = localStorage.getItem('fvUserKey');
+        if (!k) { k = 'u_' + Math.random().toString(36).slice(2, 10); localStorage.setItem('fvUserKey', k); }
+        return k;
+    }
+    function timeAgo(iso) {
+        const d = (Date.now() - new Date(iso)) / 1000;
+        if (d < 60) return 'just now';
+        if (d < 3600) return Math.floor(d/60) + 'm ago';
+        if (d < 86400) return Math.floor(d/3600) + 'h ago';
+        return Math.floor(d/86400) + 'd ago';
+    }
+    function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    /* ─── State ────────────────────────────────────────────────────── */
+    let _commentFileId = null;
+    let _commentFileName = '';
+
+    /* ─── 1. AI Summary in modal ───────────────────────────────────── */
+    function showSummaryInModal(file) {
+        const strip = document.getElementById('previewSummaryStrip');
+        const text  = document.getElementById('previewSummaryText');
+        if (!strip || !text) return;
+        if (file && file.description) {
+            text.textContent = file.description;
+            strip.style.display = 'block';
+        } else {
+            strip.style.display = 'none';
+        }
+    }
+
+    /* ─── 2. Comment system ────────────────────────────────────────── */
+    async function loadComments(fileId) {
+        if (!fileId || !window._supabase) return;
+        const section = document.getElementById('previewCommentsSection');
+        const list    = document.getElementById('previewCommentList');
+        if (!section || !list) return;
+        list.innerHTML = '<p style="font-size:12px;color:#475569;padding:4px 0">Loading…</p>';
+        try {
+            const { data, error } = await window._supabase
+                .from('file_comments')
+                .select('*')
+                .eq('file_id', String(fileId))
+                .order('created_at', { ascending: true });
+            if (error) throw error;
+            const comments = data || [];
+            const countEl = document.getElementById('previewCommentCount');
+            if (countEl) countEl.textContent = comments.length ? comments.length + ' comment' + (comments.length > 1 ? 's' : '') : '';
+            if (!comments.length) {
+                list.innerHTML = '<p style="font-size:12px;color:#475569;padding:4px 0">No comments yet — be the first.</p>';
+                return;
+            }
+            const myKey = getUserKey();
+            list.innerHTML = comments.map(c => `
+                <div class="fv-comment" id="fvc-${esc(c.id)}">
+                    <div class="fv-comment-meta">
+                        <span class="material-symbols-outlined" style="font-size:12px">person</span>
+                        <span>${c.user_key === myKey ? '<b style="color:#93c5fd">You</b>' : 'Student'}</span>
+                        <span>·</span>
+                        <span>${timeAgo(c.created_at)}</span>
+                        ${c.user_key === myKey ? `<button class="fv-comment-del" onclick="deleteComment('${esc(c.id)}')" title="Delete"><span class="material-symbols-outlined" style="font-size:12px">delete</span></button>` : ''}
+                    </div>
+                    <div class="fv-comment-body">${esc(c.body)}</div>
+                </div>`).join('');
+            // scroll to bottom
+            list.scrollTop = list.scrollHeight;
+        } catch(e) {
+            list.innerHTML = '<p style="font-size:11px;color:#f87171">Could not load comments.</p>';
+        }
+    }
+
+    window.postComment = async function() {
+        const input = document.getElementById('previewCommentInput');
+        if (!input) return;
+        const body = input.value.trim();
+        if (!body || !_commentFileId) return;
+        if (!window._supabase) { alert('Not connected to database.'); return; }
+        input.disabled = true;
+        try {
+            const { error } = await window._supabase.from('file_comments').insert({
+                file_id: String(_commentFileId),
+                file_name: _commentFileName,
+                user_key: getUserKey(),
+                body: body.slice(0, 500)
+            });
+            if (error) throw error;
+            input.value = '';
+            input.style.borderColor = 'rgba(255,255,255,0.1)';
+            await loadComments(_commentFileId);
+        } catch(e) {
+            if (typeof showToast === 'function') showToast('Failed to post comment: ' + e.message, 'error', 3000);
+        } finally {
+            input.disabled = false;
+            input.focus();
+        }
+    };
+
+    window.deleteComment = async function(id) {
+        if (!window._supabase) return;
+        try {
+            await window._supabase.from('file_comments').delete().eq('id', id).eq('user_key', getUserKey());
+            const el = document.getElementById('fvc-' + id);
+            if (el) el.remove();
+            await loadComments(_commentFileId);
+        } catch(e) {}
+    };
+
+    function toggleCommentsSection() {
+        const section = document.getElementById('previewCommentsSection');
+        const btn     = document.getElementById('previewCommentsToggleBtn');
+        if (!section) return;
+        const open = section.style.display === 'flex';
+        section.style.display = open ? 'none' : 'flex';
+        if (btn) btn.classList.toggle('active', !open);
+        if (!open) {
+            loadComments(_commentFileId);
+            setTimeout(() => { const inp = document.getElementById('previewCommentInput'); if (inp) inp.focus(); }, 50);
+        }
+    }
+    window._toggleCommentsSection = toggleCommentsSection;
+
+    /* Inject comments toggle button into previewActionBar */
+    function injectCommentsToggle() {
+        const bar = document.getElementById('previewActionBar');
+        if (!bar || bar.querySelector('#previewCommentsToggleBtn')) return;
+        const btn = document.createElement('button');
+        btn.id = 'previewCommentsToggleBtn';
+        btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px">chat_bubble</span><span id="previewCommentsBadge">Comments</span>';
+        btn.onclick = toggleCommentsSection;
+        // Insert before the spacer div
+        const spacer = bar.querySelector('div[style*="flex:1"]');
+        if (spacer) bar.insertBefore(btn, spacer);
+        else bar.appendChild(btn);
+    }
+
+    /* ─── 3. "Need" button on file cards ──────────────────────────── */
+    const NEED_KEY = 'fvNeedFiles';
+    function getNeedSet() { try { return new Set(JSON.parse(localStorage.getItem(NEED_KEY) || '[]')); } catch { return new Set(); } }
+    function saveNeedSet(s) { localStorage.setItem(NEED_KEY, JSON.stringify([...s])); }
+
+    function applyNeedBtn(btn, active) {
+        btn.classList.toggle('active', active);
+        btn.textContent = active ? 'help' : 'help_outline';
+        btn.title = active ? 'You requested this · click to cancel' : 'Request this file';
+    }
+
+    window.toggleNeed = function(file, btn) {
+        const s = getNeedSet();
+        const had = s.has(file.url);
+        had ? s.delete(file.url) : s.add(file.url);
+        saveNeedSet(s);
+        applyNeedBtn(btn, !had);
+        if (!had) {
+            // Navigate to request form pre-filled
+            const params = new URLSearchParams({ filename: file.name || '', folder: file.folder || '' });
+            window.location.href = 'upload-request.html?' + params.toString();
+        } else {
+            if (typeof showToast === 'function') showToast('Removed from your need-list', 'info', 1800);
+        }
+    };
+
+    /* ─── Wire into openPreview ────────────────────────────────────── */
+    const _prevOpenPreviewComments = window.openPreview;
+    window.openPreview = function(url, name, folder, size) {
+        _prevOpenPreviewComments(url, name, folder, size);
+
+        // Reset state
+        _commentFileId = null;
+        _commentFileName = name;
+
+        // Find file record
+        const file = (window.allFiles || []).find(f => f.url === url);
+        if (file) {
+            _commentFileId = file.id || null;
+            _commentFileName = file.name || name;
+            showSummaryInModal(file);
+        } else {
+            showSummaryInModal(null);
+        }
+
+        // Ensure comments section is closed on new file open
+        const section = document.getElementById('previewCommentsSection');
+        if (section) section.style.display = 'none';
+        const toggleBtn = document.getElementById('previewCommentsToggleBtn');
+        if (toggleBtn) toggleBtn.classList.remove('active');
+
+        // Update badge with comment count asynchronously
+        if (_commentFileId && window._supabase) {
+            window._supabase.from('file_comments').select('id', { count: 'exact', head: true }).eq('file_id', String(_commentFileId))
+                .then(({ count }) => {
+                    const badge = document.getElementById('previewCommentsBadge');
+                    if (badge) badge.textContent = count ? `Comments (${count})` : 'Comments';
+                }).catch(() => {});
+        } else {
+            const badge = document.getElementById('previewCommentsBadge');
+            if (badge) badge.textContent = 'Comments';
+        }
+
+        injectCommentsToggle();
+    };
+
+    /* ─── Inject Need button into every file card (after renderFileList) ── */
+    const _prevRFLNeed = window.renderFileList;
+    window.renderFileList = function(files) {
+        if (_prevRFLNeed) _prevRFLNeed(files);
+        setTimeout(function() {
+            const needSet = getNeedSet();
+            document.querySelectorAll('#fileGrid .file-card').forEach(function(card) {
+                if (card.querySelector('.need-btn')) return;
+                const idx = parseInt(card.dataset.idx);
+                const file = (window._fileRegistry || [])[idx];
+                if (!file) return;
+                const actionDiv = card.querySelector('.flex.gap-0\\.5');
+                if (!actionDiv) return;
+                const btn = document.createElement('button');
+                btn.className = 'need-btn material-symbols-outlined text-xl';
+                btn.onclick = function(e) { e.stopPropagation(); window.toggleNeed(file, btn); };
+                applyNeedBtn(btn, needSet.has(file.url));
+                actionDiv.appendChild(btn);
+            });
+        }, 100);
+    };
+
+    /* ─── On DOMContentLoaded: ensure inject runs for initial render ── */
+    document.addEventListener('DOMContentLoaded', function() {
+        injectCommentsToggle();
+    });
+})();
+</script>
 
 </body>
 </html>

@@ -203,7 +203,37 @@
         }
 
         // Silently try to get push subscription on page load
-        window.addEventListener('load', () => { _captureRequestPushSub().catch(() => {}); });
+        window.addEventListener('load', () => {
+            _captureRequestPushSub().catch(() => {});
+            // Pre-fill from ?filename=...&folder=... (set by index.html "Need" button)
+            const params = new URLSearchParams(window.location.search);
+            const prefillName   = params.get('filename');
+            const prefillFolder = params.get('folder');
+            if (prefillName) {
+                const inp = document.getElementById('req_filename');
+                if (inp) {
+                    inp.value = prefillName;
+                    inp.dispatchEvent(new Event('input')); // trigger char count
+                }
+            }
+            if (prefillFolder) {
+                const folderEl = document.getElementById('req_folder');
+                if (folderEl) {
+                    folderEl.value = prefillFolder;
+                    folderEl.dispatchEvent(new Event('input'));
+                }
+            }
+            if (prefillName) {
+                // Show a subtle banner so students know the form was pre-filled
+                const banner = document.createElement('div');
+                banner.style.cssText = 'background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.25);border-radius:10px;padding:9px 14px;font-size:12px;color:#93c5fd;margin-bottom:16px;display:flex;align-items:center;gap:8px';
+                banner.innerHTML = '<span class="material-symbols-outlined" style="font-size:15px;flex-shrink:0">auto_fix_high</span>Form pre-filled from your Vault — just add a reason and submit!';
+                const form = document.getElementById('requestForm');
+                if (form) form.insertBefore(banner, form.firstChild);
+                // Scroll the reason field into view gently
+                setTimeout(() => { const r = document.getElementById('req_reason'); if (r) r.focus(); }, 300);
+            }
+        });
 
         function updateCount(inputId, countId, max) {
             const el = document.getElementById(inputId);
