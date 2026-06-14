@@ -11,7 +11,17 @@
     <link rel="icon" href="filevault%20logo.png">
     <style>
         * { box-sizing: border-box; }
+        :root { --accent-from: #3b82f6; --accent-to: #7c3aed; }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0; }
+
+        /* ── Appearance: compact mode & text size ── */
+        body.compact-mode .section-card { padding: 13px 16px; }
+        body.compact-mode .space-y-5 > * + * { margin-top: 12px !important; }
+        body.compact-mode .section-title { margin-bottom: 8px; }
+        body.compact-mode .toggle-row { padding: 7px 0; }
+        body.compact-mode .glass-card { padding: 18px !important; }
+        body.fs-large #profileContent { zoom: 1.1; }
+        body.fs-small #profileContent { zoom: 0.92; }
 
         .bg-fixed-image { position: fixed; inset: 0; background-image: url('screen.png'); background-size: cover; background-position: center; background-repeat: no-repeat; filter: saturate(0.72) brightness(0.4); z-index: -2; }
         .bg-overlay { position: fixed; inset: 0; background: radial-gradient(circle at top left, rgba(59,130,246,0.18), transparent 30%), radial-gradient(circle at bottom right, rgba(139,92,246,0.16), transparent 25%), linear-gradient(180deg, rgba(4,7,18,0.90), rgba(2,6,23,0.97)); z-index: -1; pointer-events: none; }
@@ -33,7 +43,7 @@
         .auth-input-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:rgba(255,255,255,0.35); font-size:18px; pointer-events:none; }
         input:-webkit-autofill,input:-webkit-autofill:hover,input:-webkit-autofill:focus { -webkit-box-shadow:0 0 0 1000px rgba(255,255,255,0.05) inset !important; -webkit-text-fill-color:#fff !important; transition:background-color 5000s ease-in-out 0s !important; }
 
-        .btn-primary { position:relative; overflow:hidden; width:100%; padding:13px; border:none; border-radius:13px; background:linear-gradient(135deg,#3b82f6,#7c3aed); color:white; font-weight:800; font-size:14px; cursor:pointer; font-family:inherit; transition:transform .2s, box-shadow .2s, opacity .2s; display:flex; align-items:center; justify-content:center; gap:8px; }
+        .btn-primary { position:relative; overflow:hidden; width:100%; padding:13px; border:none; border-radius:13px; background:linear-gradient(135deg,var(--accent-from),var(--accent-to)); color:white; font-weight:800; font-size:14px; cursor:pointer; font-family:inherit; transition:transform .2s, box-shadow .2s, opacity .2s; display:flex; align-items:center; justify-content:center; gap:8px; }
         .btn-primary::before { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent); transition:left .5s; }
         .btn-primary:hover:not(:disabled)::before { left:100%; }
         .btn-primary:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 16px 32px -8px rgba(59,130,246,0.5); }
@@ -116,7 +126,7 @@
         .toggle-switch { position:relative;width:42px;height:24px;flex-shrink:0; }
         .toggle-switch input { opacity:0;width:0;height:0; }
         .toggle-track { position:absolute;inset:0;background:rgba(255,255,255,0.1);border-radius:99px;transition:background .2s;cursor:pointer; }
-        .toggle-switch input:checked + .toggle-track { background:linear-gradient(135deg,#3b82f6,#7c3aed); }
+        .toggle-switch input:checked + .toggle-track { background:linear-gradient(135deg,var(--accent-from),var(--accent-to)); }
         .toggle-thumb { position:absolute;width:18px;height:18px;background:white;border-radius:50%;top:3px;left:3px;transition:transform .2s;pointer-events:none; }
         .toggle-switch input:checked ~ .toggle-thumb { transform:translateX(18px); }
 
@@ -150,6 +160,40 @@
         .session-row:last-child { border-bottom:none; }
         .session-key { color:#64748b;font-weight:600; }
         .session-val { color:#cbd5e1;font-weight:700;text-align:right;word-break:break-all;max-width:60%; }
+
+        /* ── Appearance: accent swatches & segmented control ── */
+        .accent-swatches { display:flex; gap:10px; flex-wrap:wrap; }
+        .accent-swatch { width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,0.12);cursor:pointer;padding:0;transition:transform .15s, border-color .15s; }
+        .accent-swatch:hover { transform:scale(1.1); }
+        .accent-swatch.active { border-color:#fff; box-shadow:0 0 0 3px rgba(255,255,255,0.12); }
+
+        .seg-control { display:flex; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:3px; gap:3px; }
+        .seg-control button { flex:1; padding:8px; border:none; background:transparent; color:#94a3b8; font-size:12px; font-weight:700; border-radius:9px; cursor:pointer; font-family:inherit; transition:all .2s; }
+        .seg-control button.active { background:linear-gradient(135deg,var(--accent-from),var(--accent-to)); color:white; }
+
+        /* ── Achievements / badges ── */
+        .badge-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+        .badge-cell { display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 8px; border-radius:14px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); text-align:center; transition:all .2s; }
+        .badge-cell.unlocked { background:rgba(59,130,246,0.08); border-color:rgba(59,130,246,0.22); }
+        .badge-cell .badge-icon { width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.06); }
+        .badge-cell.unlocked .badge-icon { background:linear-gradient(135deg,var(--accent-from),var(--accent-to)); }
+        .badge-cell .badge-icon .material-symbols-outlined { font-size:20px; color:#475569; }
+        .badge-cell.unlocked .badge-icon .material-symbols-outlined { color:white; }
+        .badge-name { font-size:11px; font-weight:800; color:#cbd5e1; margin:0; }
+        .badge-cell:not(.unlocked) .badge-name { color:#475569; }
+        .badge-desc { font-size:9.5px; color:#475569; margin:0; line-height:1.3; }
+
+        /* ── Connected accounts ── */
+        .provider-row { display:flex; align-items:center; gap:12px; padding:10px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:12px; }
+        .provider-icon { width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(255,255,255,0.06); }
+        .provider-info { flex:1; min-width:0; }
+        .provider-name { font-size:13px; font-weight:700; color:#e2e8f0; margin:0; }
+        .provider-email { font-size:11px; color:#64748b; overflow:hidden;text-overflow:ellipsis;white-space:nowrap; margin:0; }
+
+        /* ── Two-factor / security ── */
+        .mfa-status { display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:12px; font-size:12px; font-weight:700; margin-top:10px; }
+        .mfa-status.on  { background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); color:#34d399; }
+        .mfa-status.off { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); color:#64748b; }
     </style>
 </head>
 <body>
@@ -184,7 +228,7 @@
                 <div class="glass-card rounded-3xl p-6 text-center">
                     <!-- Clickable avatar with upload overlay -->
                     <div class="avatar-upload-ring" onclick="document.getElementById('avatarFileInput').click()" title="Change profile photo">
-                        <div id="pPhotoWrap" style="width:84px;height:84px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:white;overflow:hidden;border:3px solid rgba(255,255,255,0.1)">?</div>
+                        <div id="pPhotoWrap" style="width:84px;height:84px;border-radius:50%;background:linear-gradient(135deg,var(--accent-from),var(--accent-to));display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:white;overflow:hidden;border:3px solid rgba(255,255,255,0.1)">?</div>
                         <div class="avatar-overlay"><span class="material-symbols-outlined">photo_camera</span></div>
                     </div>
                     <input type="file" id="avatarFileInput" accept="image/*" style="display:none" onchange="handleAvatarUpload(this)"/>
@@ -225,6 +269,45 @@
                         <span id="resendVerifyText">Resend</span>
                     </button>
                 </div>
+
+                <!-- Achievements -->
+                <div class="section-card" id="achievementsSection">
+                    <div class="section-title"><span class="material-symbols-outlined">military_tech</span> Achievements</div>
+                    <div class="badge-grid" id="badgeGrid"></div>
+                </div>
+
+                <!-- Appearance -->
+                <div class="section-card">
+                    <div class="section-title"><span class="material-symbols-outlined">palette</span> Appearance</div>
+                    <p class="field-label">Accent Color</p>
+                    <div class="accent-swatches" id="accentSwatches">
+                        <button class="accent-swatch" data-from="#3b82f6" data-to="#7c3aed" style="background:linear-gradient(135deg,#3b82f6,#7c3aed)" onclick="setAccent('#3b82f6','#7c3aed',this)" title="Blue / Violet"></button>
+                        <button class="accent-swatch" data-from="#10b981" data-to="#059669" style="background:linear-gradient(135deg,#10b981,#059669)" onclick="setAccent('#10b981','#059669',this)" title="Emerald"></button>
+                        <button class="accent-swatch" data-from="#f59e0b" data-to="#ea580c" style="background:linear-gradient(135deg,#f59e0b,#ea580c)" onclick="setAccent('#f59e0b','#ea580c',this)" title="Amber"></button>
+                        <button class="accent-swatch" data-from="#ec4899" data-to="#be185d" style="background:linear-gradient(135deg,#ec4899,#be185d)" onclick="setAccent('#ec4899','#be185d',this)" title="Pink"></button>
+                        <button class="accent-swatch" data-from="#06b6d4" data-to="#0e7490" style="background:linear-gradient(135deg,#06b6d4,#0e7490)" onclick="setAccent('#06b6d4','#0e7490',this)" title="Cyan"></button>
+                    </div>
+
+                    <p class="field-label" style="margin-top:18px">Text Size</p>
+                    <div class="seg-control" id="fontSizeControl">
+                        <button data-size="small" onclick="setFontSize('small')">Small</button>
+                        <button data-size="medium" onclick="setFontSize('medium')">Medium</button>
+                        <button data-size="large" onclick="setFontSize('large')">Large</button>
+                    </div>
+
+                    <div class="toggle-row" style="margin-top:6px">
+                        <div>
+                            <p class="toggle-label">Compact mode</p>
+                            <p class="toggle-sub">Reduce spacing to fit more on screen</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="compactModeToggle" onchange="toggleCompactMode(this.checked)"/>
+                            <span class="toggle-track"></span>
+                            <span class="toggle-thumb"></span>
+                        </label>
+                    </div>
+                </div>
+
 
                 <!-- Display name -->
                 <div class="section-card">
@@ -280,9 +363,52 @@
                     <p id="pwdMsg" class="mt-2 text-center text-sm min-h-5"></p>
                 </div>
 
+                <!-- Two-Factor Authentication -->
+                <div class="section-card">
+                    <div class="section-title"><span class="material-symbols-outlined">verified_user</span> Two-Factor Authentication</div>
+                    <div class="toggle-row">
+                        <div>
+                            <p class="toggle-label">Email code at sign-in</p>
+                            <p class="toggle-sub">After your password, we'll email you a 6-digit code to confirm it's you</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="mfaEmailToggle" onchange="toggleEmailMFA(this.checked)"/>
+                            <span class="toggle-track"></span>
+                            <span class="toggle-thumb"></span>
+                        </label>
+                    </div>
+                    <div class="mfa-status off" id="mfaStatus">
+                        <span class="material-symbols-outlined" style="font-size:16px">gpp_maybe</span>
+                        <span id="mfaStatusText">Two-factor authentication is off</span>
+                    </div>
+                </div>
+
+                <!-- Connected Accounts -->
+                <div class="section-card">
+                    <div class="section-title"><span class="material-symbols-outlined">link</span> Connected Accounts</div>
+                    <div id="connectedAccountsList" class="space-y-2">
+                        <p style="font-size:12px;color:#64748b;text-align:center;padding:8px 0">Loading…</p>
+                    </div>
+                </div>
+
                 <!-- Notification preferences -->
                 <div class="section-card">
                     <div class="section-title"><span class="material-symbols-outlined">notifications</span> Notification Preferences</div>
+
+                    <!-- Master push toggle -->
+                    <div class="toggle-row" id="pushMasterRow">
+                        <div>
+                            <p class="toggle-label">Push Notifications</p>
+                            <p class="toggle-sub" id="pushStatusSub">Get alerts on this device, even when FileVault is closed</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="pushMasterToggle" onchange="togglePushSubscription(this.checked)"/>
+                            <span class="toggle-track"></span>
+                            <span class="toggle-thumb"></span>
+                        </label>
+                    </div>
+                    <p id="pushUnsupportedMsg" style="display:none;font-size:11px;color:#64748b;margin:0 0 10px">Push notifications aren't supported in this browser.</p>
+
                     <div class="toggle-row">
                         <div>
                             <p class="toggle-label">New file alerts</p>
@@ -410,6 +536,9 @@
     <script>
         const _supabase = supabase.createClient('https://lvhecpvwpzmstciewziv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI');
         const ADMIN_EMAILS = ['admin@nharnharblay21@gmail.com'];
+        const PUSH_API = window.location.hostname === 'localhost'
+            ? 'http://localhost:3000'
+            : 'https://project-one-187u.onrender.com';
         let _currentUser = null;
 
         // ═══════════════════════════════════════════════════════════
@@ -428,12 +557,16 @@
             _currentUser = session.user;
             populateProfile(_currentUser);
             showVerifyBanner(_currentUser);
+            loadThemePrefs();
             loadProfileStats(_currentUser);
             loadNotifPrefs();
             loadRequestHistory(_currentUser);
             loadRecentDownloads();
             loadPinnedFiles();
             loadSessionInfo(_currentUser);
+            loadMfaStatus(_currentUser);
+            loadConnectedAccounts();
+            initPushUI();
             document.getElementById('profileLoading').style.display = 'none';
             document.getElementById('profileContent').style.display = 'block';
         })();
@@ -467,11 +600,11 @@
                 img.onerror = function() {
                     photoWrap.innerHTML = '';
                     photoWrap.textContent = initials;
-                    photoWrap.style.background = 'linear-gradient(135deg,#3b82f6,#7c3aed)';
+                    photoWrap.style.background = 'linear-gradient(135deg,var(--accent-from),var(--accent-to))';
                 };
                 photoWrap.appendChild(img);
             } else {
-                photoWrap.style.background = 'linear-gradient(135deg,#3b82f6,#7c3aed)';
+                photoWrap.style.background = 'linear-gradient(135deg,var(--accent-from),var(--accent-to))';
                 photoWrap.style.border = '3px solid rgba(255,255,255,0.1)';
                 photoWrap.textContent = initials;
             }
@@ -662,6 +795,8 @@
             } catch (_) {
                 document.getElementById('statRequests').textContent = '—';
             }
+
+            loadAchievements();
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -684,6 +819,97 @@
             document.getElementById('notifMsg').textContent = '✅ Preferences saved.';
             document.getElementById('notifMsg').style.color = '#34d399';
             setTimeout(() => { document.getElementById('notifMsg').textContent = ''; }, 2000);
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // PUSH NOTIFICATIONS — real Web Push subscription
+        // ═══════════════════════════════════════════════════════════
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = atob(base64);
+            const out = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) out[i] = rawData.charCodeAt(i);
+            return out;
+        }
+
+        async function initPushUI() {
+            const row = document.getElementById('pushMasterRow');
+            const toggle = document.getElementById('pushMasterToggle');
+            const sub = document.getElementById('pushStatusSub');
+
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                row.style.display = 'none';
+                document.getElementById('pushUnsupportedMsg').style.display = 'block';
+                return;
+            }
+            try {
+                const reg = await navigator.serviceWorker.getRegistration();
+                const existing = reg ? await reg.pushManager.getSubscription() : null;
+                toggle.checked = !!existing;
+                sub.textContent = existing
+                    ? 'Enabled on this device'
+                    : 'Get alerts on this device, even when FileVault is closed';
+            } catch (_) { /* leave defaults */ }
+        }
+
+        async function togglePushSubscription(enable) {
+            const toggle = document.getElementById('pushMasterToggle');
+            const sub = document.getElementById('pushStatusSub');
+            toggle.disabled = true;
+
+            try {
+                if (enable) {
+                    if (Notification.permission === 'denied') {
+                        throw new Error('Notifications are blocked for FileVault in your browser settings.');
+                    }
+                    const keyRes = await fetch(PUSH_API + '/api/push/vapid-public-key');
+                    const { key } = await keyRes.json();
+                    if (!key) throw new Error('Push notifications are not configured on the server yet.');
+
+                    let reg;
+                    try { reg = await navigator.serviceWorker.register('/Sw.js'); }
+                    catch (e) { /* may already be registered */ }
+                    reg = await navigator.serviceWorker.ready;
+
+                    let subscription = await reg.pushManager.getSubscription();
+                    if (!subscription) {
+                        const perm = await Notification.requestPermission();
+                        if (perm !== 'granted') throw new Error('Permission was not granted.');
+                        subscription = await reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(key)
+                        });
+                    }
+
+                    await fetch(PUSH_API + '/api/push/subscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ subscription: subscription.toJSON(), userId: _currentUser && _currentUser.id })
+                    });
+
+                    sub.textContent = 'Enabled on this device';
+                    showToast('Push notifications enabled', 'success');
+                } else {
+                    const reg = await navigator.serviceWorker.getRegistration();
+                    const subscription = reg ? await reg.pushManager.getSubscription() : null;
+                    if (subscription) {
+                        await fetch(PUSH_API + '/api/push/unsubscribe', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ endpoint: subscription.endpoint })
+                        });
+                        await subscription.unsubscribe();
+                    }
+                    sub.textContent = 'Get alerts on this device, even when FileVault is closed';
+                    showToast('Push notifications disabled', 'info');
+                }
+            } catch (err) {
+                toggle.checked = !enable;
+                showToast(err.message || 'Could not update push settings', 'error');
+            } finally {
+                toggle.disabled = false;
+            }
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -812,6 +1038,7 @@
 
             if (!entries.length) {
                 list.innerHTML = '<p style="font-size:12px;color:#475569;text-align:center;padding:8px 0">You haven\'t pinned any files yet. Pin files on the Vault to see them here.</p>';
+                loadAchievements();
                 return;
             }
             list.innerHTML = entries.slice(0, 8).map(f => {
@@ -826,6 +1053,7 @@
                     ${folder ? `<span class="file-chip-meta">${folder}</span>` : ''}
                 </a>`;
             }).join('');
+            loadAchievements();
         }
 
         function clearPinnedFiles() {
@@ -881,7 +1109,214 @@
             }
             toRemove.forEach(k => localStorage.removeItem(k));
             loadNotifPrefs(); // refresh toggles to defaults
+            loadThemePrefs(); // refresh appearance toggles to defaults
             showToast('All preferences reset to defaults', 'info');
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // APPEARANCE — accent color, text size, compact mode
+        // ═══════════════════════════════════════════════════════════
+        const THEME_KEY = 'fvThemePrefs';
+
+        function loadThemePrefs() {
+            let prefs = {};
+            try { prefs = JSON.parse(localStorage.getItem(THEME_KEY) || '{}'); } catch (_) {}
+
+            const accentFrom = prefs.accentFrom || '#3b82f6';
+            const accentTo   = prefs.accentTo   || '#7c3aed';
+            document.documentElement.style.setProperty('--accent-from', accentFrom);
+            document.documentElement.style.setProperty('--accent-to', accentTo);
+            document.querySelectorAll('.accent-swatch').forEach(sw => {
+                sw.classList.toggle('active', sw.dataset.from.toLowerCase() === accentFrom.toLowerCase());
+            });
+
+            const fontSize = prefs.fontSize || 'medium';
+            document.body.classList.remove('fs-small', 'fs-large');
+            if (fontSize === 'small') document.body.classList.add('fs-small');
+            if (fontSize === 'large') document.body.classList.add('fs-large');
+            document.querySelectorAll('#fontSizeControl button').forEach(b => {
+                b.classList.toggle('active', b.dataset.size === fontSize);
+            });
+
+            document.body.classList.toggle('compact-mode', !!prefs.compact);
+            document.getElementById('compactModeToggle').checked = !!prefs.compact;
+        }
+
+        function saveThemePrefs(patch) {
+            let prefs = {};
+            try { prefs = JSON.parse(localStorage.getItem(THEME_KEY) || '{}'); } catch (_) {}
+            prefs = { ...prefs, ...patch };
+            localStorage.setItem(THEME_KEY, JSON.stringify(prefs));
+        }
+
+        function setAccent(from, to, btn) {
+            document.documentElement.style.setProperty('--accent-from', from);
+            document.documentElement.style.setProperty('--accent-to', to);
+            document.querySelectorAll('.accent-swatch').forEach(sw => sw.classList.remove('active'));
+            btn.classList.add('active');
+            saveThemePrefs({ accentFrom: from, accentTo: to });
+            showToast('Accent color updated', 'success');
+        }
+
+        function setFontSize(size) {
+            document.body.classList.remove('fs-small', 'fs-large');
+            if (size === 'small') document.body.classList.add('fs-small');
+            if (size === 'large') document.body.classList.add('fs-large');
+            document.querySelectorAll('#fontSizeControl button').forEach(b => {
+                b.classList.toggle('active', b.dataset.size === size);
+            });
+            saveThemePrefs({ fontSize: size });
+        }
+
+        function toggleCompactMode(on) {
+            document.body.classList.toggle('compact-mode', on);
+            saveThemePrefs({ compact: on });
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // ACHIEVEMENTS
+        // ═══════════════════════════════════════════════════════════
+        function loadAchievements() {
+            const downloads = parseInt(document.getElementById('statDownloads').textContent, 10) || 0;
+            const requests  = parseInt(document.getElementById('statRequests').textContent, 10) || 0;
+            const days      = parseInt(document.getElementById('statDaysMember').textContent, 10) || 0;
+
+            let pinned = {};
+            try { pinned = JSON.parse(localStorage.getItem('fvPinned') || '{}'); } catch (_) {}
+            const pinnedCount = Object.keys(pinned).length;
+
+            const verified = !!(_currentUser && _currentUser.email_confirmed_at);
+            const meta = (_currentUser && _currentUser.user_metadata) || {};
+            const hasCustomName = !!(meta.display_name && meta.display_name.trim());
+
+            const badges = [
+                { name: 'First Download', desc: 'Download a file',     icon: 'download',           unlocked: downloads >= 1 },
+                { name: 'Power User',     desc: '10 downloads',          icon: 'bolt',               unlocked: downloads >= 10 },
+                { name: 'Requester',      desc: 'Made a file request',   icon: 'forum',              unlocked: requests >= 1 },
+                { name: 'Collector',      desc: 'Pinned a file',         icon: 'push_pin',           unlocked: pinnedCount >= 1 },
+                { name: 'Verified',       desc: 'Verified your email',   icon: 'verified',           unlocked: verified },
+                { name: 'Profile Pro',    desc: 'Set a display name',    icon: 'badge',              unlocked: hasCustomName },
+                { name: 'Week One',       desc: '7 days active',         icon: 'calendar_today',     unlocked: days >= 7 },
+                { name: 'Regular',        desc: '30 days active',        icon: 'calendar_month',     unlocked: days >= 30 },
+                { name: 'Veteran',        desc: '1 year active',         icon: 'workspace_premium',  unlocked: days >= 365 },
+            ];
+
+            document.getElementById('badgeGrid').innerHTML = badges.map(b => `
+                <div class="badge-cell ${b.unlocked ? 'unlocked' : ''}">
+                    <div class="badge-icon"><span class="material-symbols-outlined">${b.icon}</span></div>
+                    <p class="badge-name">${b.name}</p>
+                    <p class="badge-desc">${b.desc}</p>
+                </div>
+            `).join('');
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // TWO-FACTOR AUTHENTICATION (email code at sign-in)
+        // ═══════════════════════════════════════════════════════════
+        function loadMfaStatus(user) {
+            const meta = user.user_metadata || {};
+            const enabled = !!meta.mfa_email_required;
+            document.getElementById('mfaEmailToggle').checked = enabled;
+            updateMfaStatusUI(enabled);
+        }
+
+        function updateMfaStatusUI(enabled) {
+            const status = document.getElementById('mfaStatus');
+            const text   = document.getElementById('mfaStatusText');
+            const icon   = status.querySelector('.material-symbols-outlined');
+            status.className = 'mfa-status ' + (enabled ? 'on' : 'off');
+            icon.textContent = enabled ? 'verified_user' : 'gpp_maybe';
+            text.textContent = enabled
+                ? 'Two-factor authentication is on — we\'ll email you a code at sign-in'
+                : 'Two-factor authentication is off';
+        }
+
+        async function toggleEmailMFA(enable) {
+            const toggle = document.getElementById('mfaEmailToggle');
+            toggle.disabled = true;
+            const { data, error } = await _supabase.auth.updateUser({ data: { mfa_email_required: enable } });
+            toggle.disabled = false;
+
+            if (error) {
+                toggle.checked = !enable;
+                showToast('Could not update 2FA: ' + error.message, 'error');
+                return;
+            }
+            if (data && data.user) _currentUser = data.user;
+            updateMfaStatusUI(enable);
+            showToast(enable ? 'Two-factor authentication enabled' : 'Two-factor authentication disabled', enable ? 'success' : 'info');
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // CONNECTED ACCOUNTS
+        // ═══════════════════════════════════════════════════════════
+        const PROVIDER_META = {
+            email:  { name: 'Email & Password', icon: 'mail',        color: '#60a5fa' },
+            google: { name: 'Google',            icon: 'g_translate', color: '#f87171' },
+        };
+
+        async function loadConnectedAccounts() {
+            const list = document.getElementById('connectedAccountsList');
+            let identities = (_currentUser && _currentUser.identities) || [];
+
+            try {
+                const { data, error } = await _supabase.auth.getUserIdentities();
+                if (!error && data && data.identities) identities = data.identities;
+            } catch (_) { /* fall back to session identities */ }
+
+            const hasGoogle = identities.some(i => i.provider === 'google');
+
+            let html = identities.map(id => {
+                const p = PROVIDER_META[id.provider] || { name: id.provider, icon: 'link', color: '#94a3b8' };
+                const email = (id.identity_data && id.identity_data.email) || _currentUser.email;
+                const canUnlink = identities.length > 1;
+                return `<div class="provider-row">
+                    <div class="provider-icon"><span class="material-symbols-outlined" style="color:${p.color}">${p.icon}</span></div>
+                    <div class="provider-info">
+                        <p class="provider-name">${p.name}</p>
+                        <p class="provider-email">${email}</p>
+                    </div>
+                    ${canUnlink
+                        ? `<button class="btn-danger-sm" onclick="unlinkProvider('${id.provider}')">Disconnect</button>`
+                        : `<span class="pd-badge student">Primary</span>`}
+                </div>`;
+            }).join('');
+
+            if (!hasGoogle) {
+                html += `<button class="btn-secondary mt-2" onclick="linkGoogleAccount()">
+                    <span class="material-symbols-outlined" style="font-size:16px">add_link</span> Connect Google Account
+                </button>`;
+            }
+
+            list.innerHTML = html || '<p style="font-size:12px;color:#64748b;text-align:center;padding:8px 0">No connected accounts found.</p>';
+        }
+
+        async function linkGoogleAccount() {
+            try {
+                const { error } = await _supabase.auth.linkIdentity({
+                    provider: 'google',
+                    options: { redirectTo: window.location.origin + '/profile.html' }
+                });
+                if (error) throw error;
+            } catch (err) {
+                showToast('Could not start Google linking: ' + err.message, 'error');
+            }
+        }
+
+        async function unlinkProvider(provider) {
+            if (!confirm(`Disconnect your ${provider} account from FileVault?`)) return;
+            try {
+                const { data, error: idErr } = await _supabase.auth.getUserIdentities();
+                if (idErr) throw idErr;
+                const identity = (data.identities || []).find(i => i.provider === provider);
+                if (!identity) return;
+                const { error } = await _supabase.auth.unlinkIdentity(identity);
+                if (error) throw error;
+                showToast(provider.charAt(0).toUpperCase() + provider.slice(1) + ' account disconnected', 'info');
+                loadConnectedAccounts();
+            } catch (err) {
+                showToast('Could not disconnect: ' + err.message, 'error');
+            }
         }
 
         // ═══════════════════════════════════════════════════════════

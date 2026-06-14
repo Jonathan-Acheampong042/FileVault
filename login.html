@@ -651,7 +651,38 @@
             return;
         }
         setMsg('sSignInMsg','', 'info');
+
+        // ── Two-factor: if this account requires an email code, send it
+        // and finish sign-in only after the code is verified ──
+        if (data.user && data.user.user_metadata && data.user.user_metadata.mfa_email_required) {
+            await beginEmailMfaChallenge(data.user.email);
+            return;
+        }
+
         await routeUser(data.user);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // EMAIL 2FA — second factor after password sign-in
+    // ═══════════════════════════════════════════════════════════════
+    async function beginEmailMfaChallenge(email) {
+        // Drop the password-only session until the code is verified
+        await _supabase.auth.signOut();
+        _redirecting = false;
+
+        _otpEmail = email;
+        const { error } = await _supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+        if (error) {
+            setMsg('sSignInMsg', 'Could not send your verification code: ' + error.message, 'error');
+            return;
+        }
+
+        switchStudentTab('otp');
+        document.getElementById('otpStep1').style.display = 'none';
+        document.getElementById('otpStep2').style.display = '';
+        document.getElementById('otpEmailDisplay').textContent = email;
+        document.getElementById('otp0').focus();
+        showToast('Verification code sent to ' + email, 'info');
     }
 
     async function resendConfirmation(email) {
