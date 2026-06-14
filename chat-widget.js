@@ -314,7 +314,7 @@ let chatMessages = [];
 // ─── INIT ────────────────────────────────────────────────────
 function initChatWidget() {
     const html = `
-    <div id="aiChatWidget" style="position:fixed;bottom:24px;right:24px;z-index:9999;font-family:'Plus Jakarta Sans',sans-serif">
+    <div id="aiChatWidget" style="position:fixed;z-index:9999;font-family:'Plus Jakarta Sans',sans-serif;">
         <!-- Chat Window -->
         <div id="chatWindow" style="display:none;margin-bottom:16px;width:340px;height:480px;background:rgba(10,15,30,0.95);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.1);border-radius:20px;overflow:hidden;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.6)">
             <!-- Header -->
@@ -390,7 +390,13 @@ function initChatWidget() {
             #chatMessages::-webkit-scrollbar-track { background: transparent; }
             #chatMessages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 
-            /* ── Mobile: right-anchored widget — window stays partial right, never overflows ── */
+            /* ── Default (desktop) position ── */
+            #aiChatWidget {
+                bottom: 24px;
+                right: 24px;
+            }
+
+            /* ── Mobile: sit above the bottom nav bar ── */
             @media (max-width: 1023px) {
                 #aiChatWidget {
                     right: 16px !important;
