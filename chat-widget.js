@@ -391,11 +391,11 @@ function initChatWidget() {
             #chatMessages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 
             /* ── Mobile: right-anchored widget — window stays partial right, never overflows ── */
-            @media (max-width: 768px) {
+            @media (max-width: 1023px) {
                 #aiChatWidget {
                     right: 16px !important;
                     left: auto !important;
-                    bottom: calc(var(--mobile-nav-height, 76px) + env(safe-area-inset-bottom, 0px) + 16px) !important;
+                    bottom: calc(var(--mobile-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 12px) !important;
                     width: auto !important;
                     box-sizing: border-box !important;
                 }

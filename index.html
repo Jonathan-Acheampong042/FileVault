@@ -89,15 +89,18 @@
         .type-btn.active { box-shadow:0 0 0 1px rgba(59,130,246,.25); }
 
         /* ── Back to top button ── */
-        :root { --mobile-nav-height: 76px; }
+        /* Nav bar is ~64px tall; 72px gives a reliable clearance on all devices */
+        :root { --mobile-nav-height: 72px; }
         #backToTop { position:fixed;bottom:90px;right:20px;z-index:9000;width:42px;height:42px;border-radius:50%;background:rgba(59,130,246,0.85);border:1px solid rgba(59,130,246,0.5);backdrop-filter:blur(12px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 20px rgba(59,130,246,0.35);opacity:0;pointer-events:none;transition:opacity .3s,transform .3s; }
         #backToTop.visible { opacity:1;pointer-events:auto; }
         #backToTop:hover { transform:translateY(-3px); }
         @media (min-width:1024px) { #backToTop { bottom:100px;right:24px; } }
-        /* ── Mobile: keep back-to-top and chat widget above the bottom nav bar ── */
+        /* ── Mobile: both buttons sit above the nav bar, scroll-to-top stacked above the chatbot ── */
         @media (max-width:1023px) {
-            #backToTop { bottom:calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 16px) !important; right:16px; }
-            #aiChatWidget { bottom:calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 16px) !important; }
+            /* Chatbot sits just above the nav bar */
+            #aiChatWidget { bottom:calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 12px) !important; right:16px !important; }
+            /* Scroll-to-top sits above the chatbot button (chatbot toggle is 48px tall + 10px gap) */
+            #backToTop { bottom:calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 12px + 48px + 10px) !important; right:16px !important; }
         }
 
         /* ── Skeleton loading ── */
