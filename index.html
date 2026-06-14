@@ -2316,9 +2316,9 @@
                 if (error) { console.warn('Announcements fetch error:', error.message); return; }
                 if (!data || data.length === 0) { console.info('No announcements in table.'); return; }
 
-                // Only filter by expires_at — no "active" column needed
+                // Filter out drafts and expired announcements
                 const now = new Date();
-                const active = data.filter(a => !a.expires_at || new Date(a.expires_at) > now);
+                const active = data.filter(a => (a.status || 'published') === 'published' && (!a.expires_at || new Date(a.expires_at) > now));
                 if (!active.length) { console.info('No active announcements.'); return; }
 
                 const container = document.getElementById('announcementContainer');
@@ -3379,9 +3379,24 @@
                 // ── New announcement posted ──
                 .on('postgres_changes',
                     { event: 'INSERT', schema: 'public', table: 'announcements' },
-                    function() {
+                    function(payload) {
+                        const row = payload.new || {};
                         loadAnnouncement();
-                        showToast('📢 A new announcement was posted!', 'info', 5000);
+                        if ((row.status || 'published') === 'published') {
+                            showToast('📢 A new announcement was posted!', 'info', 5000);
+                        }
+                    }
+                )
+                // ── Announcement published (draft → published) ──
+                .on('postgres_changes',
+                    { event: 'UPDATE', schema: 'public', table: 'announcements' },
+                    function(payload) {
+                        const oldRow = payload.old || {};
+                        const newRow = payload.new || {};
+                        loadAnnouncement();
+                        if ((oldRow.status === 'draft') && (newRow.status === 'published')) {
+                            showToast('📢 A new announcement was posted!', 'info', 5000);
+                        }
                     }
                 )
                 // ── Announcement deleted/expired ──

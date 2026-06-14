@@ -516,6 +516,44 @@
         </div>
     </div>
 
+    <!-- Move / Copy File Modal -->
+    <div id="fileMoveModal" onclick="if(event.target===this)closeFileMove()" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:16px">
+        <div id="fileMoveBox" style="background:rgba(15,23,42,0.98);border:1px solid rgba(255,255,255,0.1);border-radius:20px;width:100%;max-width:420px;padding:28px;box-shadow:0 32px 80px rgba(0,0,0,0.7)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+                <div>
+                    <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px">File Action</p>
+                    <h3 id="fileMoveTitle" style="color:white;font-weight:700;font-size:17px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px">Move or Copy File</h3>
+                </div>
+                <button onclick="closeFileMove()" style="width:32px;height:32px;background:rgba(255,255,255,.05);border:none;border-radius:10px;cursor:pointer;color:#64748b;display:flex;align-items:center;justify-content:center">
+                    <span class="material-symbols-outlined" style="font-size:18px">close</span>
+                </button>
+            </div>
+            <label style="color:rgba(255,255,255,0.4);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:8px">Destination Folder</label>
+            <select id="fileMoveTarget" style="width:100%;padding:12px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:white;font-size:14px;outline:none;margin-bottom:20px">
+                <option value="" class="text-black">Root (no folder)</option>
+            </select>
+            <label style="color:rgba(255,255,255,0.4);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:8px">Action</label>
+            <div style="display:flex;gap:10px;margin-bottom:24px">
+                <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;cursor:pointer;font-size:13px;color:rgba(255,255,255,0.8);font-weight:700;transition:all .15s" id="fileMoveOptMove">
+                    <input type="radio" name="fileMoveAction" value="move" checked style="accent-color:#0891b2" onchange="updateFileMoveOption()">
+                    <span class="material-symbols-outlined" style="font-size:17px;color:#22d3ee">drive_file_move</span> Move
+                </label>
+                <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;cursor:pointer;font-size:13px;color:rgba(255,255,255,0.8);font-weight:700;transition:all .15s" id="fileMoveOptCopy">
+                    <input type="radio" name="fileMoveAction" value="copy" style="accent-color:#a78bfa" onchange="updateFileMoveOption()">
+                    <span class="material-symbols-outlined" style="font-size:17px;color:#c4b5fd">content_copy</span> Copy
+                </label>
+            </div>
+            <p id="fileMoveHint" style="color:#64748b;font-size:11px;margin:-16px 0 16px">The file will be moved to the selected folder.</p>
+            <div style="display:flex;gap:10px">
+                <button onclick="closeFileMove()" style="flex:1;padding:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:rgba(255,255,255,0.6);font-weight:700;font-size:13px;cursor:pointer">Cancel</button>
+                <button onclick="executeFileMove()" id="fileMoveExecuteBtn" style="flex:2;padding:12px;background:linear-gradient(135deg,#0891b2,#0e7490);border:none;border-radius:12px;color:white;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+                    <span class="material-symbols-outlined" style="font-size:16px">drive_file_move</span> Move File
+                </button>
+            </div>
+        </div>
+    </div>
+
+
             <!-- Tabs -->
             <div class="flex gap-2 mb-6 p-1 bg-white/5 rounded-xl flex-wrap">
                 <button onclick="switchTab('db')" id="tab-db" class="tab-btn active flex-1 py-2 rounded-lg text-xs sm:text-sm font-bold border border-transparent text-white/70">
@@ -634,11 +672,18 @@
                             class="w-full p-3 bg-white/5 border border-white/10 rounded-xl outline-none focus:border-blue-500/50 text-white text-sm transition-all"
                             style="color-scheme:dark"/>
                     </div>
+                    <div>
+                        <label class="text-xs font-bold text-white/40 uppercase tracking-wider block mb-1">Status</label>
+                        <select id="annStatus" class="w-full p-3 bg-white/5 border border-white/10 rounded-xl outline-none focus:border-blue-500/50 text-white text-sm transition-all">
+                            <option value="published" class="text-black">Publish now — visible to students immediately</option>
+                            <option value="draft" class="text-black">Save as draft — hidden until published</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="flex items-center gap-3 mt-4">
                     <button onclick="createAnnouncement()" id="annCreateBtn"
                         class="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20">
-                        <span class="material-symbols-outlined text-sm">add_circle</span> Post Announcement
+                        <span class="material-symbols-outlined text-sm" id="annCreateBtnIcon">add_circle</span> <span id="annCreateBtnLabel">Post Announcement</span>
                     </button>
                     <span id="annFormStatus" class="text-xs text-white/40 min-h-[16px]"></span>
                 </div>
@@ -684,7 +729,7 @@
                     <span class="material-symbols-outlined text-sm">play_arrow</span> Run Check
                 </button>
             </div>
-            <p class="text-xs text-white/30 mb-4">Scans all DB records and tests each storage URL. May take a moment for large vaults.</p>
+            <p class="text-xs text-white/30 mb-4">Scans all DB records and tests each storage URL. May take a moment for large vaults. A quick check also runs automatically in the background once every 24 hours and updates the badge on this tab.</p>
             <!-- Progress bar -->
             <div id="linkCheckProgress" style="display:none;margin-bottom:16px">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -842,6 +887,7 @@ create policy "Admins can read audit log"
     let currentTab = 'db';
     let managerViewType = 'grid';
     let isOnline = navigator.onLine;
+    let _announcementsCache = [];
 
     // ─── HELPERS ────────────────────────────────────────────────
     function getFileIcon(fileName) {
@@ -1798,20 +1844,133 @@ create policy "Admins can read audit log"
         loadManagerFiles();
     }
 
-    async function moveFile(storagePath, dbId, fileName) {
-        const targetFolder = prompt('Move to folder (leave blank for Root):', '');
-        if (targetFolder === null) return;
-        const target = targetFolder.trim();
-        const newPath = target ? `${target}/${fileName}` : fileName;
-        if (newPath === storagePath) return;
+    // ── MOVE / COPY FILE MODAL ──────────────────────────────────
+    let _fileMoveCtx = null; // { storagePath, dbId, fileName }
 
+    function moveFile(storagePath, dbId, fileName) {
+        _fileMoveCtx = { storagePath, dbId: (dbId === 'null' || dbId == null) ? null : dbId, fileName };
+
+        const titleEl = document.getElementById('fileMoveTitle');
+        if (titleEl) titleEl.textContent = fileName;
+
+        // Populate destination folder select
+        const sel = document.getElementById('fileMoveTarget');
+        const currentFolderOfFile = storagePath.includes('/') ? storagePath.split('/').slice(0, -1).join('/') : '';
+        sel.innerHTML = '<option value="" class="text-black">Root (no folder)</option>';
+        availableFolders.forEach(f => { sel.innerHTML += `<option value="${f}" class="text-black">${f}</option>`; });
+        // Pre-select a different folder than the current one if possible
+        sel.value = '';
+        if (currentFolderOfFile && availableFolders.length) {
+            const other = availableFolders.find(f => f !== currentFolderOfFile);
+            if (other) sel.value = other;
+        }
+
+        // Reset action to "move" by default
+        const moveRadio = document.querySelector('#fileMoveModal input[name="fileMoveAction"][value="move"]');
+        if (moveRadio) moveRadio.checked = true;
+        updateFileMoveOption();
+
+        document.getElementById('fileMoveModal').style.display = 'flex';
+    }
+
+    function closeFileMove() {
+        document.getElementById('fileMoveModal').style.display = 'none';
+        _fileMoveCtx = null;
+    }
+
+    function updateFileMoveOption() {
+        const action = (document.querySelector('#fileMoveModal input[name="fileMoveAction"]:checked') || {}).value || 'move';
+        const hint = document.getElementById('fileMoveHint');
+        const btn = document.getElementById('fileMoveExecuteBtn');
+        const optMove = document.getElementById('fileMoveOptMove');
+        const optCopy = document.getElementById('fileMoveOptCopy');
+        if (action === 'copy') {
+            if (hint) hint.textContent = 'A duplicate of this file will be created in the selected folder. The original stays where it is.';
+            if (btn) btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">content_copy</span> Copy File';
+            if (optMove) { optMove.style.borderColor = 'rgba(255,255,255,0.1)'; optMove.style.background = 'rgba(255,255,255,0.05)'; }
+            if (optCopy) { optCopy.style.borderColor = 'rgba(139,92,246,0.4)'; optCopy.style.background = 'rgba(139,92,246,0.1)'; }
+        } else {
+            if (hint) hint.textContent = 'The file will be moved to the selected folder.';
+            if (btn) btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">drive_file_move</span> Move File';
+            if (optCopy) { optCopy.style.borderColor = 'rgba(255,255,255,0.1)'; optCopy.style.background = 'rgba(255,255,255,0.05)'; }
+            if (optMove) { optMove.style.borderColor = 'rgba(8,145,178,0.4)'; optMove.style.background = 'rgba(8,145,178,0.1)'; }
+        }
+    }
+
+    async function executeFileMove() {
+        if (!_fileMoveCtx) return;
+        const { storagePath, dbId, fileName } = _fileMoveCtx;
+        const action = (document.querySelector('#fileMoveModal input[name="fileMoveAction"]:checked') || {}).value || 'move';
+        const target = (document.getElementById('fileMoveTarget').value || '').trim();
+        const newFolder = target || 'Root';
+        const newPath = target ? `${target}/${fileName}` : fileName;
+
+        if (newPath === storagePath) {
+            if (action === 'move') { closeFileMove(); return; }
+            // Same path but copy requested — auto-rename the copy
+        }
+
+        closeFileMove();
+
+        if (action === 'copy') {
+            setStatus(`Copying "${fileName}" to "${newFolder}"…`, 'blue');
+            try {
+                let finalName = fileName;
+                let finalPath = newPath;
+
+                // Avoid clobbering an existing file at the destination
+                const { data: destList } = await _supabase.storage.from('vault-files').list(target || '', { limit: 500 });
+                const collision = (destList || []).find(f => f.name === fileName);
+                if (collision || newPath === storagePath) {
+                    const ext = fileName.includes('.') ? fileName.substring(fileName.lastIndexOf('.')) : '';
+                    const base = fileName.includes('.') ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName;
+                    finalName = `${base}_copy_${Date.now()}${ext}`;
+                    finalPath = target ? `${target}/${finalName}` : finalName;
+                }
+
+                const { error: copyErr } = await _supabase.storage.from('vault-files').copy(storagePath, finalPath);
+                if (copyErr) { setStatus('Copy failed: ' + copyErr.message, 'red'); return; }
+
+                const { data: urlData } = _supabase.storage.from('vault-files').getPublicUrl(finalPath);
+
+                // Look up the original DB record to carry over metadata (description, etc.)
+                let original = null;
+                if (dbId) {
+                    const { data: row } = await _supabase.from('files_list').select('*').eq('id', dbId).single();
+                    original = row;
+                }
+
+                const insertData = {
+                    file_name: finalName,
+                    download_url: urlData.publicUrl,
+                    folder_name: newFolder,
+                    file_size: (original && original.file_size) || null,
+                    description: (original && original.description) || null
+                };
+
+                const { error: dbErr } = await _supabase.from('files_list').insert(insertData);
+                if (dbErr) { setStatus(`⚠ Copied in storage but DB record failed: ${dbErr.message}`, 'yellow'); }
+                else {
+                    setStatus(`✓ Copied "${fileName}" → "${newFolder}"${finalName !== fileName ? ` as "${finalName}"` : ''}.`, 'green');
+                    logAudit('upload', finalName, newFolder, { copiedFrom: storagePath });
+                }
+            } catch (err) {
+                setStatus('Copy failed: ' + (err.message || 'unknown error'), 'red');
+            }
+            loadFolders();
+            renderMainFolders();
+            populateRequestFolderSelect();
+            loadManagerFiles();
+            return;
+        }
+
+        // ── MOVE (original behaviour) ──
         setStatus('Moving file…', 'blue');
         const { error: copyErr } = await _supabase.storage.from('vault-files').copy(storagePath, newPath);
         if (copyErr) { setStatus('Move failed: ' + copyErr.message, 'red'); return; }
         await _supabase.storage.from('vault-files').remove([storagePath]);
 
         const { data: urlData } = _supabase.storage.from('vault-files').getPublicUrl(newPath);
-        const newFolder = target || 'Root';
         if (dbId) {
             await _supabase.from('files_list').update({ folder_name: newFolder, download_url: urlData.publicUrl }).eq('id', dbId);
         } else {
@@ -1819,6 +1978,7 @@ create policy "Admins can read audit log"
         }
 
         setStatus(`✓ Moved to "${newFolder}".`, 'green');
+        logAudit('edit', fileName, newFolder, { movedFrom: storagePath.includes('/') ? storagePath.split('/')[0] : 'Root' });
         loadFolders();
         renderMainFolders();
         populateRequestFolderSelect();
@@ -2755,6 +2915,8 @@ create policy "Admins can read audit log"
         loadDashboardStats();
         // Refresh scheduled badge
         refreshScheduledBadge();
+        // Show broken-link badge from cache + run a background check if due
+        initAutoLinkCheck();
 
         // Show pending requests badge
         try {
@@ -2875,8 +3037,15 @@ create policy "Admins can read audit log"
     // ── BROKEN LINK CHECKER ──────────────────────────────────────
     // Fetches all DB records and HEAD-tests each storage URL.
     // Flags any URL that returns 4xx/5xx or throws a network error.
+    //
+    // Also runs automatically once every 24h in the background
+    // (silent mode) so the broken-link badge stays current without
+    // the manager needing to open the Link Check tab.
     // ──────────────────────────────────────────────────────────────
-    async function runLinkCheck() {
+    const LINKCHECK_LS_KEY = 'fvLinkCheckLast';     // { ts, broken: [...] }
+    const LINKCHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
+
+    async function runLinkCheck(silent) {
         const btn = document.getElementById('runLinkCheckBtn');
         const results = document.getElementById('linkCheckResults');
         const progress = document.getElementById('linkCheckProgress');
@@ -2886,12 +3055,13 @@ create policy "Admins can read audit log"
         const countBadge = document.getElementById('brokenLinkCount');
         const tabBadge = document.getElementById('brokenLinkBadge');
 
-        if (!btn || !results) return;
-
-        btn.disabled = true;
-        btn.innerHTML = '<span class="material-symbols-outlined text-sm" style="animation:spin 1s linear infinite">refresh</span> Scanning…';
-        results.innerHTML = '';
-        if (progress) progress.style.display = 'block';
+        if (!silent) {
+            if (!btn || !results) return;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-outlined text-sm" style="animation:spin 1s linear infinite">refresh</span> Scanning…';
+            results.innerHTML = '';
+            if (progress) progress.style.display = 'block';
+        }
 
         try {
             const { data, error } = await _supabase
@@ -2902,7 +3072,10 @@ create policy "Admins can read audit log"
             if (error) throw error;
             const files = data || [];
             if (!files.length) {
-                results.innerHTML = '<p class="text-white/30 italic text-sm text-center py-8">No files found in the database.</p>';
+                if (!silent) results.innerHTML = '<p class="text-white/30 italic text-sm text-center py-8">No files found in the database.</p>';
+                _saveLinkCheckResult([]);
+                if (tabBadge) tabBadge.style.display = 'none';
+                if (countBadge) countBadge.textContent = 'All OK';
                 return;
             }
 
@@ -2911,10 +3084,12 @@ create policy "Admins can read audit log"
 
             for (const file of files) {
                 checked++;
-                const pct = Math.round((checked / total) * 100);
-                if (progFill) progFill.style.width = pct + '%';
-                if (progPct) progPct.textContent = pct + '%';
-                if (progLabel) progLabel.textContent = 'Checking: ' + (file.file_name || '').slice(0, 40);
+                if (!silent) {
+                    const pct = Math.round((checked / total) * 100);
+                    if (progFill) progFill.style.width = pct + '%';
+                    if (progPct) progPct.textContent = pct + '%';
+                    if (progLabel) progLabel.textContent = 'Checking: ' + (file.file_name || '').slice(0, 40);
+                }
 
                 let status = 'ok', statusCode = null;
                 try {
@@ -2934,9 +3109,18 @@ create policy "Admins can read audit log"
                 if (checked % 5 === 0) await new Promise(r => setTimeout(r, 0));
             }
 
-            if (progress) progress.style.display = 'none';
+            _saveLinkCheckResult(broken);
+
+            if (!silent && progress) progress.style.display = 'none';
             if (countBadge) countBadge.textContent = broken.length > 0 ? broken.length + ' broken' : 'All OK';
             if (tabBadge) tabBadge.style.display = broken.length > 0 ? 'block' : 'none';
+
+            if (silent) {
+                if (broken.length > 0) {
+                    showMgrToast('🔗 Background link check found ' + broken.length + ' broken link' + (broken.length !== 1 ? 's' : '') + '.', 'warning');
+                }
+                return;
+            }
 
             if (!broken.length) {
                 results.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:32px 0">' +
@@ -2962,12 +3146,55 @@ create policy "Admins can read audit log"
                     }).join('');
             }
         } catch(err) {
-            if (progress) progress.style.display = 'none';
-            results.innerHTML = '<div style="color:#f87171;font-size:13px;padding:16px;text-align:center">Error: ' + err.message + '</div>';
-            showMgrToast('Link check failed: ' + err.message, 'error');
+            if (!silent) {
+                if (progress) progress.style.display = 'none';
+                results.innerHTML = '<div style="color:#f87171;font-size:13px;padding:16px;text-align:center">Error: ' + err.message + '</div>';
+                showMgrToast('Link check failed: ' + err.message, 'error');
+            } else {
+                console.warn('Background link check failed:', err.message);
+            }
         } finally {
-            btn.disabled = false;
-            btn.innerHTML = '<span class="material-symbols-outlined text-sm">play_arrow</span> Run Check';
+            if (!silent && btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-symbols-outlined text-sm">play_arrow</span> Run Check';
+            }
+        }
+    }
+
+    // Persist the latest broken-link result with a timestamp so the badge
+    // can be shown immediately on page load without re-scanning.
+    function _saveLinkCheckResult(broken) {
+        try {
+            localStorage.setItem(LINKCHECK_LS_KEY, JSON.stringify({ ts: Date.now(), broken: broken || [] }));
+        } catch(e) { /* localStorage unavailable — non-fatal */ }
+    }
+
+    function _loadLinkCheckResult() {
+        try {
+            const raw = localStorage.getItem(LINKCHECK_LS_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch(e) { return null; }
+    }
+
+    // Called on page load: shows the badge from the cached result immediately,
+    // then runs a fresh (silent) check in the background if it's been more
+    // than LINKCHECK_INTERVAL_MS since the last run.
+    function initAutoLinkCheck() {
+        const tabBadge = document.getElementById('brokenLinkBadge');
+        const countBadge = document.getElementById('brokenLinkCount');
+        const cached = _loadLinkCheckResult();
+
+        if (cached) {
+            const brokenCount = (cached.broken || []).length;
+            if (tabBadge) tabBadge.style.display = brokenCount > 0 ? 'block' : 'none';
+            if (countBadge) countBadge.textContent = brokenCount > 0 ? brokenCount + ' broken' : 'All OK';
+        }
+
+        const lastRun = cached ? cached.ts : 0;
+        const due = (Date.now() - lastRun) >= LINKCHECK_INTERVAL_MS;
+        if (due) {
+            // Run quietly in the background; don't block page load.
+            setTimeout(() => { runLinkCheck(true); }, 4000);
         }
     }
 
@@ -2991,19 +3218,24 @@ create policy "Admins can read audit log"
 
     // ══════════════════════════════════════════════════════════════
     // ── ANNOUNCEMENTS ────────────────────────────────────────────
-    // Table expected: announcements (id, message, event_date, expires_at, created_at)
+    // Table expected: announcements (id, message, event_date, expires_at, status, created_at)
     // Run this in Supabase SQL editor if the table doesn't exist yet:
     //   create table if not exists announcements (
     //     id uuid primary key default gen_random_uuid(),
     //     message text not null,
     //     event_date timestamptz,
     //     expires_at timestamptz,
+    //     status text not null default 'published', -- 'draft' | 'published'
     //     created_at timestamptz default now()
     //   );
     //   alter table announcements enable row level security;
     //   create policy "Public read" on announcements for select using (true);
     //   create policy "Auth insert" on announcements for insert with check (true);
+    //   create policy "Auth update" on announcements for update using (true);
     //   create policy "Auth delete" on announcements for delete using (true);
+    //
+    // If the table already exists, just add the column:
+    //   alter table announcements add column if not exists status text not null default 'published';
     // ──────────────────────────────────────────────────────────────
 
     async function loadAnnouncements() {
@@ -3020,8 +3252,10 @@ create policy "Admins can read audit log"
 
             if (error) throw error;
             const items = data || [];
+            _announcementsCache = items;
             const now = new Date();
-            const active = items.filter(a => !a.expires_at || new Date(a.expires_at) > now);
+            const active = items.filter(a => (a.status || 'published') === 'published' && (!a.expires_at || new Date(a.expires_at) > now));
+            const draftCount = items.filter(a => (a.status || 'published') === 'draft').length;
             badge.textContent = items.length;
             tabBadge.style.display = active.length > 0 ? 'block' : 'none';
 
@@ -3031,7 +3265,8 @@ create policy "Admins can read audit log"
             }
 
             list.innerHTML = items.map(ann => {
-                const isExpired = ann.expires_at && new Date(ann.expires_at) <= now;
+                const isDraft = (ann.status || 'published') === 'draft';
+                const isExpired = !isDraft && ann.expires_at && new Date(ann.expires_at) <= now;
                 const createdStr = ann.created_at ? new Date(ann.created_at).toLocaleString('en-GB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
 
                 // Countdown / event date badge
@@ -3057,7 +3292,7 @@ create policy "Admins can read audit log"
 
                 // Expires badge
                 let expiresBadge = '';
-                if (ann.expires_at) {
+                if (!isDraft && ann.expires_at) {
                     const expiresDate = new Date(ann.expires_at);
                     if (isExpired) {
                         expiresBadge = `<span style="font-size:9px;font-weight:700;background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);padding:1px 7px;border-radius:99px;margin-left:6px">Expired</span>`;
@@ -3067,6 +3302,21 @@ create policy "Admins can read audit log"
                     }
                 }
 
+                let statusBadge;
+                if (isDraft) {
+                    statusBadge = '<span style="font-size:9px;font-weight:700;background:rgba(139,92,246,0.15);color:#a78bfa;border:1px solid rgba(139,92,246,0.3);padding:1px 7px;border-radius:99px">Draft</span>';
+                } else if (isExpired) {
+                    statusBadge = '<span style="font-size:9px;font-weight:700;background:rgba(100,116,139,0.15);color:#64748b;border:1px solid rgba(100,116,139,0.25);padding:1px 7px;border-radius:99px">Hidden from students</span>';
+                } else {
+                    statusBadge = '<span style="font-size:9px;font-weight:700;background:rgba(34,197,94,0.12);color:#4ade80;border:1px solid rgba(34,197,94,0.25);padding:1px 7px;border-radius:99px">Live</span>';
+                }
+
+                const publishBtn = isDraft ? `<button onclick="publishAnnouncement('${ann.id}')"
+                            class="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-bold transition-all"
+                            title="Publish — make visible to students now">
+                            <span class="material-symbols-outlined text-sm">rocket_launch</span> Publish
+                        </button>` : '';
+
                 return `<div class="ann-card${isExpired ? ' expired' : ''}">
                     <div class="flex items-start justify-between gap-3">
                         <div class="flex-1 min-w-0">
@@ -3074,16 +3324,19 @@ create policy "Admins can read audit log"
                                 <span class="material-symbols-outlined text-blue-400" style="font-size:16px;flex-shrink:0">campaign</span>
                                 <span style="font-size:10px;color:#475569">${createdStr}</span>
                                 ${expiresBadge}
-                                ${isExpired ? '<span style="font-size:9px;font-weight:700;background:rgba(100,116,139,0.15);color:#64748b;border:1px solid rgba(100,116,139,0.25);padding:1px 7px;border-radius:99px">Hidden from students</span>' : '<span style="font-size:9px;font-weight:700;background:rgba(34,197,94,0.12);color:#4ade80;border:1px solid rgba(34,197,94,0.25);padding:1px 7px;border-radius:99px">Live</span>'}
+                                ${statusBadge}
                             </div>
                             <p class="text-white/85 text-sm leading-relaxed mt-1" style="white-space:pre-wrap">${_esc(ann.message)}</p>
                             ${eventBadge}
                         </div>
-                        <button onclick="deleteAnnouncement('${ann.id}')"
-                            class="flex-shrink-0 p-2 rounded-lg bg-white/5 hover:bg-red-500/15 text-white/40 hover:text-red-400 transition-all"
-                            title="Delete announcement" aria-label="Delete announcement">
-                            <span class="material-symbols-outlined text-sm">delete</span>
-                        </button>
+                        <div class="flex items-center gap-1.5 flex-shrink-0">
+                            ${publishBtn}
+                            <button onclick="deleteAnnouncement('${ann.id}')"
+                                class="flex-shrink-0 p-2 rounded-lg bg-white/5 hover:bg-red-500/15 text-white/40 hover:text-red-400 transition-all"
+                                title="Delete announcement" aria-label="Delete announcement">
+                                <span class="material-symbols-outlined text-sm">delete</span>
+                            </button>
+                        </div>
                     </div>
                 </div>`;
             }).join('');
@@ -3100,6 +3353,8 @@ create policy "Admins can read audit log"
         const msg = document.getElementById('annMessage').value.trim();
         const eventDateVal = document.getElementById('annEventDate').value;
         const expiresAtVal = document.getElementById('annExpiresAt').value;
+        const statusVal = (document.getElementById('annStatus') || {}).value || 'published';
+        const isDraft = statusVal === 'draft';
         const statusEl = document.getElementById('annFormStatus');
         const btn = document.getElementById('annCreateBtn');
 
@@ -3111,10 +3366,10 @@ create policy "Admins can read audit log"
         }
 
         btn.disabled = true;
-        btn.innerHTML = '<span class="material-symbols-outlined text-sm" style="animation:spin .8s linear infinite">refresh</span> Posting…';
+        btn.innerHTML = '<span class="material-symbols-outlined text-sm" style="animation:spin .8s linear infinite">refresh</span> ' + (isDraft ? 'Saving…' : 'Posting…');
         statusEl.textContent = '';
 
-        const payload = { message: msg };
+        const payload = { message: msg, status: statusVal };
         if (eventDateVal) payload.event_date = new Date(eventDateVal).toISOString();
         if (expiresAtVal) payload.expires_at = new Date(expiresAtVal).toISOString();
 
@@ -3126,11 +3381,16 @@ create policy "Admins can read audit log"
             document.getElementById('annMessage').value = '';
             document.getElementById('annEventDate').value = '';
             document.getElementById('annExpiresAt').value = '';
-            statusEl.textContent = '✓ Posted!';
+            document.getElementById('annStatus').value = 'published';
+            statusEl.textContent = isDraft ? '✓ Saved as draft!' : '✓ Posted!';
             statusEl.style.color = '#4ade80';
             setTimeout(() => { statusEl.textContent = ''; }, 3000);
-            showMgrToast('Announcement posted!', 'success');
+            showMgrToast(isDraft ? 'Announcement saved as draft.' : 'Announcement posted!', 'success');
             loadAnnouncements();
+
+            if (isDraft) {
+                return;
+            }
 
             // ── FIX: Push notification to ALL subscribed users for new announcement ──
             (function(annMsg) {
@@ -3165,7 +3425,39 @@ create policy "Admins can read audit log"
             statusEl.style.color = '#f87171';
         } finally {
             btn.disabled = false;
-            btn.innerHTML = '<span class="material-symbols-outlined text-sm">add_circle</span> Post Announcement';
+            btn.innerHTML = '<span class="material-symbols-outlined text-sm" id="annCreateBtnIcon">add_circle</span> <span id="annCreateBtnLabel">Post Announcement</span>';
+        }
+    }
+
+    async function publishAnnouncement(id) {
+        try {
+            const { error } = await _supabase.from('announcements').update({ status: 'published' }).eq('id', id);
+            if (error) throw error;
+            showMgrToast('🚀 Announcement published — now visible to students.', 'success');
+            loadAnnouncements();
+
+            // Notify subscribers, same as a fresh post
+            const ann = (_announcementsCache || []).find(a => a.id === id);
+            const msg = ann ? ann.message : 'A new announcement is available.';
+            const _PUSH_API = window.location.hostname === 'localhost'
+                ? 'http://localhost:3000'
+                : 'https://project-one-187u.onrender.com';
+            fetch(_PUSH_API + '/api/push/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: '📢 New Announcement',
+                    body: msg.length > 80 ? msg.substring(0, 77) + '…' : msg,
+                    url: '/index.html',
+                    secret: 'KINGJACH'
+                })
+            }).then(r => r.json()).then(result => {
+                if (result && typeof result.sent === 'number' && result.sent > 0) {
+                    showMgrToast('🔔 Notified ' + result.sent + ' student' + (result.sent > 1 ? 's' : '') + ' via push.', 'success');
+                }
+            }).catch(() => {});
+        } catch(e) {
+            showMgrToast('Publish failed: ' + e.message, 'error');
         }
     }
 
