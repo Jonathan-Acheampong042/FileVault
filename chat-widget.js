@@ -373,6 +373,37 @@ function initChatWidget() {
 
     document.body.insertAdjacentHTML('beforeend', html);
 
+    // ── Position widget via JS (inline style) so no CSS can ever override it ──
+    (function _positionWidget() {
+        var widget = document.getElementById('aiChatWidget');
+        if (!widget) return;
+        var isMobile = window.innerWidth < 1024;
+        if (isMobile) {
+            var navHeight = parseInt(
+                getComputedStyle(document.documentElement).getPropertyValue('--mobile-nav-height') || '72', 10
+            );
+            widget.style.bottom = (navHeight + 12) + 'px';
+            widget.style.right  = '16px';
+        } else {
+            widget.style.bottom = '24px';
+            widget.style.right  = '24px';
+        }
+        // Re-apply on resize (e.g. orientation change)
+        window.addEventListener('resize', function() {
+            var isMob = window.innerWidth < 1024;
+            if (isMob) {
+                var nh = parseInt(
+                    getComputedStyle(document.documentElement).getPropertyValue('--mobile-nav-height') || '72', 10
+                );
+                widget.style.bottom = (nh + 12) + 'px';
+                widget.style.right  = '16px';
+            } else {
+                widget.style.bottom = '24px';
+                widget.style.right  = '24px';
+            }
+        });
+    })();
+
     // Restore chat open state after page load/auth redirect
     if (sessionStorage.getItem('fvChatOpen') === '1') {
         const _win = document.getElementById('chatWindow');
