@@ -117,6 +117,18 @@
         @keyframes cardIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
         .file-card-animate { animation:cardIn 0.35s ease-out both; }
 
+        /* ── Mobile folder share button (fix 19) ── */
+        #mobileFolderShareBtn { display:none;position:fixed;right:16px;background:rgba(139,92,246,0.85);border:1px solid rgba(139,92,246,0.5);backdrop-filter:blur(12px);color:#fff;width:42px;height:42px;border-radius:50%;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 20px rgba(139,92,246,0.35);z-index:8999;transition:opacity .3s,transform .3s;bottom:calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 12px + 48px + 10px + 48px + 10px); }
+        #mobileFolderShareBtn.visible { display:flex; }
+        #mobileFolderShareBtn:hover { transform:translateY(-3px); }
+        @media (min-width:1024px) { #mobileFolderShareBtn { display:none !important; } }
+
+        /* ── Offline banner ── */
+        #offlineBanner { display:none;position:fixed;top:0;left:0;right:0;z-index:99998;align-items:center;justify-content:center;gap:10px;padding:10px 20px;background:rgba(245,158,11,0.18);backdrop-filter:blur(12px);border-bottom:1px solid rgba(245,158,11,0.35);color:#fbbf24;font-size:13px;font-weight:700;text-align:center; }
+        #offlineBanner.visible { display:flex; }
+        @keyframes offlineSlide { from{transform:translateY(-100%);opacity:0} to{transform:translateY(0);opacity:1} }
+        #offlineBanner.visible { animation:offlineSlide 0.3s ease; }
+
         /* ── Description tooltip on hover ── */
         #globalDescTooltip { position:fixed;background:rgba(15,23,42,0.97);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:8px 12px;font-size:11px;color:#cbd5e1;white-space:normal;width:220px;text-align:left;z-index:9990;pointer-events:none;opacity:0;transition:opacity .15s;line-height:1.5;box-shadow:0 8px 32px rgba(0,0,0,.5);max-width:calc(100vw - 24px); }
         #globalDescTooltip.show { opacity:1; }
@@ -478,6 +490,11 @@
 </head>
 <body class="overflow-x-hidden">
     <div id="pullIndicator"><span class="material-symbols-outlined" style="font-size:18px">refresh</span><span id="pullLabel">Pull to refresh</span></div>
+    <!-- Offline banner -->
+    <div id="offlineBanner" role="status" aria-live="polite">
+        <span class="material-symbols-outlined" style="font-size:18px">wifi_off</span>
+        <span>You're offline — showing cached files. Some actions may be unavailable.</span>
+    </div>
     <div class="bg-fixed-image"></div>
     <div class="bg-overlay"></div>
     <aside class="fixed left-0 top-0 h-screen w-64 z-40 sidebar-glass hidden lg:flex flex-col py-8">
@@ -780,8 +797,12 @@
                     <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400 material-symbols-outlined">expand_more</span>
                 </div>
             </div>
-            <div id="bulkBar" class="hidden mb-4 p-4 bg-primary/10 border border-primary/20 rounded-2xl items-center justify-between">
+            <div id="bulkBar" class="hidden mb-4 p-4 bg-primary/10 border border-primary/20 rounded-2xl items-center justify-between flex-wrap gap-2">
                 <span id="bulkCount" class="text-primary font-bold text-sm">0 selected</span>
+                <!-- Select All Visible: shown on mobile (fix 18) -->
+                <button id="bulkSelectAllBtn" onclick="bulkSelectAllVisible()" class="flex items-center gap-1 px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary rounded-xl text-xs font-bold transition lg:hidden">
+                    <span class="material-symbols-outlined text-sm">checklist</span> All visible
+                </button>
                 <button onclick="bulkDownloadZip()" class="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-xl text-xs font-bold">
                     <span class="material-symbols-outlined text-sm">download</span> ZIP
                 </button>
@@ -823,6 +844,55 @@
                 setTimeout(function() { if (t.parentNode) t.remove(); }, 300);
             }, duration);
         }
+
+        // Fix 19 — mobile share folder link
+        function shareFolderLink() {
+            const url = window.location.href.split('?')[0] + (currentFolder ? '?folder=' + encodeURIComponent(currentFolder) : '');
+            if (navigator.share) {
+                navigator.share({ title: currentFolder ? 'FileVault — ' + currentFolder : 'FileVault', url: url })
+                    .catch(function() {});
+            } else if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(function() {
+                    showToast('📋 Folder link copied!', 'success', 2200);
+                }).catch(function() {
+                    window.prompt('Copy this folder link:', url);
+                });
+            } else {
+                window.prompt('Copy this folder link:', url);
+            }
+        }
+        function _updateMobileFolderShareBtn() {
+            var btn = document.getElementById('mobileFolderShareBtn');
+            if (!btn) return;
+            if (currentFolder) btn.classList.add('visible');
+            else btn.classList.remove('visible');
+        }
+        // Patch filterByFolder and sidebarFilterAll to also update share btn
+        var _origFilterByFolder = filterByFolder;
+        filterByFolder = function(folder, button) {
+            _origFilterByFolder(folder, button);
+            _updateMobileFolderShareBtn();
+        };
+        var _origSidebarFilterAll = sidebarFilterAll;
+        sidebarFilterAll = function(el) {
+            _origSidebarFilterAll(el);
+            _updateMobileFolderShareBtn();
+        };
+
+        // Fix 15 — Offline Detection already added above
+        (function() {
+            var banner = document.getElementById('offlineBanner');
+            function updateOnlineState() {
+                if (!navigator.onLine) {
+                    banner.classList.add('visible');
+                } else {
+                    banner.classList.remove('visible');
+                }
+            }
+            window.addEventListener('online',  function() { updateOnlineState(); showToast('Back online!', 'success', 2500); });
+            window.addEventListener('offline', updateOnlineState);
+            updateOnlineState();
+        })();
 
         // ── PREVIEW ─────────────────────────────────────────────
         function openPreview(url, name, folder, size) {
@@ -1323,7 +1393,7 @@
 
             // ── Folder filter pills ──
             const folderSection = document.getElementById('folderSection');
-            let pillHtml = '<button onclick="filterByFolder(null,this)" class="folder-btn active glass-card px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 border-primary/40 bg-primary/20 text-primary whitespace-nowrap"><span class="material-symbols-outlined">apps</span>All</button>';
+            let pillHtml = '<button onclick="filterByFolder(null,this)" class="folder-btn active glass-card px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 border-primary/40 bg-primary/20 text-primary whitespace-nowrap"><span class="material-symbols-outlined">apps</span>All <span style="font-size:10px;background:rgba(255,255,255,0.07);border-radius:99px;padding:1px 7px;margin-left:3px;font-weight:700;color:#60a5fa" id="allPillCount">' + files.filter(f => !f.expires_at || new Date(f.expires_at) > new Date()).length + '</span></button>';
             folders.forEach(folder => {
                 const now0 = new Date();
                 const pCount = files.filter(f => f.folder === folder && (!f.expires_at || new Date(f.expires_at) > now0)).length;
@@ -1559,6 +1629,17 @@
                 });
                 if (btn) { btn.innerHTML = '<span class="material-symbols-outlined text-base">deselect</span><span class="hidden sm:inline">Deselect</span>'; btn.title = 'Deselect all'; }
             }
+        }
+        
+        // Fix 18 — mobile "Select all visible" in bulk bar
+        function bulkSelectAllVisible() {
+            const allBoxes = document.querySelectorAll('#fileGrid input[type="checkbox"]');
+            allBoxes.forEach(cb => {
+                if (!cb.checked) {
+                    cb.checked = true;
+                    cb.dispatchEvent(new Event('change'));
+                }
+            });
         }
         
         async function bulkDownloadZip() {
@@ -4359,6 +4440,11 @@
         <span class="material-symbols-outlined" style="font-size:20px">keyboard_arrow_up</span>
     </button>
 
+    <!-- Mobile folder share button (fix 19) -->
+    <button id="mobileFolderShareBtn" onclick="shareFolderLink()" title="Share this folder" aria-label="Share folder link">
+        <span class="material-symbols-outlined" style="font-size:20px">share</span>
+    </button>
+
     <div id="globalDescTooltip"></div>
     <div id="toastContainer" role="status" aria-live="polite" aria-atomic="false"></div>
 
@@ -4703,18 +4789,90 @@
    // ══════════════════════════════════════════════════════════════════
    // FEATURE 2: READING PROGRESS / BOOKMARKS
    // ══════════════════════════════════════════════════════════════════
+   // Progress is stored in localStorage (fast read) AND Supabase
+   // (cross-device sync). Table: user_reading_progress
+   //   file_url TEXT, user_key TEXT, pct INT, updated_at TIMESTAMPTZ
+   //   PRIMARY KEY (file_url, user_key)
+   //
+   // SQL to run once in Supabase:
+   //   create table if not exists user_reading_progress (
+   //     file_url text not null,
+   //     user_key text not null,
+   //     pct integer not null default 0,
+   //     updated_at timestamptz default now(),
+   //     primary key (file_url, user_key)
+   //   );
+   //   alter table user_reading_progress enable row level security;
+   //   create policy "Anyone can read own" on user_reading_progress for select using (true);
+   //   create policy "Anyone can upsert own" on user_reading_progress for insert with check (true);
+   //   create policy "Anyone can update own" on user_reading_progress for update using (true);
+   // ══════════════════════════════════════════════════════════════════
    (function() {
        const PROGRESS_KEY = 'fvReadProgress';   // { url: { pct, ts } }
        const BOOKMARK_KEY = 'fvBookmarks';       // [ { url, name, folder, ts } ]
 
+       // ── Local cache helpers (unchanged interface) ───────────────
        function getProgress() { try { return JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}'); } catch { return {}; } }
+
+       // Debounce timer per URL so we don't flood Supabase on every scroll tick
+       const _progressSaveTimers = {};
+
        function saveProgress(url, pct) {
+           // 1. Always update localStorage immediately for instant UI
            const p = getProgress();
            p[url] = { pct: Math.round(pct), ts: Date.now() };
-           // Keep only last 60 entries
            const entries = Object.entries(p).sort((a,b) => b[1].ts - a[1].ts).slice(0,60);
            localStorage.setItem(PROGRESS_KEY, JSON.stringify(Object.fromEntries(entries)));
+
+           // 2. Debounce Supabase write — fire at most once per 5s per URL
+           clearTimeout(_progressSaveTimers[url]);
+           _progressSaveTimers[url] = setTimeout(function() {
+               _syncProgressToSupabase(url, Math.round(pct));
+           }, 5000);
        }
+
+       async function _syncProgressToSupabase(url, pct) {
+           if (!window._supabase) return;
+           try {
+               const userKey = (typeof _getUserKey === 'function') ? _getUserKey() : null;
+               if (!userKey) return;
+               await window._supabase.from('user_reading_progress').upsert(
+                   { file_url: url, user_key: userKey, pct: pct, updated_at: new Date().toISOString() },
+                   { onConflict: 'file_url,user_key' }
+               );
+           } catch(e) { /* non-critical — local cache is still intact */ }
+       }
+
+       // On first open of a file, prefer Supabase value (cross-device) but fall
+       // back to localStorage immediately so the UI doesn't wait.
+       async function _loadProgressForUrl(url) {
+           // Return cached value right away
+           const cached = getProgress()[url];
+           if (!window._supabase) return cached ? cached.pct : 0;
+           try {
+               const userKey = (typeof _getUserKey === 'function') ? _getUserKey() : null;
+               if (!userKey) return cached ? cached.pct : 0;
+               const { data } = await window._supabase
+                   .from('user_reading_progress')
+                   .select('pct')
+                   .eq('file_url', url)
+                   .eq('user_key', userKey)
+                   .single();
+               if (data && typeof data.pct === 'number') {
+                   // Write back to local cache if Supabase is ahead
+                   if (!cached || data.pct > cached.pct) {
+                       const p = getProgress();
+                       p[url] = { pct: data.pct, ts: Date.now() };
+                       localStorage.setItem(PROGRESS_KEY, JSON.stringify(p));
+                   }
+                   return data.pct;
+               }
+           } catch(e) {}
+           return cached ? cached.pct : 0;
+       }
+
+       // Expose for use outside IIFE
+       window._loadProgressForUrl = _loadProgressForUrl;
 
        function getBookmarks() { try { return JSON.parse(localStorage.getItem(BOOKMARK_KEY) || '[]'); } catch { return []; } }
        function isBookmarked(url) { return getBookmarks().some(b => b.url === url); }
@@ -4808,18 +4966,48 @@
 
            if (progBar && (isPDF || isImage)) {
                progBar.style.display = 'block';
-               const saved = getProgress()[url];
-               const initPct = saved ? saved.pct : 0;
+               // Show cached value instantly, then async-correct from Supabase
+               const cached = getProgress()[url];
+               const initPct = cached ? cached.pct : 0;
                if (progFill) { progFill.style.width = initPct + '%'; }
                if (progLabel) { progLabel.textContent = initPct + '%'; }
-               // Show resume toast if meaningful progress
-               if (saved && saved.pct > 5 && saved.pct < 95) {
+               if (cached && cached.pct > 5 && cached.pct < 95) {
                    setTimeout(function() {
                        if (typeof showToast === 'function') {
-                           showToast('📖 Resuming from ' + saved.pct + '%', 'info', 2500);
+                           showToast('📖 Resuming from ' + cached.pct + '%', 'info', 2500);
                        }
                    }, 600);
                }
+               // Async-load from Supabase and update bar if server value differs
+               _loadProgressForUrl(url).then(function(serverPct) {
+                   // Only update UI if this file is still the one open
+                   if (window._previewCurrentUrl !== url) return;
+                   if (serverPct !== initPct) {
+                       if (progFill) progFill.style.width = serverPct + '%';
+                       if (progLabel) progLabel.textContent = serverPct + '%';
+                       if (serverPct > 5 && serverPct < 95 && serverPct !== initPct) {
+                           setTimeout(function() {
+                               if (typeof showToast === 'function') {
+                                   showToast('📖 Resuming from ' + serverPct + '%', 'info', 2500);
+                               }
+                           }, 600);
+                       }
+                       // Kick off PDF timer from correct starting point
+                       if (isPDF) {
+                           clearInterval(window._pdfProgressTimer);
+                           let current = serverPct;
+                           window._pdfProgressTimer = setInterval(function() {
+                               const modal = document.getElementById('previewModal');
+                               if (!modal || !modal.classList.contains('open')) { clearInterval(window._pdfProgressTimer); return; }
+                               if (current >= 99) { clearInterval(window._pdfProgressTimer); return; }
+                               current = Math.min(99, current + 0.15);
+                               if (progFill) progFill.style.width = Math.round(current) + '%';
+                               if (progLabel) progLabel.textContent = Math.round(current) + '%';
+                               saveProgress(url, current);
+                           }, 3000);
+                       }
+                   }
+               }).catch(function(){});
                // Track scroll progress for images (shown directly)
                if (isImage) {
                    const body = document.getElementById('previewBody');
@@ -4828,11 +5016,11 @@
                        body.addEventListener('scroll', _onBodyScroll, { passive: true });
                    }
                }
-               // For PDFs in iframe, we can only track time-based pseudo-progress
-               // Reset progress tracking timer
+               // For PDFs, start time-based pseudo-progress from cached initPct.
+               // If Supabase returns a different value the async block above will
+               // restart the timer from the correct starting point.
                clearInterval(window._pdfProgressTimer);
-               if (isPDF && saved) {
-                   // Smoothly advance pseudo-progress to simulate reading
+               if (isPDF) {
                    let current = initPct;
                    window._pdfProgressTimer = setInterval(function() {
                        const modal = document.getElementById('previewModal');
@@ -4845,21 +5033,7 @@
                        if (progFill) progFill.style.width = Math.round(current) + '%';
                        if (progLabel) progLabel.textContent = Math.round(current) + '%';
                        saveProgress(url, current);
-                   }, 3000); // advances ~3%/min
-               } else if (isPDF) {
-                   let current = 0;
-                   window._pdfProgressTimer = setInterval(function() {
-                       const modal = document.getElementById('previewModal');
-                       if (!modal || !modal.classList.contains('open')) {
-                           clearInterval(window._pdfProgressTimer);
-                           return;
-                       }
-                       if (current >= 99) { clearInterval(window._pdfProgressTimer); return; }
-                       current = Math.min(99, current + 0.15);
-                       if (progFill) progFill.style.width = Math.round(current) + '%';
-                       if (progLabel) progLabel.textContent = Math.round(current) + '%';
-                       saveProgress(url, current);
-                   }, 3000);
+                   }, 3000); // advances ~3%/min (~18%/hr of reading time)
                }
            } else if (progBar) {
                progBar.style.display = 'none';
@@ -4901,14 +5075,75 @@
    })();
 
    // ══════════════════════════════════════════════════════════════════
-   // FEATURE 3: FILE COLLECTIONS / PLAYLISTS
+   // FEATURE 3: FILE COLLECTIONS / PLAYLISTS — Supabase-backed (cross-device)
+   // ══════════════════════════════════════════════════════════════════
+   // Table: user_collections
+   //   id TEXT, user_key TEXT, name TEXT, files JSONB, created_at TIMESTAMPTZ
+   //   PRIMARY KEY (id, user_key)
+   //
+   // SQL to run once in Supabase SQL editor:
+   //   create table if not exists user_collections (
+   //     id text not null,
+   //     user_key text not null,
+   //     name text not null,
+   //     files jsonb not null default '[]',
+   //     created_at timestamptz default now(),
+   //     primary key (id, user_key)
+   //   );
+   //   alter table user_collections enable row level security;
+   //   create policy "read" on user_collections for select using (true);
+   //   create policy "insert" on user_collections for insert with check (true);
+   //   create policy "update" on user_collections for update using (true);
+   //   create policy "delete" on user_collections for delete using (true);
    // ══════════════════════════════════════════════════════════════════
    (function() {
-       const COLL_KEY = 'fvCollections'; // { id: { name, files: [{url,name,folder}], createdAt } }
+       const COLL_KEY = 'fvCollections'; // local cache: { id: { name, files, createdAt } }
 
        function getCollections() { try { return JSON.parse(localStorage.getItem(COLL_KEY) || '{}'); } catch { return {}; } }
-       function saveCollections(c) { localStorage.setItem(COLL_KEY, JSON.stringify(c)); }
+       function _writeCache(c) { localStorage.setItem(COLL_KEY, JSON.stringify(c)); }
+       function _userKey() { return (typeof _getUserKey === 'function') ? _getUserKey() : null; }
 
+       // ── Supabase helpers ────────────────────────────────────────
+       async function _fetchFromSupabase() {
+           if (!window._supabase) return null;
+           const uk = _userKey(); if (!uk) return null;
+           try {
+               const { data, error } = await window._supabase
+                   .from('user_collections').select('id, name, files, created_at')
+                   .eq('user_key', uk).order('created_at', { ascending: true });
+               if (error) throw error;
+               const result = {};
+               (data || []).forEach(function(row) {
+                   result[row.id] = { name: row.name, files: row.files || [], createdAt: new Date(row.created_at).getTime() };
+               });
+               return result;
+           } catch(e) { return null; }
+       }
+
+       async function _saveCollectionToSupabase(id, coll) {
+           if (!window._supabase) return;
+           const uk = _userKey(); if (!uk) return;
+           try {
+               await window._supabase.from('user_collections').upsert(
+                   { id, user_key: uk, name: coll.name, files: coll.files },
+                   { onConflict: 'id,user_key' }
+               );
+           } catch(e) {}
+       }
+
+       async function _deleteCollectionFromSupabase(id) {
+           if (!window._supabase) return;
+           const uk = _userKey(); if (!uk) return;
+           try { await window._supabase.from('user_collections').delete().eq('id', id).eq('user_key', uk); } catch(e) {}
+       }
+
+       async function _loadAndRender() {
+           const remote = await _fetchFromSupabase();
+           if (remote !== null) { _writeCache(remote); _renderCollectionsSidebar(); return remote; }
+           return getCollections();
+       }
+
+       // ── Public API ──────────────────────────────────────────────
        function openCollectionPicker() {
            _renderCollectionPickerList();
            const modal = document.getElementById('collectionPickerModal');
@@ -4921,30 +5156,32 @@
        window.openCollectionPicker = openCollectionPicker;
        window.closeCollectionPicker = closeCollectionPicker;
 
-       function createAndAddCollection() {
+       async function createAndAddCollection() {
            const input = document.getElementById('newCollectionInput');
            const name = (input ? input.value.trim() : '');
            if (!name) { if (typeof showToast === 'function') showToast('Enter a collection name.', 'warning', 2000); return; }
            const colls = getCollections();
            const id = 'coll_' + Date.now();
            colls[id] = { name, files: [], createdAt: Date.now() };
-           saveCollections(colls);
+           _writeCache(colls);
            if (input) input.value = '';
-           _addToCollection(id);
+           await _saveCollectionToSupabase(id, colls[id]);
+           await _addToCollection(id);
        }
        window.createAndAddCollection = createAndAddCollection;
 
-       function _addToCollection(id) {
+       async function _addToCollection(id) {
            const url = window._previewCurrentUrl;
            const name = window._previewCurrentName;
            const folder = window._previewCurrentFolder;
            if (!url) return;
            const colls = getCollections();
            if (!colls[id]) return;
-           const already = colls[id].files.some(f => f.url === url);
+           const already = colls[id].files.some(function(f) { return f.url === url; });
            if (!already) {
                colls[id].files.unshift({ url, name, folder });
-               saveCollections(colls);
+               _writeCache(colls);
+               await _saveCollectionToSupabase(id, colls[id]);
            }
            closeCollectionPicker();
            _renderCollectionsSidebar();
@@ -4952,23 +5189,25 @@
        }
        window.addToCollection = _addToCollection;
 
-       function removeFromCollection(collId, fileUrl) {
+       async function removeFromCollection(collId, fileUrl) {
            const colls = getCollections();
            if (!colls[collId]) return;
-           colls[collId].files = colls[collId].files.filter(f => f.url !== fileUrl);
-           saveCollections(colls);
+           colls[collId].files = colls[collId].files.filter(function(f) { return f.url !== fileUrl; });
+           _writeCache(colls);
+           await _saveCollectionToSupabase(collId, colls[collId]);
            _renderCollectionsSidebar();
            _renderCollectionPickerList();
        }
        window.removeFromCollection = removeFromCollection;
 
-       function deleteCollection(id) {
+       async function deleteCollection(id) {
            const colls = getCollections();
            const name = colls[id] ? colls[id].name : '';
            delete colls[id];
-           saveCollections(colls);
+           _writeCache(colls);
+           await _deleteCollectionFromSupabase(id);
            _renderCollectionsSidebar();
-           if (typeof showToast === 'function') showToast('"' + name + '" deleted.', 'info', 1800);
+           if (typeof showToast === 'function') showToast('"'+ name +'" deleted.', 'info', 1800);
        }
        window.deleteCollection = deleteCollection;
 
@@ -4984,7 +5223,7 @@
            const url = window._previewCurrentUrl;
            list.innerHTML = ids.map(function(id) {
                const c = colls[id];
-               const alreadyIn = c.files.some(f => f.url === url);
+               const alreadyIn = c.files.some(function(f) { return f.url === url; });
                return `<button onclick="addToCollection('${id}')" ${alreadyIn ? 'disabled' : ''}
                    style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;background:rgba(255,255,255,${alreadyIn?'.03':'.05'});border:1px solid rgba(255,255,255,${alreadyIn?'.05':'.1'});border-radius:12px;color:${alreadyIn?'#334155':'white'};font-size:13px;font-weight:600;cursor:${alreadyIn?'default':'pointer'};text-align:left;font-family:inherit;transition:all .2s">
                    <span class="material-symbols-outlined" style="font-size:16px;flex-shrink:0;color:${alreadyIn?'#22c55e':'#a78bfa'}">${alreadyIn?'check_circle':'playlist_add'}</span>
@@ -5014,7 +5253,7 @@
                    <div style="display:flex;flex-wrap:wrap;gap:5px">
                    ${c.files.slice(0,6).map(function(f) {
                        return `<button class="related-chip" onclick="openPreview('${(f.url||'').replace(/'/g,"\\'")}','${(f.name||'').replace(/'/g,"\\'")}','${(f.folder||'').replace(/'/g,"\\'")}')" title="${f.name||''}">
-                           <span class="material-symbols-outlined" style="font-size:12px;flex-shrink:0">${typeof getFileIcon==='function'?getFileIcon(f.name||''):'description'}</span>
+                           <span class="material-symbols-outlined" style="font-size:12px;flex-shrink:0">${typeof getFileIcon==='function'?getFileIcon(f.name||''): 'description'}</span>
                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px">${f.name||''}</span>
                        </button>`;
                    }).join('')}
@@ -5023,9 +5262,14 @@
            }).join('');
        }
 
-       window.addEventListener('load', function() { _renderCollectionsSidebar(); });
+       // Render from cache instantly, then sync Supabase data
+       window.addEventListener('load', function() {
+           _renderCollectionsSidebar();
+           _loadAndRender();
+       });
        window._renderCollectionsSidebar = _renderCollectionsSidebar;
    })();
+
    </script>
 
 <!-- ══════════════════════════════════════════════════════════════
