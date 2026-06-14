@@ -314,7 +314,7 @@ let chatMessages = [];
 // ─── INIT ────────────────────────────────────────────────────
 function initChatWidget() {
     const html = `
-    <div id="aiChatWidget" style="position:fixed;z-index:9999;font-family:'Plus Jakarta Sans',sans-serif;">
+    <div id="aiChatWidget" style="position:fixed;bottom:100px;right:16px;z-index:9999;font-family:'Plus Jakarta Sans',sans-serif;">
         <!-- Chat Window -->
         <div id="chatWindow" style="display:none;margin-bottom:16px;width:340px;height:480px;background:rgba(10,15,30,0.95);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.1);border-radius:20px;overflow:hidden;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.6)">
             <!-- Header -->
@@ -373,35 +373,20 @@ function initChatWidget() {
 
     document.body.insertAdjacentHTML('beforeend', html);
 
-    // ── Position widget via JS (inline style) so no CSS can ever override it ──
-    (function _positionWidget() {
-        var widget = document.getElementById('aiChatWidget');
-        if (!widget) return;
-        var isMobile = window.innerWidth < 1024;
-        if (isMobile) {
-            var navHeight = parseInt(
-                getComputedStyle(document.documentElement).getPropertyValue('--mobile-nav-height') || '72', 10
-            );
-            widget.style.bottom = (navHeight + 12) + 'px';
-            widget.style.right  = '16px';
-        } else {
-            widget.style.bottom = '24px';
-            widget.style.right  = '24px';
+    // ── Set widget position directly so CSS/inline conflicts can never win ──
+    (function() {
+        var w = document.getElementById('aiChatWidget');
+        if (!w) return;
+        function setPos() {
+            var isMobile = window.innerWidth < 1024;
+            // navHeight from CSS variable, default 72px
+            var nh = parseInt(getComputedStyle(document.documentElement)
+                .getPropertyValue('--mobile-nav-height') || '72', 10) || 72;
+            w.style.setProperty('bottom', isMobile ? (nh + 12) + 'px' : '24px', 'important');
+            w.style.setProperty('right',  isMobile ? '16px' : '24px', 'important');
         }
-        // Re-apply on resize (e.g. orientation change)
-        window.addEventListener('resize', function() {
-            var isMob = window.innerWidth < 1024;
-            if (isMob) {
-                var nh = parseInt(
-                    getComputedStyle(document.documentElement).getPropertyValue('--mobile-nav-height') || '72', 10
-                );
-                widget.style.bottom = (nh + 12) + 'px';
-                widget.style.right  = '16px';
-            } else {
-                widget.style.bottom = '24px';
-                widget.style.right  = '24px';
-            }
-        });
+        setPos();
+        window.addEventListener('resize', setPos);
     })();
 
     // Restore chat open state after page load/auth redirect
@@ -421,18 +406,10 @@ function initChatWidget() {
             #chatMessages::-webkit-scrollbar-track { background: transparent; }
             #chatMessages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 
-            /* ── Default (desktop) position ── */
-            #aiChatWidget {
-                bottom: 24px;
-                right: 24px;
-            }
-
             /* ── Mobile: sit above the bottom nav bar ── */
             @media (max-width: 1023px) {
                 #aiChatWidget {
-                    right: 16px !important;
                     left: auto !important;
-                    bottom: calc(var(--mobile-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 12px) !important;
                     width: auto !important;
                     box-sizing: border-box !important;
                 }
