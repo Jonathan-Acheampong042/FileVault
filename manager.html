@@ -376,6 +376,17 @@
                     Library Files
                     <span id="fileCountBadge" class="text-xs font-bold text-white/40 bg-white/5 px-2 py-0.5 rounded-full ml-1"></span>
                 </h3>
+                <!-- Manager search bar -->
+                <div style="position:relative;flex:1 1 180px;max-width:320px;min-width:140px">
+                    <span class="material-symbols-outlined" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:16px;color:#475569;pointer-events:none">search</span>
+                    <input id="mgrSearchInput" type="text" placeholder="Search files…" oninput="filterManagerFiles(this.value)"
+                        style="width:100%;padding:8px 32px 8px 34px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:white;font-size:12px;outline:none;font-family:inherit;transition:border-color .2s"
+                        onfocus="this.style.borderColor='rgba(59,130,246,0.45)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"/>
+                    <button id="mgrSearchClear" onclick="clearMgrSearch()" title="Clear search"
+                        style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;padding:2px;line-height:0">
+                        <span class="material-symbols-outlined" style="font-size:15px">close</span>
+                    </button>
+                </div>
                 <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                     <div class="relative">
                         <select id="sortSelect" onchange="sortFiles(this.value)" class="custom-select text-xs text-white/70 bg-white/5 border border-white/10 rounded-lg px-3 py-2 pr-8 outline-none cursor-pointer hover:bg-white/10 transition-all">
@@ -909,6 +920,53 @@
         loadManagerFiles();
     }
 
+    // ─── MANAGER SEARCH ──────────────────────────────────────────
+    let _mgrSearchTerm = '';
+    function filterManagerFiles(term) {
+        _mgrSearchTerm = (term || '').trim().toLowerCase();
+        const clearBtn = document.getElementById('mgrSearchClear');
+        if (clearBtn) clearBtn.style.display = _mgrSearchTerm ? 'block' : 'none';
+        // Re-render without a full network fetch
+        _renderFilteredManagerFiles();
+    }
+    function clearMgrSearch() {
+        _mgrSearchTerm = '';
+        const inp = document.getElementById('mgrSearchInput');
+        const clearBtn = document.getElementById('mgrSearchClear');
+        if (inp) inp.value = '';
+        if (clearBtn) clearBtn.style.display = 'none';
+        _renderFilteredManagerFiles();
+    }
+    function _renderFilteredManagerFiles() {
+        const container = document.getElementById('managerFileGrid');
+        if (!container) return;
+        const term = _mgrSearchTerm;
+        if (!term) {
+            // Show all — re-render from allFiles
+            _renderMgrCards(allFiles, container);
+            return;
+        }
+        const filtered = allFiles.filter(f =>
+            (f.file_name || '').toLowerCase().includes(term) ||
+            (f.folder_name || '').toLowerCase().includes(term) ||
+            (f.description || '').toLowerCase().includes(term)
+        );
+        _renderMgrCards(filtered, container);
+    }
+    function _renderMgrCards(files, container) {
+        if (!files.length) {
+            container.innerHTML = `<p class="text-white/40 text-center py-10 col-span-full">No files match "${_esc(_mgrSearchTerm)}".</p>`;
+            return;
+        }
+        const sorted = applySort([...files]);
+        if (currentTab === 'db' || currentTab === 'storage') {
+            container.innerHTML = sorted.map(row => {
+                const storagePath = row._storagePath || (row.folder_name && row.folder_name !== 'Root' ? row.folder_name + '/' + row.file_name : row.file_name);
+                return renderFileCard(row, currentTab === 'storage' ? 'storage' : 'db', storagePath);
+            }).join('');
+        }
+    }
+
     // ─── TABS ───────────────────────────────────────────────────
     function switchTab(tab) {
         currentTab = tab;
@@ -1005,6 +1063,7 @@
                     </div>
                     ${req.description ? `<p class="text-[11px] text-slate-400 italic mb-1 line-clamp-2">${_esc(req.description)}</p>` : ''}
                     <p class="text-[11px] text-slate-500 mb-3"><strong class="text-slate-400">Reason:</strong> ${_esc(req.reason || '—')}</p>
+                    ${(!isPending && req.manager_note) ? `<p class="text-[11px] mb-2" style="background:rgba(100,116,139,0.12);border:1px solid rgba(100,116,139,0.2);border-radius:8px;padding:6px 10px"><span style="color:#94a3b8;font-weight:700">Manager note: </span><span style="color:#cbd5e1">${_esc(req.manager_note)}</span></p>` : ''}
                     <p class="text-[10px] text-slate-600 mb-3">${dateStr}</p>
                     ${isPending ? `
                     <div class="flex gap-2">
@@ -1061,9 +1120,13 @@
     }
 
     async function dismissRequest(id) {
-        if (!confirm('Dismiss this request?')) return;
+        // Ask for an optional note so the student knows why
+        const note = prompt('Add a note for the student (optional):\nLeave blank to dismiss without a reason.', '');
+        if (note === null) return; // cancelled
         try {
-            await _supabase.from('upload_requests').update({ status: 'dismissed' }).eq('id', id);
+            const update = { status: 'dismissed' };
+            if (note.trim()) update.manager_note = note.trim();
+            await _supabase.from('upload_requests').update(update).eq('id', id);
             showMgrToast('Request dismissed.', 'info');
             loadRequests();
         } catch(e) { showMgrToast('Error: ' + e.message, 'error'); }
@@ -3460,10 +3523,12 @@
         if (icon) icon.textContent = document.documentElement.classList.contains('light') ? 'dark_mode' : 'light_mode';
     }
 
-    // ── Patch loadFromDB: popular + new badges + ratings ──
+    // ── Patch loadFromDB: popular + new badges + ratings + search filter ──
     const _origLoadDB = loadFromDB;
     loadFromDB = async function(container) {
         await _origLoadDB(container);
+        // Re-apply search term if any
+        if (_mgrSearchTerm) _renderFilteredManagerFiles();
         renderMgrPopular(allFiles);
         // Load ratings for visible DB files
         const ids = allFiles.filter(f => f.id).map(f => String(f.id));

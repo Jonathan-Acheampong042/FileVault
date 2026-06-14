@@ -135,6 +135,7 @@
         .req-status { font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px; }
         .req-status.fulfilled { background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.25); }
         .req-status.pending { background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.25); }
+        .req-status.dismissed { background:rgba(100,116,139,0.15);color:#94a3b8;border:1px solid rgba(100,116,139,0.25); }
 
         /* ── File history / pinned chips ── */
         .file-history-chip { display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;text-decoration:none;transition:background .18s,border-color .18s; }
@@ -919,8 +920,8 @@
             const list = document.getElementById('requestHistoryList');
             try {
                 const { data, error } = await _supabase
-                    .from('file_requests')
-                    .select('id, file_name, folder_name, status, created_at')
+                    .from('upload_requests')
+                    .select('id, filename, folder, status, created_at, manager_note')
                     .eq('requester_email', user.email)
                     .order('created_at', { ascending: false })
                     .limit(8);
@@ -935,14 +936,23 @@
                 list.innerHTML = data.map(r => {
                     const status = (r.status || 'pending').toLowerCase();
                     const date   = new Date(r.created_at).toLocaleDateString(undefined, { month:'short', day:'numeric' });
-                    const folder = r.folder_name ? ` · ${r.folder_name}` : '';
-                    return `<div class="req-chip" style="margin-bottom:6px">
-                        <span class="material-symbols-outlined" style="font-size:16px;color:#64748b;flex-shrink:0">description</span>
-                        <div style="flex:1;min-width:0">
-                            <p style="font-size:12px;font-weight:700;color:#e2e8f0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.file_name || 'Untitled request'}</p>
-                            <p style="font-size:10px;color:#475569;margin:2px 0 0">${date}${folder}</p>
+                    const folder = r.folder ? ` · ${r.folder}` : '';
+                    const isDismissed = status === 'dismissed';
+                    const statusLabel = isDismissed ? 'Dismissed' : (status === 'approved' ? 'Fulfilled' : 'Pending');
+                    const statusClass = isDismissed ? 'dismissed' : (status === 'approved' ? 'fulfilled' : 'pending');
+                    const noteHtml = (isDismissed && r.manager_note)
+                        ? `<p style="font-size:10px;margin:4px 0 0;background:rgba(100,116,139,0.12);border:1px solid rgba(100,116,139,0.2);border-radius:6px;padding:4px 8px;line-height:1.4"><span style="color:#94a3b8;font-weight:700">Note: </span><span style="color:#cbd5e1">${r.manager_note.replace(/</g,'&lt;')}</span></p>`
+                        : '';
+                    return `<div class="req-chip" style="margin-bottom:6px;flex-direction:column;align-items:stretch">
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <span class="material-symbols-outlined" style="font-size:16px;color:#64748b;flex-shrink:0">description</span>
+                            <div style="flex:1;min-width:0">
+                                <p style="font-size:12px;font-weight:700;color:#e2e8f0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.filename || 'Untitled request').replace(/</g,'&lt;')}</p>
+                                <p style="font-size:10px;color:#475569;margin:2px 0 0">${date}${folder}</p>
+                            </div>
+                            <span class="req-status ${statusClass}">${statusLabel}</span>
                         </div>
-                        <span class="req-status ${status === 'fulfilled' ? 'fulfilled' : 'pending'}">${status === 'fulfilled' ? 'Fulfilled' : 'Pending'}</span>
+                        ${noteHtml}
                     </div>`;
                 }).join('');
             } catch (e) {

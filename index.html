@@ -1462,7 +1462,11 @@
                 const isSelected = [...selectedFiles].some(x => x.url === file.url);
                 const safeUrl = file.url.replace(/'/g, "\'");
                 const safeName = file.name.replace(/'/g, "\'");
-                const expText = file.expires_at ? '<span class="text-[9px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded ml-auto">Exp: ' + Math.ceil((new Date(file.expires_at) - now) / (1000*60*60*24)) + 'd</span>' : '';
+                const expiryDays = file.expires_at ? Math.ceil((new Date(file.expires_at) - now) / (1000*60*60*24)) : null;
+                const expText = file.expires_at ? '<span class="text-[9px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded ml-auto">Exp: ' + expiryDays + 'd</span>' : '';
+                const expiryWarnBadge = (expiryDays !== null && expiryDays <= 7)
+                    ? `<div style="display:flex;align-items:center;gap:4px;margin-top:4px;font-size:9.5px;font-weight:700;color:${expiryDays <= 2 ? '#ef4444' : '#f59e0b'};background:${expiryDays <= 2 ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)'};border:1px solid ${expiryDays <= 2 ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'};border-radius:6px;padding:2px 7px;width:fit-content"><span class="material-symbols-outlined" style="font-size:11px">timer</span>Expires in ${expiryDays} day${expiryDays !== 1 ? 's' : ''}</div>`
+                    : '';
                 const sizeLabel = file.file_size ? formatFileSize(file.file_size) : null;
                 const dlCount = (file.download_count && file.download_count > 0)
                     ? '<span title="' + file.download_count + ' download' + (file.download_count !== 1 ? 's' : '') + '" style="display:inline-flex;align-items:center;gap:2px;font-size:9px;background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.2);border-radius:99px;padding:1px 6px;font-weight:700;vertical-align:middle"><span class="material-symbols-outlined" style="font-size:10px">download</span>' + file.download_count + '</span>' : '';
@@ -1472,6 +1476,7 @@
                     ? 'onmouseenter="showTip('+_ri+',this)" onmouseleave="hideTip('+_ri+')"' : '';
                 const staggerStyle = 'animation-delay:' + Math.min(_ci * 40, 400) + 'ms';
                 const viewBadge = file.id ? '<span class="view-count-badge" style="display:none;align-items:center;gap:2px;font-size:9px;background:rgba(139,92,246,0.1);color:#a78bfa;border:1px solid rgba(139,92,246,0.2);border-radius:99px;padding:1px 6px;font-weight:700"></span>' : '';
+                const ratingBadge = file.id ? '<button class="rating-like-btn" data-rating-id="' + file.id + '" onclick="toggleRating(\'' + file.id + '\',this);event.stopPropagation()" title="Like this file" aria-label="Like" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;background:rgba(245,158,11,0.08);color:#94a3b8;border:1px solid rgba(255,255,255,0.1);border-radius:99px;padding:2px 8px;cursor:pointer;transition:all .2s;vertical-align:middle">👍</button>' : '';
                 return '<div class="file-card file-card-animate glass-card p-4 rounded-2xl flex items-center gap-3 group" data-idx="'+_ri+'"' + (file.id ? ' data-file-id="'+file.id+'"' : '') + ' style="' + staggerStyle + '" ' + hoverAttrs + ' onclick="handleCardClick(event,'+_ri+')">' +
                     descTooltip +
                     '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="toggleSelect(\'' + safeUrl + '\',\'' + safeName + '\',this,' + (file.file_size||0) + ')" class="w-4 h-4 rounded text-primary cursor-pointer shrink-0">' +
@@ -1484,8 +1489,10 @@
                             '<span>·</span><span title="' + formatDate(file.date) + '">' + timeAgo(file.date) + '</span>' +
                             expText +
                             viewBadge +
+                            ratingBadge +
                         '</div>' +
                         (file.description ? '<p class="mt-0.5 text-[11px] text-slate-400 italic truncate">' + highlightText(file.description, currentSearchTerm) + '</p>' : '') +
+                        expiryWarnBadge +
                     '</div>' +
                     '<div class="flex gap-0.5 opacity-100 shrink-0">' +
                     '<button class="card-react-btn p-2 text-slate-400 hover:text-pink-400 material-symbols-outlined text-xl" data-fid="' + (file.id||'') + '" title="Add reaction" aria-label="React to ' + file.name + '">add_reaction</button>' +
@@ -2723,9 +2730,16 @@
         function _applyRatingBadge(el, fileId) {
             const r = _ratingsCache[fileId];
             if (!r) return;
-            el.textContent = (r.liked ? '👍 ' : '👍') + (r.count || '');
-            el.setAttribute('aria-label', (r.liked ? 'Unlike' : 'Like') + ' — ' + (r.count || 0) + ' likes');
+            const count = r.count || 0;
+            el.textContent = r.liked ? `👍 ${count}` : (count > 0 ? `👍 ${count}` : '👍');
+            el.setAttribute('aria-label', (r.liked ? 'Unlike' : 'Like') + ' — ' + count + ' likes');
             el.classList.toggle('liked', r.liked);
+            // Visual state for inline card button
+            if (el.classList.contains('rating-like-btn')) {
+                el.style.background = r.liked ? 'rgba(245,158,11,0.18)' : 'rgba(245,158,11,0.08)';
+                el.style.color = r.liked ? '#fbbf24' : (count > 0 ? '#fbbf24' : '#94a3b8');
+                el.style.borderColor = r.liked ? 'rgba(245,158,11,0.4)' : (count > 0 ? 'rgba(245,158,11,0.25)' : 'rgba(255,255,255,0.1)');
+            }
         }
         async function toggleRating(fileId, btnEl) {
             if (!fileId) return;
