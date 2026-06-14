@@ -195,6 +195,19 @@
         .mfa-status { display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:12px; font-size:12px; font-weight:700; margin-top:10px; }
         .mfa-status.on  { background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); color:#34d399; }
         .mfa-status.off { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); color:#64748b; }
+
+        /* ── MFA enrollment modal ── */
+        .mfa-modal-overlay { display:none; position:fixed; inset:0; z-index:9998; background:rgba(2,6,23,0.75); backdrop-filter:blur(8px); align-items:center; justify-content:center; padding:16px; }
+        .mfa-modal-box { width:100%; max-width:400px; border-radius:24px; padding:28px; max-height:90vh; overflow-y:auto; }
+        .otp-input { width:48px; height:52px; text-align:center; font-size:20px; font-weight:800; background:rgba(255,255,255,0.07); border:1.5px solid rgba(255,255,255,0.12); border-radius:10px; color:white; outline:none; transition:border-color .2s, background .2s; caret-color:transparent; font-family:inherit; }
+        .otp-input:focus { border-color:rgba(59,130,246,0.6); background:rgba(59,130,246,0.08); }
+        .otp-input.filled { border-color:rgba(59,130,246,0.45); background:rgba(59,130,246,0.1); }
+        .mfa-secret-box { display:flex; align-items:center; justify-content:space-between; gap:8px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:10px 14px; font-family:monospace; font-size:13px; color:#93c5fd; letter-spacing:0.05em; word-break:break-all; }
+        .mfa-copy-btn { background:none; border:none; cursor:pointer; color:#64748b; flex-shrink:0; display:flex; align-items:center; }
+        .mfa-copy-btn:hover { color:#93c5fd; }
+        @media (max-width: 380px) {
+            .otp-input { width:40px; height:46px; font-size:18px; }
+        }
     </style>
 </head>
 <body>
@@ -367,20 +380,54 @@
                 <!-- Two-Factor Authentication -->
                 <div class="section-card">
                     <div class="section-title"><span class="material-symbols-outlined">verified_user</span> Two-Factor Authentication</div>
-                    <div class="toggle-row">
-                        <div>
-                            <p class="toggle-label">Email code at sign-in</p>
-                            <p class="toggle-sub">After your password, we'll email you a 6-digit code to confirm it's you</p>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="mfaEmailToggle" onchange="toggleEmailMFA(this.checked)"/>
-                            <span class="toggle-track"></span>
-                            <span class="toggle-thumb"></span>
-                        </label>
-                    </div>
+                    <p style="font-size:12px;color:#64748b;margin:0 0 12px;line-height:1.5">Protect your account with an authenticator app (Google Authenticator, Authy, 1Password, etc.). Once enabled, you'll need a 6-digit code from the app every time you sign in.</p>
                     <div class="mfa-status off" id="mfaStatus">
                         <span class="material-symbols-outlined" style="font-size:16px">gpp_maybe</span>
                         <span id="mfaStatusText">Two-factor authentication is off</span>
+                    </div>
+                    <button class="btn-primary" id="mfaActionBtn" onclick="onMfaActionClick()" style="margin-top:12px">
+                        <span id="mfaActionBtnText">Enable Two-Factor Authentication</span>
+                    </button>
+                </div>
+
+                <!-- MFA enrollment modal -->
+                <div class="mfa-modal-overlay" id="mfaEnrollModal">
+                    <div class="glass-card mfa-modal-box">
+                        <div style="text-align:center;margin-bottom:18px">
+                            <div style="width:52px;height:52px;border-radius:16px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.28);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                                <span class="material-symbols-outlined" style="font-size:26px;color:#60a5fa">qr_code_2</span>
+                            </div>
+                            <h3 style="color:white;font-weight:700;font-size:16px;margin-bottom:4px">Set Up Two-Factor Authentication</h3>
+                            <p style="color:#64748b;font-size:13px">Scan this QR code with your authenticator app, then enter the 6-digit code it generates.</p>
+                        </div>
+                        <div id="mfaEnrollLoading" style="text-align:center;padding:20px 0;color:#64748b;font-size:13px">Setting up…</div>
+                        <div id="mfaEnrollBody" style="display:none">
+                            <div style="text-align:center;margin-bottom:14px">
+                                <img id="mfaQrImage" src="" alt="2FA QR code" style="width:180px;height:180px;border-radius:12px;background:white;padding:8px;margin:0 auto"/>
+                            </div>
+                            <p style="font-size:11px;color:#64748b;margin-bottom:6px;text-align:center">Can't scan? Enter this code manually:</p>
+                            <div class="mfa-secret-box" style="margin-bottom:16px">
+                                <span id="mfaSecretText"></span>
+                                <button class="mfa-copy-btn" onclick="copyMfaSecret()" title="Copy">
+                                    <span class="material-symbols-outlined" style="font-size:18px">content_copy</span>
+                                </button>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:16px">
+                                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfaEnroll0" oninput="mfaEnrollInputMove(0)" onkeydown="mfaEnrollInputBack(event,0)" onpaste="mfaEnrollInputPaste(event)"/>
+                                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfaEnroll1" oninput="mfaEnrollInputMove(1)" onkeydown="mfaEnrollInputBack(event,1)"/>
+                                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfaEnroll2" oninput="mfaEnrollInputMove(2)" onkeydown="mfaEnrollInputBack(event,2)"/>
+                                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfaEnroll3" oninput="mfaEnrollInputMove(3)" onkeydown="mfaEnrollInputBack(event,3)"/>
+                                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfaEnroll4" oninput="mfaEnrollInputMove(4)" onkeydown="mfaEnrollInputBack(event,4)"/>
+                                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfaEnroll5" oninput="mfaEnrollInputMove(5)" onkeydown="mfaEnrollInputBack(event,5)"/>
+                            </div>
+                            <button class="btn-primary" id="mfaEnrollVerifyBtn" onclick="verifyMfaEnrollment()">
+                                <span id="mfaEnrollVerifyText">Verify &amp; Enable</span>
+                            </button>
+                            <p id="mfaEnrollMsg" class="mt-2 text-center text-sm min-h-5" style="color:#f87171"></p>
+                        </div>
+                        <button type="button" onclick="closeMfaEnrollModal()" style="margin-top:8px;background:none;border:none;cursor:pointer;color:#64748b;font-size:12px;width:100%;text-align:center;font-family:inherit">
+                            Cancel
+                        </button>
                     </div>
                 </div>
 
@@ -565,7 +612,7 @@
             loadRecentDownloads();
             loadPinnedFiles();
             loadSessionInfo(_currentUser);
-            loadMfaStatus(_currentUser);
+            loadMfaStatus();
             loadConnectedAccounts();
             initPushUI();
             document.getElementById('profileLoading').style.display = 'none';
@@ -1221,40 +1268,152 @@
         }
 
         // ═══════════════════════════════════════════════════════════
-        // TWO-FACTOR AUTHENTICATION (email code at sign-in)
+        // TWO-FACTOR AUTHENTICATION (Supabase TOTP — server-enforced via AAL)
         // ═══════════════════════════════════════════════════════════
-        function loadMfaStatus(user) {
-            const meta = user.user_metadata || {};
-            const enabled = !!meta.mfa_email_required;
-            document.getElementById('mfaEmailToggle').checked = enabled;
-            updateMfaStatusUI(enabled);
+        let _mfaFactor = null; // the verified TOTP factor, if any
+        let _mfaEnrollFactorId = null; // unverified factor created during enrollment
+
+        async function loadMfaStatus() {
+            const { data, error } = await _supabase.auth.mfa.listFactors();
+            if (error) { console.error('listFactors error:', error); return; }
+            _mfaFactor = (data?.totp || []).find(f => f.status === 'verified') || null;
+            updateMfaStatusUI(!!_mfaFactor);
         }
 
         function updateMfaStatusUI(enabled) {
             const status = document.getElementById('mfaStatus');
             const text   = document.getElementById('mfaStatusText');
             const icon   = status.querySelector('.material-symbols-outlined');
+            const btnText = document.getElementById('mfaActionBtnText');
             status.className = 'mfa-status ' + (enabled ? 'on' : 'off');
             icon.textContent = enabled ? 'verified_user' : 'gpp_maybe';
             text.textContent = enabled
-                ? 'Two-factor authentication is on — we\'ll email you a code at sign-in'
+                ? 'Two-factor authentication is on — you\'ll need your authenticator app at sign-in'
                 : 'Two-factor authentication is off';
+            btnText.textContent = enabled ? 'Disable Two-Factor Authentication' : 'Enable Two-Factor Authentication';
+            const btn = document.getElementById('mfaActionBtn');
+            btn.style.background = enabled ? 'rgba(239,68,68,0.15)' : '';
+            btn.style.color = enabled ? '#fca5a5' : '';
+            if (enabled) { btn.style.border = '1px solid rgba(239,68,68,0.25)'; }
+            else { btn.style.border = ''; }
         }
 
-        async function toggleEmailMFA(enable) {
-            const toggle = document.getElementById('mfaEmailToggle');
-            toggle.disabled = true;
-            const { data, error } = await _supabase.auth.updateUser({ data: { mfa_email_required: enable } });
-            toggle.disabled = false;
+        function onMfaActionClick() {
+            if (_mfaFactor) disableMfa();
+            else openMfaEnrollModal();
+        }
 
+        // ── Enrollment ──
+        async function openMfaEnrollModal() {
+            const modal = document.getElementById('mfaEnrollModal');
+            modal.style.display = 'flex';
+            document.getElementById('mfaEnrollLoading').style.display = 'block';
+            document.getElementById('mfaEnrollBody').style.display = 'none';
+            setMsg('mfaEnrollMsg','', 'info');
+
+            const { data, error } = await _supabase.auth.mfa.enroll({ factorType: 'totp' });
             if (error) {
-                toggle.checked = !enable;
-                showToast('Could not update 2FA: ' + error.message, 'error');
+                showToast('Could not start 2FA setup: ' + error.message, 'error');
+                closeMfaEnrollModal();
                 return;
             }
-            if (data && data.user) _currentUser = data.user;
-            updateMfaStatusUI(enable);
-            showToast(enable ? 'Two-factor authentication enabled' : 'Two-factor authentication disabled', enable ? 'success' : 'info');
+
+            _mfaEnrollFactorId = data.id;
+            document.getElementById('mfaQrImage').src = data.totp.qr_code;
+            document.getElementById('mfaSecretText').textContent = data.totp.secret;
+            document.getElementById('mfaEnrollLoading').style.display = 'none';
+            document.getElementById('mfaEnrollBody').style.display = 'block';
+            [0,1,2,3,4,5].forEach(i => { const el = document.getElementById('mfaEnroll'+i); el.value=''; el.classList.remove('filled'); });
+            setTimeout(() => document.getElementById('mfaEnroll0')?.focus(), 50);
+        }
+
+        async function closeMfaEnrollModal() {
+            document.getElementById('mfaEnrollModal').style.display = 'none';
+            // Clean up the unverified factor so it doesn't linger on the account
+            if (_mfaEnrollFactorId) {
+                try { await _supabase.auth.mfa.unenroll({ factorId: _mfaEnrollFactorId }); } catch(e) {}
+                _mfaEnrollFactorId = null;
+            }
+        }
+
+        function copyMfaSecret() {
+            const text = document.getElementById('mfaSecretText').textContent;
+            navigator.clipboard?.writeText(text).then(() => showToast('Secret copied', 'success'));
+        }
+
+        function mfaEnrollInputMove(idx) {
+            const el = document.getElementById('mfaEnroll'+idx);
+            const v = el.value.replace(/\D/g,'');
+            el.value = v.slice(-1);
+            el.classList.toggle('filled', !!el.value);
+            if (el.value && idx < 5) document.getElementById('mfaEnroll'+(idx+1)).focus();
+            if (idx === 5 && [0,1,2,3,4,5].every(i => document.getElementById('mfaEnroll'+i).value)) verifyMfaEnrollment();
+        }
+        function mfaEnrollInputBack(e, idx) {
+            if (e.key === 'Backspace' && !document.getElementById('mfaEnroll'+idx).value && idx > 0) {
+                document.getElementById('mfaEnroll'+(idx-1)).focus();
+            }
+        }
+        function mfaEnrollInputPaste(e) {
+            e.preventDefault();
+            const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g,'').slice(0,6);
+            paste.split('').forEach((ch, i) => {
+                if (i < 6) { const el = document.getElementById('mfaEnroll'+i); el.value = ch; el.classList.add('filled'); }
+            });
+            if (paste.length === 6) { document.getElementById('mfaEnroll5').focus(); verifyMfaEnrollment(); }
+            else if (paste.length > 0) document.getElementById('mfaEnroll'+Math.min(paste.length,5)).focus();
+        }
+
+        async function verifyMfaEnrollment() {
+            const code = [0,1,2,3,4,5].map(i => (document.getElementById('mfaEnroll'+i).value || '').trim()).join('');
+            if (code.length !== 6) { setMsg('mfaEnrollMsg','Please enter all 6 digits.', 'error'); return; }
+
+            setBtnLoading('mfaEnrollVerifyBtn','mfaEnrollVerifyText','Verifying…');
+            const { data: challenge, error: chErr } = await _supabase.auth.mfa.challenge({ factorId: _mfaEnrollFactorId });
+            if (chErr) {
+                clearBtnLoading('mfaEnrollVerifyBtn','mfaEnrollVerifyText','Verify & Enable');
+                setMsg('mfaEnrollMsg', chErr.message, 'error');
+                return;
+            }
+
+            const { error: verErr } = await _supabase.auth.mfa.verify({
+                factorId: _mfaEnrollFactorId,
+                challengeId: challenge.id,
+                code
+            });
+            clearBtnLoading('mfaEnrollVerifyBtn','mfaEnrollVerifyText','Verify & Enable');
+
+            if (verErr) {
+                setMsg('mfaEnrollMsg', verErr.message, 'error');
+                [0,1,2,3,4,5].forEach(i => { const el = document.getElementById('mfaEnroll'+i); el.value=''; el.classList.remove('filled'); });
+                document.getElementById('mfaEnroll0').focus();
+                return;
+            }
+
+            _mfaFactor = { id: _mfaEnrollFactorId, status: 'verified' };
+            _mfaEnrollFactorId = null;
+            document.getElementById('mfaEnrollModal').style.display = 'none';
+            updateMfaStatusUI(true);
+            showToast('Two-factor authentication enabled', 'success');
+        }
+
+        // ── Disable ──
+        async function disableMfa() {
+            if (!_mfaFactor) return;
+            if (!confirm('Disable two-factor authentication? You will no longer be asked for an authenticator code at sign-in.')) return;
+
+            const btn = document.getElementById('mfaActionBtn');
+            btn.disabled = true;
+            const { error } = await _supabase.auth.mfa.unenroll({ factorId: _mfaFactor.id });
+            btn.disabled = false;
+
+            if (error) {
+                showToast('Could not disable 2FA: ' + error.message, 'error');
+                return;
+            }
+            _mfaFactor = null;
+            updateMfaStatusUI(false);
+            showToast('Two-factor authentication disabled', 'info');
         }
 
         // ═══════════════════════════════════════════════════════════

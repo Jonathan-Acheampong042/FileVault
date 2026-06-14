@@ -482,6 +482,34 @@
         <p class="text-center mt-5 animate-fade-in" style="color:#334155;font-size:12px">FileVault · Built by <span style="color:#475569;font-weight:600">Jonathan Acheampong</span></p>
     </div><!-- /max-w-md -->
 
+    <!-- ── Two-Factor Authentication challenge modal (TOTP) ── -->
+    <div id="mfaChallengeModal" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(2,6,23,0.75);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px">
+        <div class="glass-card animate-fade-in" style="width:100%;max-width:380px;border-radius:24px;padding:28px">
+            <div style="text-align:center;margin-bottom:20px">
+                <div style="width:52px;height:52px;border-radius:16px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.28);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                    <span class="material-symbols-outlined" style="font-size:26px;color:#60a5fa">shield_lock</span>
+                </div>
+                <h3 style="color:white;font-weight:700;font-size:16px;margin-bottom:4px">Two-Factor Authentication</h3>
+                <p style="color:#64748b;font-size:13px">Enter the 6-digit code from your authenticator app</p>
+            </div>
+            <div class="flex justify-between gap-2" style="display:flex;justify-content:space-between;gap:8px">
+                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa0" oninput="mfaInputMove(0)" onkeydown="mfaInputBack(event,0)" onpaste="mfaInputPaste(event)"/>
+                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa1" oninput="mfaInputMove(1)" onkeydown="mfaInputBack(event,1)"/>
+                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa2" oninput="mfaInputMove(2)" onkeydown="mfaInputBack(event,2)"/>
+                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa3" oninput="mfaInputMove(3)" onkeydown="mfaInputBack(event,3)"/>
+                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa4" oninput="mfaInputMove(4)" onkeydown="mfaInputBack(event,4)"/>
+                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa5" oninput="mfaInputMove(5)" onkeydown="mfaInputBack(event,5)"/>
+            </div>
+            <button class="btn-primary" id="mfaVerifyBtn" onclick="verifyMfaCode()" style="margin-top:20px">
+                <span id="mfaVerifyText">Verify &amp; Continue</span>
+            </button>
+            <button type="button" onclick="cancelMfaChallenge()" style="margin-top:12px;background:none;border:none;cursor:pointer;color:#64748b;font-size:12px;width:100%;text-align:center;font-family:inherit">
+                Cancel and sign out
+            </button>
+            <p id="mfaVerifyMsg" class="mt-3 text-center text-sm min-h-5" style="color:#f87171"></p>
+        </div>
+    </div>
+
     <script>
     // ═══════════════════════════════════════════════════════════════
     // CONFIG
@@ -504,6 +532,12 @@
     let _redirecting   = false;   // prevents double-fire from onAuthStateChange
     let _inRecoveryFlow = false;  // true while a recovery session is active but not yet completed
     let _recoveryCompleted = false;
+
+    // MFA (TOTP) challenge state
+    let _mfaFactorId    = null;
+    let _mfaChallengeId = null;
+    let _mfaTargetMode  = null;   // 'student' | 'admin' | null — where to route after verifying
+    let _mfaPending     = false;  // true while the MFA modal is open / a challenge is in flight
 
     // ═══════════════════════════════════════════════════════════════
     // INIT — check existing session + handle URL tokens
@@ -548,6 +582,13 @@
     // ── Route user based on role ──────────────────────────────────
     async function routeUser(user) {
         if (!user || _redirecting) return;
+
+        // Gate on MFA first — onAuthStateChange fires SIGNED_IN as soon as
+        // signInWithPassword returns an aal1 session, even if the account
+        // has TOTP enrolled. Catch that here so we never auto-redirect a
+        // session that hasn't completed its second factor yet.
+        if (await checkMfaRequired(null)) return;
+
         _redirecting = true;
 
         // 1. Check user_profiles table for explicit role
@@ -652,37 +693,11 @@
         }
         setMsg('sSignInMsg','', 'info');
 
-        // ── Two-factor: if this account requires an email code, send it
-        // and finish sign-in only after the code is verified ──
-        if (data.user && data.user.user_metadata && data.user.user_metadata.mfa_email_required) {
-            await beginEmailMfaChallenge(data.user.email);
-            return;
-        }
+        // ── Two-factor: if this account has TOTP MFA enrolled, Supabase
+        // will require an aal2 session before issuing a full session ──
+        if (await checkMfaRequired('student')) return;
 
         await routeUser(data.user);
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // EMAIL 2FA — second factor after password sign-in
-    // ═══════════════════════════════════════════════════════════════
-    async function beginEmailMfaChallenge(email) {
-        // Drop the password-only session until the code is verified
-        await _supabase.auth.signOut();
-        _redirecting = false;
-
-        _otpEmail = email;
-        const { error } = await _supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
-        if (error) {
-            setMsg('sSignInMsg', 'Could not send your verification code: ' + error.message, 'error');
-            return;
-        }
-
-        switchStudentTab('otp');
-        document.getElementById('otpStep1').style.display = 'none';
-        document.getElementById('otpStep2').style.display = '';
-        document.getElementById('otpEmailDisplay').textContent = email;
-        document.getElementById('otp0').focus();
-        showToast('Verification code sent to ' + email, 'info');
     }
 
     async function resendConfirmation(email) {
@@ -833,6 +848,117 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // TWO-FACTOR AUTH (Supabase TOTP) — server-enforced via AAL
+    // ═══════════════════════════════════════════════════════════════
+    // Call right after signInWithPassword succeeds. If the account has a
+    // verified TOTP factor, Supabase will report nextLevel 'aal2' while the
+    // current session is still 'aal1'. We challenge that factor and show a
+    // code-entry modal; the caller should return immediately if this
+    // returns true (the sign-in is not yet complete).
+    async function checkMfaRequired(mode) {
+        if (_mfaPending) return true; // already handling a challenge from another caller
+
+        const { data: aal, error: aalErr } = await _supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (aalErr || !aal) return false;
+        if (aal.nextLevel !== 'aal2' || aal.nextLevel === aal.currentLevel) return false;
+
+        const { data: factors, error: factorsErr } = await _supabase.auth.mfa.listFactors();
+        if (factorsErr) {
+            showToast('Could not load 2FA factors: ' + factorsErr.message, 'error');
+            return true; // block — something is wrong, don't let sign-in proceed silently
+        }
+        const totp = (factors?.totp || []).find(f => f.status === 'verified');
+        if (!totp) return false; // shouldn't happen if nextLevel === 'aal2', but fail open to be safe
+
+        const { data: challenge, error: chErr } = await _supabase.auth.mfa.challenge({ factorId: totp.id });
+        if (chErr) {
+            showToast('Could not start 2FA challenge: ' + chErr.message, 'error');
+            return true;
+        }
+
+        _mfaPending     = true;
+        _mfaFactorId    = totp.id;
+        _mfaChallengeId = challenge.id;
+        _mfaTargetMode  = mode || null;
+
+        if (mode === 'admin') clearBtnLoading('aSignInBtn','aSignInText','Sign In as Admin');
+        else                  clearBtnLoading('sSignInBtn','sSignInText','Sign In');
+
+        openMfaModal();
+        return true;
+    }
+
+    function openMfaModal() {
+        const modal = document.getElementById('mfaChallengeModal');
+        modal.style.display = 'flex';
+        setMsg('mfaVerifyMsg','', 'info');
+        [0,1,2,3,4,5].forEach(i => { const el = document.getElementById('mfa'+i); el.value = ''; el.classList.remove('filled'); });
+        setTimeout(() => document.getElementById('mfa0')?.focus(), 50);
+    }
+
+    async function cancelMfaChallenge() {
+        document.getElementById('mfaChallengeModal').style.display = 'none';
+        _mfaFactorId = null; _mfaChallengeId = null; _mfaTargetMode = null; _mfaPending = false;
+        // Drop the aal1 session so the user can try signing in again from scratch
+        await _supabase.auth.signOut();
+        _redirecting = false;
+    }
+
+    function mfaInputMove(idx) {
+        const el = document.getElementById('mfa'+idx);
+        const v = el.value.replace(/\D/g,'');
+        el.value = v.slice(-1);
+        el.classList.toggle('filled', !!el.value);
+        if (el.value && idx < 5) document.getElementById('mfa'+(idx+1)).focus();
+        if (idx === 5 && [0,1,2,3,4,5].every(i => document.getElementById('mfa'+i).value)) verifyMfaCode();
+    }
+    function mfaInputBack(e, idx) {
+        if (e.key === 'Backspace' && !document.getElementById('mfa'+idx).value && idx > 0) {
+            document.getElementById('mfa'+(idx-1)).focus();
+        }
+    }
+    function mfaInputPaste(e) {
+        e.preventDefault();
+        const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g,'').slice(0,6);
+        paste.split('').forEach((ch, i) => {
+            if (i < 6) { const el = document.getElementById('mfa'+i); el.value = ch; el.classList.add('filled'); }
+        });
+        if (paste.length === 6) { document.getElementById('mfa5').focus(); verifyMfaCode(); }
+        else if (paste.length > 0) document.getElementById('mfa'+Math.min(paste.length,5)).focus();
+    }
+
+    async function verifyMfaCode() {
+        const code = [0,1,2,3,4,5].map(i => (document.getElementById('mfa'+i).value || '').trim()).join('');
+        if (code.length !== 6) { setMsg('mfaVerifyMsg','Please enter all 6 digits.', 'error'); return; }
+
+        setBtnLoading('mfaVerifyBtn','mfaVerifyText','Verifying…');
+        const { data, error } = await _supabase.auth.mfa.verify({
+            factorId: _mfaFactorId,
+            challengeId: _mfaChallengeId,
+            code
+        });
+        clearBtnLoading('mfaVerifyBtn','mfaVerifyText','Verify & Continue');
+
+        if (error) {
+            setMsg('mfaVerifyMsg', error.message, 'error');
+            [0,1,2,3,4,5].forEach(i => { const el = document.getElementById('mfa'+i); el.value=''; el.classList.remove('filled'); });
+            document.getElementById('mfa0').focus();
+            return;
+        }
+
+        document.getElementById('mfaChallengeModal').style.display = 'none';
+        const mode = _mfaTargetMode;
+        _mfaFactorId = null; _mfaChallengeId = null; _mfaTargetMode = null; _mfaPending = false;
+
+        if (mode === 'admin') {
+            await finishAdminSignIn(data.user);
+        } else {
+            _redirecting = false; // allow routeUser to proceed now that aal2 is satisfied
+            await routeUser(data.user);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // ADMIN SIGN IN
     // ═══════════════════════════════════════════════════════════════
     async function adminSignIn() {
@@ -850,18 +976,32 @@
             return;
         }
 
-        // Verify admin role
-        let isAdmin = ADMIN_EMAILS.includes(email);
+        // Prevent onAuthStateChange's generic routeUser() from racing with
+        // this admin-specific flow (role check + its own MFA gate below).
+        _redirecting = true;
+
+        // ── Two-factor: if this account has TOTP MFA enrolled, require
+        // the authenticator code before we trust this session ──
+        if (await checkMfaRequired('admin')) return;
+
+        await finishAdminSignIn(data.user);
+    }
+
+    // Runs the admin role check + redirect — called either directly after
+    // password sign-in, or after a successful MFA verification.
+    async function finishAdminSignIn(user) {
+        let isAdmin = ADMIN_EMAILS.includes(user.email);
         if (!isAdmin) {
             try {
                 const { data: profile } = await _supabase
-                    .from('user_profiles').select('role').eq('id', data.user.id).single();
+                    .from('user_profiles').select('role').eq('id', user.id).single();
                 isAdmin = profile?.role === 'admin' || profile?.role === 'manager';
             } catch(e) {}
         }
 
         if (!isAdmin) {
             await _supabase.auth.signOut();
+            _redirecting = false;
             clearBtnLoading('aSignInBtn','aSignInText','Sign In as Admin');
             setMsg('aSignInMsg','Access denied. This portal is for administrators only.', 'error');
             shake('aSignInBtn');
