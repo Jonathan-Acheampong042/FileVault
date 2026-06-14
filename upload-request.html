@@ -154,6 +154,16 @@
             ? 'http://localhost:3000'
             : 'https://project-one-187u.onrender.com';
 
+        // ── Capture the logged-in user's email so the row can be matched
+        // back to them via realtime when the request is approved ──
+        var _requesterEmail = null;
+        (async function() {
+            try {
+                const { data: { session } } = await _supabase.auth.getSession();
+                if (session && session.user) _requesterEmail = session.user.email || null;
+            } catch(e) {}
+        })();
+
         // ── Capture push subscription so manager can ping you on approval ──
         var _reqPushEndpoint = null;
         var _reqPushKeys = null;
@@ -239,6 +249,7 @@
                     reason: reason,
                     folder: document.getElementById('req_folder').value.trim() || null,
                     status: 'pending',
+                    requester_email: _requesterEmail || null,
                     subscriber_endpoint: _reqPushEndpoint || null,
                     subscriber_keys: _reqPushKeys ? JSON.stringify(_reqPushKeys) : null
                 });

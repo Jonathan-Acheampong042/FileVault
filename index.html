@@ -1071,6 +1071,10 @@
             }).join('');
         }
 
+        // Stores the logged-in user's email so realtime listeners can filter
+        // request-approval events to only show toasts for THIS user's requests.
+        var _currentUserEmail = null;
+
         async function checkAuth() {
             const { data: { session } } = await _supabase.auth.getSession();
             if (session && ADMIN_EMAILS.includes(session.user.email)) {
@@ -1078,6 +1082,7 @@
                 return;
             }
             if (session) {
+                _currentUserEmail = session.user.email || null;
                 populateProfileUI(session.user);
             }
             // Show welcome toast if arriving fresh from login
@@ -3250,6 +3255,12 @@
                             var isScheduled = payload.new && payload.new.scheduled_at && new Date(payload.new.scheduled_at) > new Date();
                             if (isScheduled) {
                                 loadScheduledTeasers();
+                                // Let students know a file is coming soon
+                                var sfolder = (payload.new && payload.new.folder_name && payload.new.folder_name !== 'Root')
+                                    ? ' in ' + payload.new.folder_name : '';
+                                var releaseDate = new Date(payload.new.scheduled_at);
+                                var dateStr = releaseDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                                showToast('🕐 ' + fname + sfolder + ' will be available on ' + dateStr, 'info', 7000);
                                 return;
                             }
                             showToast("📁 " + fname + folder + " was just added!", "info", 5000);
@@ -3270,6 +3281,22 @@
                     { event: 'DELETE', schema: 'public', table: 'announcements' },
                     function() {
                         loadAnnouncement();
+                    }
+                )
+                // ── File request approved — in-app fallback for when push didn't fire ──
+                // Filters to only the logged-in user's requests by matching requester_email.
+                .on('postgres_changes',
+                    { event: 'UPDATE', schema: 'public', table: 'upload_requests',
+                      filter: 'status=eq.approved' },
+                    function(payload) {
+                        var row = payload.new || {};
+                        // Only show the toast to the student whose request this was
+                        if (!_currentUserEmail) return;
+                        var requester = row.requester_email || row.email || '';
+                        if (requester && requester !== _currentUserEmail) return;
+                        var reqName = row.filename || row.file_name || 'Your requested file';
+                        var reqFolder = (row.folder && row.folder !== 'Root') ? ' in ' + row.folder : '';
+                        showToast('✅ Your request for "' + reqName + '"' + reqFolder + ' has been approved and uploaded!', 'success', 8000);
                     }
                 )
                 .subscribe(function(status) {

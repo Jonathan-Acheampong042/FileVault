@@ -2612,7 +2612,7 @@
         try {
             const { data: reqRow } = await _supabase
                 .from('upload_requests')
-                .select('subscriber_endpoint, subscriber_keys, filename')
+                .select('subscriber_endpoint, subscriber_keys, filename, requester_email')
                 .eq('id', requestId)
                 .single();
 
@@ -2621,7 +2621,9 @@
                 : 'https://project-one-187u.onrender.com');
 
             if (!reqRow || !reqRow.subscriber_endpoint) {
-                showMgrToast('✅ Request approved! (Student has no push enabled.)', 'success');
+                // No push subscription — student will see the approval via
+                // realtime toast on index.html if they're online, or next time they load the page.
+                showMgrToast('✅ Request approved! Student will be notified when they visit the Vault.', 'success');
                 return;
             }
             const endpoint = reqRow.subscriber_endpoint;
