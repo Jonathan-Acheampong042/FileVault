@@ -410,6 +410,9 @@ function initChatWidget() {
         }
         function setPos() {
             if (hasCustomPos()) return; // user dragged the widget — leave it where they put it
+            w.classList.remove('fv-dragged');
+            w.style.removeProperty('left');
+            w.style.removeProperty('top');
             var isMobile = window.innerWidth < 1024;
             if (!isMobile) {
                 w.style.setProperty('bottom', '24px', 'important');
@@ -447,10 +450,13 @@ function initChatWidget() {
         }
         function applyPosition(left, top) {
             var p = clampPos(left, top);
+            w.style.setProperty('--fv-drag-left', p.left + 'px');
+            w.style.setProperty('--fv-drag-top', p.top + 'px');
             w.style.setProperty('left', p.left + 'px', 'important');
             w.style.setProperty('top', p.top + 'px', 'important');
             w.style.setProperty('right', 'auto', 'important');
             w.style.setProperty('bottom', 'auto', 'important');
+            w.classList.add('fv-dragged');
             return p;
         }
         function savePosition(p) {
@@ -575,8 +581,15 @@ function initChatWidget() {
                     border-radius: 20px !important;
                     box-sizing: border-box !important;
                 }
+                /* ── Dragged position overrides the default mobile placement ── */
+                #aiChatWidget.fv-dragged {
+                    left: var(--fv-drag-left) !important;
+                    top: var(--fv-drag-top) !important;
+                    right: auto !important;
+                    bottom: auto !important;
+                }
                 /* ── Login page: chatbot floats at top-right, clear of the sign-in card ── */
-                body.login-page #aiChatWidget {
+                body.login-page #aiChatWidget:not(.fv-dragged) {
                     top: 16px !important;
                     bottom: auto !important;
                     right: 16px !important;
