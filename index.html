@@ -4929,7 +4929,7 @@
                    .select('pct')
                    .eq('file_url', url)
                    .eq('user_key', userKey)
-                   .single();
+                   .maybeSingle();
                if (data && typeof data.pct === 'number') {
                    // Write back to local cache if Supabase is ahead
                    if (!cached || data.pct > cached.pct) {
@@ -5545,8 +5545,9 @@
         _commentFileId = null;
         _commentFileName = name;
 
-        // Find file record (using _fileRegistry and matching by name)
-        const file = (window._fileRegistry || []).find(f => f.url === url || f.name === name);
+        // Find file record (fixing the variable scope!)
+        const fileList = (typeof _fileRegistry !== 'undefined') ? _fileRegistry : (window.allFiles || []);
+        const file = fileList.find(f => f.url === url || f.name === name);
         
         if (file) {
             console.log("✅ FILE FOUND! The ID is:", file.id);
