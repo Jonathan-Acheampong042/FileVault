@@ -5532,8 +5532,14 @@
     };
 
     /* ─── Wire into openPreview ────────────────────────────────────── */
+    // 👇 THIS IS THE CRUCIAL LINE THAT WENT MISSING:
+    const _prevOpenPreviewComments = window.openPreview;
+    
     window.openPreview = function(url, name, folder, size) {
-        _prevOpenPreviewComments(url, name, folder, size);
+        // Call the original preview function first
+        if (typeof _prevOpenPreviewComments === 'function') {
+            _prevOpenPreviewComments(url, name, folder, size);
+        }
 
         // Reset state
         _commentFileId = null;
