@@ -14,13 +14,17 @@
   font-src 'self'
     https://fonts.gstatic.com;
   img-src 'self' data:
-    https://lh3.googleusercontent.com;
+    https://lh3.googleusercontent.com
+    https://cdn.discordapp.com;
   connect-src 'self'
     https://*.supabase.co
-    https://project-one-187u.onrender.com;
+    wss://*.supabase.co
+    https://project-one-187u.onrender.com
+    https://cdn.jsdelivr.net;
   worker-src 'self' blob:;
+  frame-src 'self' https://*.supabase.co blob:;
   manifest-src 'self';
-  object-src 'none';
+  object-src 'self' https://*.supabase.co blob:;
   base-uri 'self';
 "/>
     <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
