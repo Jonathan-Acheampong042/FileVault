@@ -346,7 +346,7 @@ function initChatWidget() {
         <!-- Chat Window -->
         <div id="chatWindow" style="display:none;margin-bottom:16px;width:340px;height:480px;background:rgba(10,15,30,0.95);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.1);border-radius:20px;overflow:hidden;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.6)">
             <!-- Header -->
-            <div style="padding:13px 16px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+            <div id="chatHeader" style="padding:13px 16px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
                 <div style="display:flex;align-items:center;gap:10px">
                     <div style="width:34px;height:34px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">
                         <span class="material-symbols-outlined" style="color:white;font-size:18px">smart_toy</span>
@@ -988,7 +988,6 @@ if (document.readyState === 'loading') {
     initChatWidget();
 }
 function enableFullDragging() {
-    // 🛑 REPLACE THESE 3 IDs WITH THE ACTUAL IDs FROM YOUR WIDGET CODE
     const container = document.getElementById('aiChatWidget'); // The main wrapper
     const toggleBtn = document.getElementById('chatToggleBtn'); // The closed bubble
     const chatHeader = document.getElementById('chatHeader'); // The top bar of the open chat

@@ -1,7 +1,7 @@
 // FileVault Service Worker — v2
 // HTML pages always fetched fresh; static assets cached for speed
 
-const CACHE_NAME = 'filevault-v3';
+const CACHE_NAME = 'filevault-v4';
 
 // Only cache static assets — NO HTML files
 const PRECACHE_URLS = [
