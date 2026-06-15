@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Privacy Policy — FileVault</title>
-  <link rel="icon" href="/filevault%20logo.png" />
+  <link rel="icon" href="/filevault%20logo.png" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="/filevault%20logo.png" media="(prefers-color-scheme: dark)" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -142,14 +143,14 @@
 
 <header>
   <img src="/filevault%20logo.png" alt="FileVault logo" />
-  <a href="/index.html">FileVault</a>
+  <a href="index.html">FileVault</a>
   <span>Privacy Policy</span>
 </header>
 
 <main>
   <p class="eyebrow">Legal</p>
   <h1>Privacy Policy</h1>
-  <p class="meta">Last updated: June 2025 &nbsp;·&nbsp; Applies to filevault.works</p>
+  <p class="meta">Last updated: June 2026 &nbsp;·&nbsp; Applies to filevault.works</p>
 
   <p>FileVault is a secure file-sharing platform built for students and educators. This policy explains what information we collect, how we use it, and how we protect it. We keep it simple because we don't do anything complicated with your data.</p>
 
@@ -213,8 +214,9 @@
 </main>
 
 <footer>
-  &copy; 2026 FileVault &nbsp;·&nbsp; <a href="/terms.html">Terms of Service</a> &nbsp;·&nbsp; <a href="/index.html">Back to Vault</a>
+  &copy; <span id="yr"></span> FileVault &nbsp;·&nbsp; <a href="terms.html">Terms of Service</a> &nbsp;·&nbsp; <a href="index.html">Back to Vault</a>
 </footer>
+<script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
 
 </body>
 </html>

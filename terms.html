@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Terms of Service — FileVault</title>
-  <link rel="icon" href="/filevault%20logo.png" />
+  <link rel="icon" href="/filevault%20logo.png" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="/filevault%20logo.png" media="(prefers-color-scheme: dark)" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -132,14 +133,14 @@
 
 <header>
   <img src="/filevault%20logo.png" alt="FileVault logo" />
-  <a href="/index.html">FileVault</a>
+  <a href="index.html">FileVault</a>
   <span>Terms of Service</span>
 </header>
 
 <main>
   <p class="eyebrow">Legal</p>
   <h1>Terms of Service</h1>
-  <p class="meta">Last updated: June 2025 &nbsp;·&nbsp; Applies to filevault.works</p>
+  <p class="meta">Last updated: June 2026 &nbsp;·&nbsp; Applies to filevault.works</p>
 
   <p>These Terms of Service govern your use of FileVault at <a href="https://filevault.works">filevault.works</a>. By using FileVault, you agree to these terms. If you don't agree, please don't use the service.</p>
 
@@ -192,8 +193,9 @@
 </main>
 
 <footer>
-  &copy; 2026 FileVault &nbsp;·&nbsp; <a href="/privacy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="/index.html">Back to Vault</a>
+  &copy; <span id="yr"></span> FileVault &nbsp;·&nbsp; <a href="privacy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="index.html">Back to Vault</a>
 </footer>
+<script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
 
 </body>
 </html>
