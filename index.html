@@ -403,6 +403,29 @@
         #studyModeBtn.active { background:rgba(16,185,129,0.2); border-color:rgba(16,185,129,0.45); }
         #previewModal.study-mode #previewBox { max-height:100vh; }
         @media(max-width:640px){ #studySidebar { width:180px; min-width:160px; } .study-item-name { font-size:11px; } }
+
+        /* ── Mobile: full-screen, scrollable preview ── */
+        @media (max-width:768px) {
+            #previewModal { padding:0; }
+            #previewModal:not(.study-mode) #previewBox {
+                width:100%; max-width:100%; height:100%; max-height:100%; border-radius:0;
+            }
+            /* Let the whole preview scroll so action bar, related files,
+               progress, summary and comments are all reachable */
+            #previewMainCol { overflow-y:auto; -webkit-overflow-scrolling:touch; }
+            /* Header: wrap so action buttons drop to their own row instead
+               of overlapping the file icon/name */
+            #previewHeader { flex-wrap:wrap; row-gap:10px; padding:12px 14px; }
+            #previewHeader > div:first-child { flex:1 1 100%; }
+            #previewHeader > div:last-child { flex:1 1 100%; flex-wrap:wrap; justify-content:flex-start; gap:8px; }
+            #previewName { max-width:calc(100vw - 80px) !important; }
+            /* Don't let the document viewer eat the whole screen —
+               leave room to scroll to the actions/comments below */
+            #previewBody { flex:0 0 auto; min-height:0; }
+            #previewBody iframe { height:50vh; }
+            #previewBody img { max-height:50vh; }
+            #previewCommentsSection { max-height:none !important; }
+        }
         .related-chip { display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:9px;font-size:11px;color:#94a3b8;cursor:pointer;transition:all .18s;white-space:nowrap;max-width:190px;overflow:hidden;text-overflow:ellipsis; }
         .related-chip:hover { background:rgba(59,130,246,0.15);border-color:rgba(59,130,246,0.3);color:#93c5fd; }
 
@@ -4474,7 +4497,7 @@
     <div id="toastContainer" role="status" aria-live="polite" aria-atomic="false"></div>
 
     <!-- Mobile Bottom Navigation -->
-    <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-40 glass-card border-t border-white/10 flex items-center justify-around px-2 py-2 pb-safe" style="padding-bottom:max(8px,env(safe-area-inset-bottom));z-index:9500">
+    <nav id="mobileBottomNav" class="lg:hidden fixed bottom-0 left-0 right-0 z-40 glass-card border-t border-white/10 flex items-center justify-around px-2 py-2 pb-safe" style="padding-bottom:max(8px,env(safe-area-inset-bottom));z-index:9500">
         <a href="#" onclick="filterByFolder(null,this)" class="flex flex-col items-center gap-0.5 px-3 py-1 text-primary" aria-label="All files">
             <span class="material-symbols-outlined text-xl" aria-hidden="true">folder_shared</span>
             <span class="text-[9px] font-bold uppercase">Vault</span>

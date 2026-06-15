@@ -379,14 +379,24 @@ function initChatWidget() {
         if (!w) return;
         function setPos() {
             var isMobile = window.innerWidth < 1024;
-            // navHeight from CSS variable, default 72px
-            var nh = parseInt(getComputedStyle(document.documentElement)
-                .getPropertyValue('--mobile-nav-height') || '72', 10) || 72;
-            w.style.setProperty('bottom', isMobile ? (nh + 12) + 'px' : '24px', 'important');
-            w.style.setProperty('right',  isMobile ? '16px' : '24px', 'important');
+            if (!isMobile) {
+                w.style.setProperty('bottom', '24px', 'important');
+                w.style.setProperty('right', '24px', 'important');
+                return;
+            }
+            // Measure the actual rendered height of the mobile bottom nav
+            // (icons + labels + safe-area padding) rather than relying on a
+            // fixed constant, so the chat button always clears it.
+            var nav = document.getElementById('mobileBottomNav');
+            var navH = nav ? Math.ceil(nav.getBoundingClientRect().height) : 72;
+            // Keep --mobile-nav-height in sync for backToTop / share button too
+            document.documentElement.style.setProperty('--mobile-nav-height', navH + 'px');
+            w.style.setProperty('bottom', (navH + 12) + 'px', 'important');
+            w.style.setProperty('right',  '16px', 'important');
         }
         setPos();
         window.addEventListener('resize', setPos);
+        window.addEventListener('orientationchange', function(){ setTimeout(setPos, 150); });
     })();
 
     // Restore chat open state after page load/auth redirect
