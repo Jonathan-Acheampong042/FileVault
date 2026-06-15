@@ -5532,7 +5532,6 @@
     };
 
     /* ─── Wire into openPreview ────────────────────────────────────── */
-    const _prevOpenPreviewComments = window.openPreview;
     window.openPreview = function(url, name, folder, size) {
         _prevOpenPreviewComments(url, name, folder, size);
 
@@ -5540,14 +5539,16 @@
         _commentFileId = null;
         _commentFileName = name;
 
-        // Find file record
-        const file = (window._fileRegistry || window.allFiles || []).find(f => f.url === url || decodeURI(f.url) === decodeURI(url));
+        // Find file record (using _fileRegistry and matching by name)
+        const file = (window._fileRegistry || []).find(f => f.url === url || f.name === name);
+        
         if (file) {
+            console.log("✅ FILE FOUND! The ID is:", file.id);
             _commentFileId = file.id || null;
             _commentFileName = file.name || name;
             showSummaryInModal(file);
         } else {
-            showSummaryInModal(null);
+            console.error("❌ FILE NOT FOUND! Name searched for:", name);
         }
 
         // Ensure comments section is closed on new file open
