@@ -987,3 +987,63 @@ if (document.readyState === 'loading') {
 } else {
     initChatWidget();
 }
+function enableFullDragging() {
+    // 🛑 REPLACE THESE 3 IDs WITH THE ACTUAL IDs FROM YOUR WIDGET CODE
+    const container = document.getElementById('aiChatWidget'); // The main wrapper
+    const toggleBtn = document.getElementById('chatToggleBtn'); // The closed bubble
+    const chatHeader = document.getElementById('chatHeader'); // The top bar of the open chat
+
+    if (!container) return;
+
+    let isDragging = false, startX, startY, initX, initY;
+
+    function attachDrag(handle) {
+        if (!handle) return;
+        
+        // Show a grab hand cursor so users know they can move it
+        handle.style.cursor = 'grab';
+
+        handle.addEventListener('pointerdown', (e) => {
+            // Ignore clicks on the Close/Minimize 'X' button inside the header
+            if (e.target.closest('button')) return;
+
+            isDragging = true;
+            handle.style.cursor = 'grabbing';
+            startX = e.clientX;
+            startY = e.clientY;
+
+            // Get the current position of the widget
+            const rect = container.getBoundingClientRect();
+            initX = rect.left;
+            initY = rect.top;
+
+            // Remove CSS bottom/right constraints so left/top can take over
+            container.style.bottom = 'auto';
+            container.style.right = 'auto';
+            container.style.left = initX + 'px';
+            container.style.top = initY + 'px';
+
+            handle.setPointerCapture(e.pointerId);
+        });
+
+        handle.addEventListener('pointermove', (e) => {
+            if (!isDragging) return;
+            // Move the container based on how far the mouse/finger moved
+            container.style.left = (initX + e.clientX - startX) + 'px';
+            container.style.top = (initY + e.clientY - startY) + 'px';
+        });
+
+        handle.addEventListener('pointerup', (e) => {
+            isDragging = false;
+            handle.style.cursor = 'grab';
+            handle.releasePointerCapture(e.pointerId);
+        });
+    }
+
+    // Attach the drag logic to BOTH the bubble and the open header
+    attachDrag(toggleBtn);
+    attachDrag(chatHeader);
+}
+
+// Run the function after the widget has time to load into the DOM
+setTimeout(enableFullDragging, 500);
