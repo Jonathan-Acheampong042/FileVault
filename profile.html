@@ -898,6 +898,26 @@
                 sub.textContent = existing
                     ? 'Enabled on this device'
                     : 'Get alerts on this device, even when FileVault is closed';
+
+                // ── Re-sync subscription with server on every page load ────
+                // Covers two stale cases:
+                //   (a) Browser rotated the subscription (new endpoint) — re-POST
+                //       so the server record is current; the old dead endpoint is
+                //       naturally evicted next time a broadcast hits a 410.
+                //   (b) Browser cleared the subscription while the server still
+                //       holds the dead endpoint — POST /unsubscribe so it stops
+                //       counting as a failed send on every broadcast.
+                if (existing) {
+                    // Case (a): active subscription — keep server record fresh
+                    fetch(PUSH_API + '/api/push/subscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ subscription: existing.toJSON() })
+                    }).catch(() => {});
+                }
+                // Case (b) is handled passively: if the browser has no subscription
+                // the server will get a 410 on the next notify and auto-delete it.
+                // ─────────────────────────────────────────────────────────
             } catch (_) { /* leave defaults */ }
         }
 

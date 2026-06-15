@@ -273,6 +273,23 @@
             btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;animation:spin .8s linear infinite">refresh</span> Submitting…';
 
             try {
+                // ── Rate-limit: one request per email per hour ──────────────
+                if (_requesterEmail) {
+                    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+                    const { count } = await _supabase
+                        .from('upload_requests')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('requester_email', _requesterEmail)
+                        .gte('created_at', oneHourAgo);
+                    if (count > 0) {
+                        showToast('You\'ve already submitted a request in the last hour. Please wait before submitting another.', 'error');
+                        btn.disabled = false;
+                        btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">send</span> Submit Request';
+                        return;
+                    }
+                }
+                // ───────────────────────────────────────────────────────────
+
                 const { error } = await _supabase.from('upload_requests').insert({
                     filename: filename,
                     description: document.getElementById('req_desc').value.trim() || null,

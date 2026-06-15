@@ -311,6 +311,34 @@ function getWelcomeMessage() {
 // ─── CHAT STATE ──────────────────────────────────────────────
 let chatMessages = [];
 
+// ─── HISTORY PERSISTENCE ─────────────────────────────────────
+// Stores the last N message pairs in localStorage so context
+// survives page refreshes and new sessions.
+const HISTORY_KEY    = 'fvChatHistory_' + detectPage(); // page-scoped
+const HISTORY_MAX    = 20; // max messages to persist (10 exchanges)
+
+function saveHistory() {
+    try {
+        const tail = chatMessages.slice(-HISTORY_MAX);
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(tail));
+    } catch(e) {}
+}
+
+function loadHistory() {
+    try {
+        const raw = localStorage.getItem(HISTORY_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string');
+    } catch(e) { return []; }
+}
+
+function clearHistory() {
+    try { localStorage.removeItem(HISTORY_KEY); } catch(e) {}
+    chatMessages = [];
+}
+
 // ─── INIT ────────────────────────────────────────────────────
 function initChatWidget() {
     const html = `
@@ -494,6 +522,34 @@ function initChatWidget() {
         if (_win && _ico) { _win.style.display = 'flex'; _ico.textContent = 'close'; }
     }
 
+    // ── Restore persisted conversation history ──────────────────
+    (function() {
+        const saved = loadHistory();
+        if (!saved.length) return;
+        chatMessages = saved.slice(); // seed in-memory state
+        const container = document.getElementById('chatMessages');
+        if (!container) return;
+        // Add a subtle separator so students know these are from a prior session
+        const sep = document.createElement('div');
+        sep.style.cssText = 'display:flex;align-items:center;gap:8px;margin:4px 0';
+        sep.innerHTML = `<span style="flex:1;height:1px;background:rgba(255,255,255,0.07)"></span>
+            <span style="color:rgba(255,255,255,0.25);font-size:10px;white-space:nowrap">Previous session</span>
+            <span style="flex:1;height:1px;background:rgba(255,255,255,0.07)"></span>`;
+        container.appendChild(sep);
+        saved.forEach(m => {
+            appendBubble(m.role, m.role === 'assistant' ? formatAssistantText(m.content) : escapeHtml(m.content));
+        });
+        // Add "continuing" note + clear button
+        const note = document.createElement('div');
+        note.style.cssText = 'display:flex;justify-content:center;margin:2px 0 4px';
+        note.innerHTML = `<button onclick="clearHistory();location.reload()" title="Clear conversation history"
+            style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.22);font-size:10px;font-family:inherit;padding:2px 6px;border-radius:6px;transition:color 0.15s"
+            onmouseover="this.style.color='rgba(239,68,68,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.22)'">
+            🗑 Clear history</button>`;
+        container.appendChild(note);
+        container.scrollTop = container.scrollHeight;
+    })();
+
     // Inject animation + responsive styles
     if (!document.getElementById('chatWidgetStyles')) {
         const s = document.createElement('style');
@@ -647,6 +703,7 @@ async function sendChatMessage() {
 
         chatMessages.push({ role: 'assistant', content: reply });
         appendBubble('assistant', formatAssistantText(reply));
+        saveHistory();
 
     } catch (err) {
         typing.remove();
