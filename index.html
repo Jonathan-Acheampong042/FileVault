@@ -412,7 +412,7 @@
             }
             /* Let the whole preview scroll so action bar, related files,
                progress, summary and comments are all reachable */
-            #previewMainCol { overflow-y:auto; -webkit-overflow-scrolling:touch; }
+            #previewMainCol { overflow-y:auto !important; -webkit-overflow-scrolling:touch; }
             /* Header: wrap so action buttons drop to their own row instead
                of overlapping the file icon/name */
             #previewHeader { flex-wrap:wrap; row-gap:10px; padding:12px 14px; }
@@ -1030,6 +1030,8 @@
         }
 
         const _supabase = supabase.createClient('https://lvhecpvwpzmstciewziv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI');
+        // Comment/reaction/collection code reads window._supabase — make sure it's there.
+        window._supabase = _supabase;
         let allFiles = [], currentFolder = null, currentSort = 'newest', viewType = 'grid', currentSearchTerm = '', selectedFiles = new Set();
         let _fileRegistry = []; // stores file objects for preview lookup
         let currentTypeFilter = null; // file-type filter state
@@ -5417,7 +5419,11 @@
         const input = document.getElementById('previewCommentInput');
         if (!input) return;
         const body = input.value.trim();
-        if (!body || !_commentFileId) return;
+        if (!body) return;
+        if (!_commentFileId) {
+            if (typeof showToast === 'function') showToast('This file needs to be saved in the database to receive comments.', 'info', 2500);
+            return;
+        }
         if (!window._supabase) { alert('Not connected to database.'); return; }
         input.disabled = true;
         try {

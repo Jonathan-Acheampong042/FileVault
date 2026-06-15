@@ -377,7 +377,11 @@ function initChatWidget() {
     (function() {
         var w = document.getElementById('aiChatWidget');
         if (!w) return;
+        function hasCustomPos() {
+            try { return !!JSON.parse(sessionStorage.getItem('fvChatPos') || 'null'); } catch(e) { return false; }
+        }
         function setPos() {
+            if (hasCustomPos()) return; // user dragged the widget — leave it where they put it
             var isMobile = window.innerWidth < 1024;
             if (!isMobile) {
                 w.style.setProperty('bottom', '24px', 'important');
@@ -397,6 +401,90 @@ function initChatWidget() {
         setPos();
         window.addEventListener('resize', setPos);
         window.addEventListener('orientationchange', function(){ setTimeout(setPos, 150); });
+    })();
+
+    // ── Draggable widget: drag the floating button anywhere on screen ──
+    (function() {
+        var w = document.getElementById('aiChatWidget');
+        var handle = document.getElementById('chatToggleBtn');
+        if (!w || !handle) return;
+        var DRAG_KEY = 'fvChatPos';
+        var dragging = false, moved = false, startX, startY, startLeft, startTop;
+
+        function clampPos(left, top) {
+            var rect = w.getBoundingClientRect();
+            var maxLeft = Math.max(4, window.innerWidth - rect.width - 4);
+            var maxTop  = Math.max(4, window.innerHeight - rect.height - 4);
+            return { left: Math.min(Math.max(4, left), maxLeft), top: Math.min(Math.max(4, top), maxTop) };
+        }
+        function applyPosition(left, top) {
+            var p = clampPos(left, top);
+            w.style.setProperty('left', p.left + 'px', 'important');
+            w.style.setProperty('top', p.top + 'px', 'important');
+            w.style.setProperty('right', 'auto', 'important');
+            w.style.setProperty('bottom', 'auto', 'important');
+            return p;
+        }
+        function savePosition(p) {
+            try { sessionStorage.setItem(DRAG_KEY, JSON.stringify(p)); } catch(e) {}
+        }
+
+        // Restore a previously dragged position (this session)
+        try {
+            var saved = JSON.parse(sessionStorage.getItem(DRAG_KEY) || 'null');
+            if (saved && typeof saved.left === 'number' && typeof saved.top === 'number') {
+                applyPosition(saved.left, saved.top);
+            }
+        } catch(e) {}
+
+        handle.style.cursor = 'grab';
+        handle.style.touchAction = 'none';
+
+        handle.addEventListener('pointerdown', function(e) {
+            dragging = true; moved = false;
+            var rect = w.getBoundingClientRect();
+            startX = e.clientX; startY = e.clientY;
+            startLeft = rect.left; startTop = rect.top;
+            try { handle.setPointerCapture(e.pointerId); } catch(err) {}
+        });
+        handle.addEventListener('pointermove', function(e) {
+            if (!dragging) return;
+            var dx = e.clientX - startX, dy = e.clientY - startY;
+            if (!moved && Math.hypot(dx, dy) < 6) return;
+            moved = true;
+            handle.style.cursor = 'grabbing';
+            applyPosition(startLeft + dx, startTop + dy);
+        });
+        function endDrag() {
+            if (!dragging) return;
+            dragging = false;
+            handle.style.cursor = 'grab';
+            if (moved) {
+                var rect = w.getBoundingClientRect();
+                var p = clampPos(rect.left, rect.top);
+                applyPosition(p.left, p.top);
+                savePosition(p);
+            }
+        }
+        handle.addEventListener('pointerup', endDrag);
+        handle.addEventListener('pointercancel', endDrag);
+
+        // A drag-release shouldn't also fire the toggleChat() click handler
+        handle.addEventListener('click', function(e) {
+            if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; }
+        }, true);
+
+        // Keep a dragged widget on-screen after rotation/resize
+        window.addEventListener('resize', function() {
+            try {
+                var saved = JSON.parse(sessionStorage.getItem(DRAG_KEY) || 'null');
+                if (saved && typeof saved.left === 'number') {
+                    var p = clampPos(saved.left, saved.top);
+                    applyPosition(p.left, p.top);
+                    savePosition(p);
+                }
+            } catch(e) {}
+        });
     })();
 
     // Restore chat open state after page load/auth redirect
