@@ -538,7 +538,7 @@
     <!-- Offline banner -->
     <div id="offlineBanner" role="status" aria-live="polite">
         <span class="material-symbols-outlined" style="font-size:18px">wifi_off</span>
-        <span>You're offline — showing cached files. Some actions may be unavailable.</span>
+        <span>You're offline: showing cached files. Some actions may be unavailable.</span>
     </div>
     <div class="bg-fixed-image"></div>
     <div class="bg-overlay"></div>
@@ -5541,7 +5541,7 @@
         _commentFileName = name;
 
         // Find file record
-        const file = (window.allFiles || []).find(f => f.url === url);
+        const file = (window._fileRegistry || window.allFiles || []).find(f => f.url === url || decodeURI(f.url) === decodeURI(url));
         if (file) {
             _commentFileId = file.id || null;
             _commentFileName = file.name || name;
