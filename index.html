@@ -91,7 +91,7 @@
         #previewBody iframe { width:100%; height:70vh; border:none; }
         #previewBody img { max-width:100%; max-height:70vh; object-fit:contain; }
         /* Toast notifications */
-        #toastContainer { position:fixed; top:20px; right:20px; z-index:99999; display:flex; flex-direction:column; gap:10px; pointer-events:none; }
+        #toastContainer { position:fixed; top:max(20px, var(--sat)); right:max(20px, var(--sar)); z-index:99999; display:flex; flex-direction:column; gap:10px; pointer-events:none; }
         .toast { display:flex; align-items:center; gap:10px; padding:12px 16px; border-radius:14px; font-size:13px; font-weight:600; color:white; backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.12); box-shadow:0 8px 32px rgba(0,0,0,0.4); pointer-events:auto; min-width:240px; max-width:320px; animation:toastIn 0.3s ease; }
         .toast.success { background:rgba(16,185,129,0.18); border-color:rgba(16,185,129,0.3); }
         .toast.error   { background:rgba(239,68,68,0.18);  border-color:rgba(239,68,68,0.3); }
@@ -182,19 +182,36 @@
 
         .file-card { position:relative; }
 
-        /* ── iOS safe area: push sticky header below the status bar notch ── */
-     header {
-        padding-top: max(12px, env(safe-area-inset-top));
+        /* ── iOS safe area: push sticky header and sidebar below the status bar notch ── */
+        :root {
+            --sat: env(safe-area-inset-top, 0px);
+            --sab: env(safe-area-inset-bottom, 0px);
+            --sal: env(safe-area-inset-left, 0px);
+            --sar: env(safe-area-inset-right, 0px);
         }
+        /* Mobile/desktop header: always nudge below status bar */
+        header {
+            padding-top: max(12px, var(--sat));
+            padding-left: max(1rem, var(--sal));
+            padding-right: max(1.5rem, var(--sar));
+        }
+        /* In standalone PWA mode, give a little extra breathing room */
         @media (display-mode: standalone) {
-    header {
-        padding-top: max(16px, env(safe-area-inset-top));
-           }
+            header {
+                padding-top: max(16px, var(--sat));
+            }
         }
+        /* Desktop sidebar: its py-8 becomes py-8 + safe-area-top */
         @media (min-width: 1024px) {
-    aside {
-        padding-top: max(32px, env(safe-area-inset-top));
-          }
+            aside.fixed {
+                padding-top: max(2rem, var(--sat));
+                padding-left: max(0px, var(--sal));
+            }
+        }
+        /* Offline + polling banners: shift down on notched devices */
+        #offlineBanner,
+        #pollingBanner {
+            padding-top: max(10px, var(--sat));
         }
         /* ── Mobile toast: bottom-center ── */
         @media (max-width:767px) {
@@ -1278,14 +1295,23 @@
                 } catch (e) {
                     console.warn('Could not check user role:', e.message);
                 }
-                // Only redirect if the user is arriving fresh from login (not if they
-                // deliberately navigated here, e.g. to browse as a student).
-                if (isAdmin && sessionStorage.getItem('fv_just_signed_in')) {
+
+                // Also check hardcoded admin emails as fallback
+                if (!isAdmin) {
+                    const ADMIN_EMAILS_IDX = ['nharnharblay21@gmail.com'];
+                    if (ADMIN_EMAILS_IDX.includes(session.user.email)) isAdmin = true;
+                }
+
+                const adminBrowseMode = !!sessionStorage.getItem('fv_admin_browse_mode');
+
+                // Only redirect to manager if arriving fresh from login AND not in browse mode
+                if (isAdmin && sessionStorage.getItem('fv_just_signed_in') && !adminBrowseMode) {
                     window.location.href = 'manager.html';
                     return;
                 }
+
                 _currentUserEmail = session.user.email || null;
-                populateProfileUI(session.user);
+                populateProfileUI(session.user, isAdmin && adminBrowseMode);
             }
             // Show welcome toast if arriving fresh from login
             const justSignedIn = sessionStorage.getItem('fv_just_signed_in');
@@ -1295,7 +1321,7 @@
             }
         }
 
-        function populateProfileUI(user) {
+        function populateProfileUI(user, isAdminBrowsing) {
             if (!user) return;
             const email       = user.email || '';
             const meta        = user.user_metadata || {};
@@ -1345,6 +1371,36 @@
                     vb.innerHTML = verified
                         ? '<span class="material-symbols-outlined" style="font-size:10px">verified</span> Verified'
                         : '<span class="material-symbols-outlined" style="font-size:10px">warning</span> Email unverified';
+                }
+
+                // ── Role badge: show "Admin" instead of "Student" for admin browsing ──
+                const roleBadge = document.querySelector('#profileDropdown .pd-badge.student');
+                if (roleBadge) {
+                    if (isAdminBrowsing) {
+                        roleBadge.className = 'pd-badge';
+                        roleBadge.style.cssText = 'background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.25)';
+                        roleBadge.innerHTML = '<span class="material-symbols-outlined" style="font-size:10px">admin_panel_settings</span> Admin';
+                    } else {
+                        roleBadge.className = 'pd-badge student';
+                        roleBadge.style.cssText = '';
+                        roleBadge.innerHTML = '<span class="material-symbols-outlined" style="font-size:10px">school</span> Student';
+                    }
+                }
+
+                // ── Add "Manager Portal" link to dropdown when admin is browsing ──
+                const pdItems = document.querySelector('#profileDropdown > div[style*="padding"]');
+                const existingMgrLink = document.getElementById('pd_manager_link');
+                if (isAdminBrowsing && pdItems && !existingMgrLink) {
+                    const mgrLink = document.createElement('a');
+                    mgrLink.id = 'pd_manager_link';
+                    mgrLink.href = 'manager.html';
+                    mgrLink.className = 'pd-item';
+                    mgrLink.style.cssText = 'text-decoration:none;color:#fca5a5 !important;border-top:1px solid rgba(239,68,68,0.12);margin-top:2px;padding-top:10px';
+                    mgrLink.innerHTML = '<span class="material-symbols-outlined" style="color:#fca5a5">dashboard</span> Manager Portal';
+                    mgrLink.onclick = function() {
+                        sessionStorage.removeItem('fv_admin_browse_mode');
+                    };
+                    pdItems.appendChild(mgrLink);
                 }
             }
 
@@ -4536,6 +4592,10 @@
                       style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.25);color:#86efac;border-radius:12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
                         <span class="material-symbols-outlined" style="font-size:16px">smart_toy</span>Ask AI
                     </button>
+                    <button id="previewQuizBtn" onclick="quizAboutFile(_currentPreviewFile)" title="Quiz me on this file" aria-label="Quiz me on this file"
+                      style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.25);color:#c4b5fd;border-radius:12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+                        <span class="material-symbols-outlined" style="font-size:16px">quiz</span>Quiz me
+                    </button>
                     <button id="studyModeBtn" onclick="toggleStudyMode()" title="Study Mode — full-screen reader with file list sidebar" aria-label="Study Mode">
                         <span class="material-symbols-outlined" style="font-size:16px">menu_book</span><span class="study-btn-label">Study</span>
                     </button>
@@ -4737,14 +4797,14 @@
         </div>
     </div>
 
-  <script src="chat-widget.js?v=6"></script>
+  <script src="chat-widget.js?v=7"></script>
    <script>
    // ══════════════════════════════════════════════════════════════════
    // FEATURE 9: AI "Related Files" suggestions in preview
    // Uses the /api/chat endpoint (Groq) to suggest related files by name/folder
    // ══════════════════════════════════════════════════════════════════
    (function() {
-       const _SUGGEST_CACHE = {}; // url -> [file, ...]
+       const _SUGGEST_CACHE = {}; // url -> [file, ...];
 
        async function _getAIRelatedFiles(file) {
            if (_SUGGEST_CACHE[file.url]) return _SUGGEST_CACHE[file.url];
@@ -5717,6 +5777,11 @@
             _commentFileId = file.id || null;
             _commentFileName = file.name || name;
             showSummaryInModal(file);
+            // Keep _currentPreviewFile in sync so Ask AI and Quiz me have full metadata
+            if (window._currentPreviewFile) {
+                window._currentPreviewFile.description = file.description || '';
+                window._currentPreviewFile.id = file.id || null;
+            }
         } else {
             console.error("❌ FILE NOT FOUND! Name searched for:", name);
         }

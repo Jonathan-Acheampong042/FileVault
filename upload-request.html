@@ -28,6 +28,10 @@
   base-uri 'self';
 "/>
     <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+    <!-- iOS PWA / Safari full-bleed -->
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+    <meta name="apple-mobile-web-app-title" content="FileVault"/>
     <link rel="icon" href="filevault%20logo.png">
     <title>FileVault | Request a File</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -39,7 +43,18 @@
     </script>
     <style>
         * { box-sizing: border-box; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0; }
+        :root {
+            --sat: env(safe-area-inset-top, 0px);
+            --sab: env(safe-area-inset-bottom, 0px);
+            --sal: env(safe-area-inset-left, 0px);
+            --sar: env(safe-area-inset-right, 0px);
+        }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0;
+               padding-top: var(--sat);
+               padding-left: var(--sal);
+               padding-right: var(--sar);
+               padding-bottom: var(--sab);
+        }
         .bg-fixed-image { position: fixed; inset: 0; background-image: url('screen.png'); background-size: cover; background-position: center; z-index: -2; filter: saturate(0.72) brightness(0.5); }
         .bg-overlay { position: fixed; inset: 0; background: radial-gradient(circle at top left, rgba(59,130,246,0.15), transparent 24%), radial-gradient(circle at bottom right, rgba(139,92,246,0.14), transparent 20%), linear-gradient(180deg, rgba(8,12,27,0.88), rgba(4,7,18,0.96)); z-index: -1; pointer-events: none; }
         .glass-card { background: rgba(30,41,59,0.35); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 8px 32px rgba(0,0,0,0.25); }
@@ -476,6 +491,33 @@
             t._timer = setTimeout(() => { t.style.display = 'none'; t.className = ''; }, 4000);
         }
 
+        // ── Feature 10: Notify ALL push subscribers (manager included) about a new request ──
+        // The manager is subscribed just like any student, so /api/push/notify reaches them.
+        // We use the broadcast endpoint because we don't know the manager's specific endpoint.
+        // The push secret is NOT required here — the manager listens to all-subscriber broadcasts.
+        // NOTE: If you want to restrict this to manager-only, store the manager's endpoint in
+        // a separate Supabase table and use /api/push/notify-one instead.
+        async function _notifyManagerNewRequest(filename, requesterEmail) {
+            if (!('serviceWorker' in navigator)) return;
+            try {
+                const folder = (document.getElementById('req_folder').value || '').trim();
+                const body = (requesterEmail ? requesterEmail + ' requested: ' : 'New request: ')
+                    + filename
+                    + (folder ? ' (' + folder + ')' : '');
+                await fetch(_PUSH_API + '/api/push/notify-manager', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: '📥 New File Request',
+                        body: body.length > 120 ? body.slice(0, 117) + '…' : body,
+                        url: '/manager.html'
+                    })
+                });
+            } catch(e) {
+                console.warn('[upload-request] manager push failed (non-critical):', e.message);
+            }
+        }
+
         document.getElementById('requestForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const filename = document.getElementById('req_filename').value.trim();
@@ -552,6 +594,10 @@
                     history.replaceState(null, '', '#req=' + reqId);
                     showRequestToken(reqId);
                 }
+
+                // ── Feature 10: Notify manager about new file request ──
+                // Fire-and-forget — don't block the success state on push delivery
+                _notifyManagerNewRequest(filename, contactEmail).catch(() => {});
 
                 document.getElementById('requestForm').style.display = 'none';
                 document.getElementById('successState').style.display = 'block';

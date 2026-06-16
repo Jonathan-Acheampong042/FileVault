@@ -198,6 +198,39 @@ app.get('/api/push/cleanup', async (req, res) => {
     res.json({ ok: true, total: allSubs.length, pruned, kept });
 });
 
+// Notify all subscribers about a new file request — called by upload-request.html.
+// This endpoint is intentionally unprotected (no secret) because it is called from
+// student-facing pages that don't have the push secret.
+// Rate-limited to 10 req/min to prevent abuse.
+app.post('/api/push/notify-manager', pushRateLimit, async (req, res) => {
+    const { title, body, url } = req.body;
+    if (!process.env.VAPID_PUBLIC_KEY) {
+        return res.status(503).json({ error: 'Push not configured. Set VAPID keys in .env' });
+    }
+    const payload = JSON.stringify({
+        title: title || '📥 New File Request',
+        body: body || 'A student has submitted a new file request.',
+        url: url || '/manager.html',
+        icon: '/filevault%20logo.png',
+        badge: '/filevault%20logo.png'
+    });
+    const allSubs = await dbGetAllSubs();
+    let sent = 0, failed = 0;
+    const results = await Promise.allSettled(
+        allSubs.map(subscription => webpush.sendNotification(subscription, payload))
+    );
+    await Promise.all(results.map(async (result, i) => {
+        if (result.status === 'fulfilled') {
+            sent++;
+        } else {
+            const code = result.reason?.statusCode;
+            if (code === 410 || code === 404) await dbDeleteSub(allSubs[i].endpoint);
+            failed++;
+        }
+    }));
+    res.json({ ok: true, sent, failed, total: allSubs.length });
+});
+
 // Notify all subscribers — called by manager on new file upload or announcement
 app.post('/api/push/notify', pushRateLimit, async (req, res) => {
     const { title, body, url, secret } = req.body;

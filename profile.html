@@ -29,6 +29,10 @@
   base-uri 'self';
 "/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+    <!-- iOS PWA / Safari full-bleed -->
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+    <meta name="apple-mobile-web-app-title" content="FileVault"/>
     <title>FileVault | My Profile</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -37,6 +41,12 @@
     <link rel="icon" href="filevault%20logo.png">
     <style>
         * { box-sizing: border-box; }
+        :root {
+            --sat: env(safe-area-inset-top, 0px);
+            --sab: env(safe-area-inset-bottom, 0px);
+            --sal: env(safe-area-inset-left, 0px);
+            --sar: env(safe-area-inset-right, 0px);
+        }
         :root { --accent-from: #3b82f6; --accent-to: #7c3aed; }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0; }
 
@@ -238,7 +248,12 @@
         }
 
         /* ── Header ── */
-        .profile-header { border-bottom:1px solid rgba(255,255,255,0.06); }
+        .profile-header {
+            border-bottom:1px solid rgba(255,255,255,0.06);
+            padding-top: max(0.75rem, var(--sat));
+            padding-left: max(1rem, var(--sal));
+            padding-right: max(1rem, var(--sar));
+        }
         .header-signout { display:flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid rgba(239,68,68,0.25);border-radius:10px;background:rgba(239,68,68,0.07);color:#fca5a5;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;transition:all .2s;text-decoration:none; }
         .header-signout:hover { background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.4); }
 
@@ -263,7 +278,7 @@
 
     <div class="min-h-screen flex flex-col">
         <!-- Header -->
-        <header class="profile-header flex items-center justify-between px-4 sm:px-6 py-3 max-w-2xl mx-auto w-full">
+        <header class="profile-header flex items-center justify-between pb-3 max-w-2xl mx-auto w-full">
             <a href="index.html" class="flex items-center gap-2 text-slate-400 hover:text-white transition" style="text-decoration:none">
                 <span class="material-symbols-outlined" style="font-size:20px">arrow_back</span>
                 <span style="font-size:13px;font-weight:700">Back to Vault</span>
@@ -641,6 +656,7 @@
             ? 'http://localhost:3000'
             : 'https://project-one-187u.onrender.com';
         let _currentUser = null;
+        let _isAdminBrowsing = false; // true when an admin chose "Browse as Admin"
 
         // ═══════════════════════════════════════════════════════════
         // INIT — require an active session
@@ -651,12 +667,28 @@
                 window.location.href = 'login.html';
                 return;
             }
-            if (ADMIN_EMAILS.includes(session.user.email)) {
-                window.location.href = 'manager.html';
-                return;
+
+            const adminBrowseMode = !!sessionStorage.getItem('fv_admin_browse_mode');
+            const isKnownAdmin = ADMIN_EMAILS.includes(session.user.email);
+
+            // Only redirect admins to manager.html if they're NOT in browse mode
+            if (isKnownAdmin && !adminBrowseMode) {
+                // Also check user_profiles table for role
+                let roleIsAdmin = isKnownAdmin;
+                try {
+                    const { data: profile } = await _supabase
+                        .from('user_profiles').select('role').eq('id', session.user.id).single();
+                    if (profile?.role === 'admin' || profile?.role === 'manager') roleIsAdmin = true;
+                } catch(e) {}
+                if (roleIsAdmin) {
+                    window.location.href = 'manager.html';
+                    return;
+                }
             }
+
             _currentUser = session.user;
-            populateProfile(_currentUser);
+            _isAdminBrowsing = adminBrowseMode && (isKnownAdmin || await _checkAdminRole(session.user.id));
+            populateProfile(_currentUser, _isAdminBrowsing);
             showVerifyBanner(_currentUser);
             loadThemePrefs();
             loadProfileStats(_currentUser);
@@ -672,6 +704,14 @@
             document.getElementById('profileContent').style.display = 'block';
         })();
 
+        async function _checkAdminRole(userId) {
+            try {
+                const { data: profile } = await _supabase
+                    .from('user_profiles').select('role').eq('id', userId).single();
+                return profile?.role === 'admin' || profile?.role === 'manager';
+            } catch(e) { return false; }
+        }
+
         _supabase.auth.onAuthStateChange((event, session) => {
             if (event === 'SIGNED_OUT') {
                 window.location.href = 'login.html';
@@ -681,7 +721,7 @@
         // ═══════════════════════════════════════════════════════════
         // POPULATE
         // ═══════════════════════════════════════════════════════════
-        function populateProfile(user) {
+        function populateProfile(user, isAdminBrowsing) {
             const email       = user.email || '';
             const meta        = user.user_metadata || {};
             const displayName = meta.display_name || meta.full_name || meta.name || email.split('@')[0] || 'Student';
@@ -720,6 +760,40 @@
                 ? '<span class="material-symbols-outlined" style="font-size:10px">verified</span> Verified'
                 : '<span class="material-symbols-outlined" style="font-size:10px">warning</span> Email unverified';
 
+            // ── Role badge: show "Admin" when browsing as admin ──
+            const roleBadge = document.querySelector('.pd-badge.student');
+            if (roleBadge) {
+                if (isAdminBrowsing) {
+                    roleBadge.className = 'pd-badge';
+                    roleBadge.style.cssText = 'background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.25)';
+                    roleBadge.innerHTML = '<span class="material-symbols-outlined" style="font-size:10px">admin_panel_settings</span> Admin';
+                } else {
+                    roleBadge.className = 'pd-badge student';
+                    roleBadge.style.cssText = '';
+                    roleBadge.innerHTML = '<span class="material-symbols-outlined" style="font-size:10px">school</span> Student';
+                }
+            }
+
+            // ── Manager Portal shortcut banner (admin only) ──
+            if (isAdminBrowsing) {
+                const identityCard = document.querySelector('#profileContent .glass-card.rounded-3xl');
+                if (identityCard && !document.getElementById('adminPortalBanner')) {
+                    const banner = document.createElement('div');
+                    banner.id = 'adminPortalBanner';
+                    banner.style.cssText = 'margin-top:14px;padding:10px 14px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:14px;display:flex;align-items:center;gap:10px';
+                    banner.innerHTML = `
+                        <span class="material-symbols-outlined" style="color:#fca5a5;font-size:18px;flex-shrink:0">admin_panel_settings</span>
+                        <p style="font-size:12px;color:#fca5a5;font-weight:600;margin:0;flex:1">You're browsing as Admin</p>
+                        <a href="manager.html" onclick="sessionStorage.removeItem('fv_admin_browse_mode')"
+                            style="flex-shrink:0;padding:6px 12px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.35);border-radius:10px;color:#fca5a5;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;transition:background .2s"
+                            onmouseover="this.style.background='rgba(239,68,68,0.28)'"
+                            onmouseout="this.style.background='rgba(239,68,68,0.18)'">
+                            <span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle">dashboard</span> Manager Portal
+                        </a>`;
+                    identityCard.appendChild(banner);
+                }
+            }
+
             if (user.created_at) {
                 const d = new Date(user.created_at);
                 document.getElementById('pJoined').textContent = 'Member since ' + d.toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
@@ -741,7 +815,7 @@
             if (error) { setMsg('nameMsg', error.message, 'error'); return; }
             if (data && data.user) {
                 _currentUser = data.user;
-                populateProfile(_currentUser);
+                populateProfile(_currentUser, _isAdminBrowsing);
                 loadAchievements(); // re-evaluate Profile Pro & Verified after user metadata refreshes
             }
             setMsg('nameMsg', '✅ Display name updated.', 'success');

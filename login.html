@@ -28,6 +28,10 @@
   base-uri 'self';
 "/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+    <!-- iOS PWA / Safari full-bleed -->
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+    <meta name="apple-mobile-web-app-title" content="FileVault"/>
     <title>FileVault | Sign In</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -36,7 +40,19 @@
     <link rel="icon" href="filevault%20logo.png">
     <style>
         * { box-sizing: border-box; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0; }
+        :root {
+            --sat: env(safe-area-inset-top, 0px);
+            --sab: env(safe-area-inset-bottom, 0px);
+            --sal: env(safe-area-inset-left, 0px);
+            --sar: env(safe-area-inset-right, 0px);
+        }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0;
+               /* Push content below the status bar on iOS PWA */
+               padding-top: var(--sat);
+               padding-left: var(--sal);
+               padding-right: var(--sar);
+               padding-bottom: var(--sab);
+        }
 
         .bg-fixed-image { position: fixed; inset: 0; background-image: url('screen.png'); background-size: cover; background-position: center; background-repeat: no-repeat; filter: saturate(0.72) brightness(0.4); z-index: -2; }
         .bg-overlay { position: fixed; inset: 0; background: radial-gradient(circle at top left, rgba(59,130,246,0.18), transparent 30%), radial-gradient(circle at bottom right, rgba(139,92,246,0.16), transparent 25%), linear-gradient(180deg, rgba(4,7,18,0.90), rgba(2,6,23,0.97)); z-index: -1; pointer-events: none; }
@@ -95,7 +111,7 @@
         .role-student { background:rgba(59,130,246,0.15); color:#93c5fd; border:1px solid rgba(59,130,246,0.25); }
 
         /* ── Toast ── */
-        #toastWrap { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+        #toastWrap { position:fixed; top:max(20px, var(--sat)); right:max(20px, var(--sar)); z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
         .toast { display:flex; align-items:center; gap:10px; padding:11px 16px; border-radius:14px; font-size:13px; font-weight:600; color:white; backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.12); box-shadow:0 8px 32px rgba(0,0,0,0.4); min-width:220px; animation:slideUp .3s ease; }
         .toast.success { background:rgba(16,185,129,0.18); border-color:rgba(16,185,129,0.3); }
         .toast.error   { background:rgba(239,68,68,0.18); border-color:rgba(239,68,68,0.3); }
@@ -560,20 +576,20 @@
         _redirecting = true;
 
         // 1. Check user_profiles table for explicit role
+        let isAdmin = false;
         try {
             const { data: profile } = await _supabase
                 .from('user_profiles').select('role').eq('id', user.id).single();
-            if (profile?.role === 'admin' || profile?.role === 'manager') {
-                showToast('✓ Welcome, Admin!', 'success');
-                setTimeout(() => { window.location.href = 'manager.html'; }, 600);
-                return;
-            }
+            if (profile?.role === 'admin' || profile?.role === 'manager') isAdmin = true;
         } catch(e) {}
 
         // 2. Fallback: check against hardcoded admin emails
-        if (ADMIN_EMAILS.includes(user.email)) {
+        if (!isAdmin && ADMIN_EMAILS.includes(user.email)) isAdmin = true;
+
+        if (isAdmin) {
+            // Show admin a choice: Manager Portal or Browse as Admin
             showToast('✓ Welcome, Admin!', 'success');
-            setTimeout(() => { window.location.href = 'manager.html'; }, 600);
+            _showAdminChoiceScreen(user);
             return;
         }
 
@@ -581,6 +597,88 @@
         showToast('✓ Signed in! Welcome back.', 'success');
         sessionStorage.setItem('fv_just_signed_in', user.email || '1');
         setTimeout(() => { window.location.href = 'index.html'; }, 800);
+    }
+
+    // ── Admin choice screen ───────────────────────────────────────
+    // Shown after admin login: let them pick Manager Portal or User/Browse mode.
+    function _showAdminChoiceScreen(user) {
+        const meta = user.user_metadata || {};
+        const displayName = meta.display_name || meta.full_name || meta.name || user.email.split('@')[0] || 'Admin';
+
+        // Hide the main card content and replace with the choice UI
+        const card = document.querySelector('.glass-card');
+        if (!card) { window.location.href = 'manager.html'; return; }
+
+        card.innerHTML = `
+        <div style="text-align:center;margin-bottom:28px">
+            <div style="width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,#ef4444,#8b5cf6);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;box-shadow:0 8px 24px rgba(239,68,68,0.3)">
+                <span class="material-symbols-outlined" style="color:white;font-size:26px">admin_panel_settings</span>
+            </div>
+            <h2 style="color:white;font-weight:800;font-size:20px;margin:0 0 4px">Welcome, ${_escHtml(displayName)}</h2>
+            <p style="color:#64748b;font-size:13px;margin:0">Where would you like to go?</p>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px">
+            <!-- Manager Portal -->
+            <button onclick="_goToManager()" style="
+                width:100%;padding:16px 18px;
+                background:linear-gradient(135deg,rgba(239,68,68,0.15),rgba(139,92,246,0.15));
+                border:1px solid rgba(239,68,68,0.3);border-radius:16px;
+                color:white;font-family:inherit;cursor:pointer;text-align:left;
+                transition:all .2s;display:flex;align-items:center;gap:14px"
+                onmouseover="this.style.background='linear-gradient(135deg,rgba(239,68,68,0.25),rgba(139,92,246,0.22))';this.style.borderColor='rgba(239,68,68,0.5)'"
+                onmouseout="this.style.background='linear-gradient(135deg,rgba(239,68,68,0.15),rgba(139,92,246,0.15))';this.style.borderColor='rgba(239,68,68,0.3)'">
+                <div style="width:42px;height:42px;border-radius:12px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <span class="material-symbols-outlined" style="color:#fca5a5;font-size:22px">dashboard</span>
+                </div>
+                <div>
+                    <p style="font-weight:800;font-size:14px;color:white;margin:0 0 2px">Manager Portal</p>
+                    <p style="font-size:11px;color:#94a3b8;margin:0">Upload files, manage requests, post announcements</p>
+                </div>
+                <span class="material-symbols-outlined" style="color:#64748b;font-size:18px;margin-left:auto">arrow_forward</span>
+            </button>
+
+            <!-- Browse as Admin -->
+            <button onclick="_goToBrowseAsAdmin()" style="
+                width:100%;padding:16px 18px;
+                background:rgba(59,130,246,0.08);
+                border:1px solid rgba(59,130,246,0.2);border-radius:16px;
+                color:white;font-family:inherit;cursor:pointer;text-align:left;
+                transition:all .2s;display:flex;align-items:center;gap:14px"
+                onmouseover="this.style.background='rgba(59,130,246,0.15)';this.style.borderColor='rgba(59,130,246,0.4)'"
+                onmouseout="this.style.background='rgba(59,130,246,0.08)';this.style.borderColor='rgba(59,130,246,0.2)'">
+                <div style="width:42px;height:42px;border-radius:12px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <span class="material-symbols-outlined" style="color:#60a5fa;font-size:22px">folder_open</span>
+                </div>
+                <div>
+                    <p style="font-weight:800;font-size:14px;color:white;margin:0 0 2px">Browse the Vault</p>
+                    <p style="font-size:11px;color:#94a3b8;margin:0">View files and profile as Admin — not as a student</p>
+                </div>
+                <span class="material-symbols-outlined" style="color:#64748b;font-size:18px;margin-left:auto">arrow_forward</span>
+            </button>
+        </div>
+
+        <p style="text-align:center;font-size:11px;color:#334155;margin-top:20px">
+            You can switch anytime from your profile dropdown
+        </p>`;
+    }
+
+    function _escHtml(t) {
+        const d = document.createElement('div');
+        d.textContent = t;
+        return d.innerHTML;
+    }
+
+    function _goToManager() {
+        sessionStorage.removeItem('fv_admin_browse_mode');
+        window.location.href = 'manager.html';
+    }
+
+    function _goToBrowseAsAdmin() {
+        // Set a flag so index.html and profile.html know this is an admin browsing
+        sessionStorage.setItem('fv_admin_browse_mode', '1');
+        sessionStorage.setItem('fv_just_signed_in', '1');
+        window.location.href = 'index.html';
     }
 
     // ═══════════════════════════════════════════════════════════════

@@ -1127,6 +1127,59 @@ function _filterChatHistory(query) {
     }).join('');
 }
 
+// ═══════════════════════════════════════════════════════════════
+// FEATURE 9 — PROFILE PAGE MESSAGE NOTIFICATION
+// When a user is on their profile page and the AI chat replies,
+// send them a push notification (useful when the tab is in the
+// background or the chat window is minimised).
+// ═══════════════════════════════════════════════════════════════
+
+function _isProfilePage() {
+    const filename = window.location.pathname.split('/').pop().toLowerCase().split('?')[0];
+    return filename === 'profile.html' || filename === 'profile';
+}
+
+function _isChatWindowVisible() {
+    // True if the chat window is open AND the document tab is active
+    const win = document.getElementById('chatWindow');
+    return !!(win && win.style.display === 'flex' && !document.hidden);
+}
+
+async function _sendProfileMessageNotification(userMessage, aiReply) {
+    // Only fire if push is supported and a service worker subscription exists
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (!reg) return;
+        const sub = await reg.pushManager.getSubscription();
+        if (!sub) return; // user hasn't enabled push — skip silently
+
+        const _PUSH_API = window.location.hostname === 'localhost'
+            ? 'http://localhost:3000'
+            : 'https://project-one-187u.onrender.com';
+
+        // Truncate the AI reply to a notification-friendly length
+        const snippet = aiReply.replace(/\*\*/g, '').slice(0, 80) + (aiReply.length > 80 ? '…' : '');
+        const subJson = sub.toJSON();
+
+        await fetch(_PUSH_API + '/api/push/notify-one', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                endpoint: subJson.endpoint,
+                keys: subJson.keys || undefined,
+                title: '💬 FileVault — New Reply',
+                body: snippet,
+                url: '/profile.html',
+                secret: window.pushSecret || ''
+            })
+        });
+    } catch(e) {
+        // Non-critical — never surface push errors to the user
+        console.warn('[profile] message notification failed (non-critical):', e.message);
+    }
+}
+
 // ─── INIT ────────────────────────────────────────────────────
 function initChatWidget() {
     const html = `
@@ -1573,6 +1626,13 @@ async function sendChatMessage() {
         _addCopyMarkdownBtn(aiBubble);
         saveHistory();
 
+        // ── Feature 9: Push notification for profile page messages ──
+        // When the chat widget is on profile.html and the user is linked to that page,
+        // send them a push notification so they're alerted even if the tab is in the background.
+        if (_isProfilePage() && !_isChatWindowVisible()) {
+            _sendProfileMessageNotification(text, reply);
+        }
+
     } catch (err) {
         typing.remove();
         setOnlineStatus(false);
@@ -1762,6 +1822,27 @@ function askAboutFile(file) {
         // Small delay so the widget finishes animating open before sending
         setTimeout(sendChatMessage, 150);
     }
+}
+
+// ─── "QUIZ ME ON THIS FILE" — called from the file preview modal ──────────
+// index.html's preview modal calls:
+//   quizAboutFile({ name, folder, description })
+// This opens the quiz modal and generates a quiz scoped to just that one file.
+function quizAboutFile(file) {
+    if (!file || !file.name) return;
+    if (CURRENT_PAGE !== 'user') return;
+
+    // Open widget if closed (so the quiz modal has context)
+    const win  = document.getElementById('chatWindow');
+    const icon = document.getElementById('chatBtnIcon');
+    if (win && win.style.display !== 'flex') {
+        win.style.display = 'flex';
+        if (icon) icon.textContent = 'close';
+        sessionStorage.setItem('fvChatOpen', '1');
+    }
+
+    // Run the quiz scoped to just this one file object
+    _runQuiz([file], null);
 }
 
 // ─── QUIZ / SELF-TEST FEATURE ─────────────────────────────────

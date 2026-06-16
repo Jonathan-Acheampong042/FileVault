@@ -28,6 +28,10 @@
   base-uri 'self';
 "/>
     <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+    <!-- iOS PWA / Safari full-bleed -->
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+    <meta name="apple-mobile-web-app-title" content="FileVault"/>
     <title>FileVault | Manager Portal</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -50,6 +54,12 @@
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     <style>
+        :root {
+            --sat: env(safe-area-inset-top, 0px);
+            --sab: env(safe-area-inset-bottom, 0px);
+            --sal: env(safe-area-inset-left, 0px);
+            --sar: env(safe-area-inset-right, 0px);
+        }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0; }
         * { box-sizing: border-box; }
         @media (max-width: 1023px) { body { -webkit-text-size-adjust: 100%; } }
@@ -243,7 +253,7 @@
     <div class="bg-overlay"></div>
     <div class="flex flex-col min-h-screen">
 
-    <header class="glass-card border-b border-white/10 p-4 sticky top-0 z-50 w-full">
+    <header class="glass-card border-b border-white/10 p-4 sticky top-0 z-50 w-full" style="padding-top: calc(1rem + var(--sat)); padding-left: calc(1rem + var(--sal)); padding-right: calc(1rem + var(--sar))">
         <div class="flex justify-between items-center w-full">
             <div class="flex items-center gap-3">
                 <div class="site-logo">
@@ -1327,6 +1337,13 @@ create policy "Admins can read audit log"
         const update = { status: 'dismissed' };
         if (note) update.manager_note = note;
 
+        // Fetch subscriber info before updating so we can notify the user
+        const { data: reqRow } = await _supabase
+            .from('upload_requests')
+            .select('subscriber_endpoint, subscriber_keys, filename')
+            .eq('id', _dismissTargetId)
+            .single();
+
         const { error } = await _supabase.from('upload_requests').update(update).eq('id', _dismissTargetId);
         if (error) {
             errEl.textContent = 'Failed to dismiss: ' + error.message;
@@ -1338,6 +1355,32 @@ create policy "Admins can read audit log"
         closeDismissModal();
         showMgrToast('Request dismissed.', 'info');
         loadRequests();
+
+        // ── Feature 11: Notify the requester their request was dismissed ──
+        if (reqRow && reqRow.subscriber_endpoint) {
+            const _PUSH_API = window.location.hostname === 'localhost'
+                ? 'http://localhost:3000'
+                : 'https://project-one-187u.onrender.com';
+            let savedKeys = null;
+            if (reqRow.subscriber_keys) {
+                try { savedKeys = JSON.parse(reqRow.subscriber_keys); } catch(e) {}
+            }
+            const dismissNote = note ? ' Note: ' + note : '';
+            fetch(_PUSH_API + '/api/push/notify-one', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    endpoint: reqRow.subscriber_endpoint,
+                    keys: savedKeys || undefined,
+                    title: '❌ File Request Dismissed',
+                    body: (reqRow.filename || 'Your request') + ' was not fulfilled.' + dismissNote,
+                    url: '/upload-request.html',
+                    secret: window.pushSecret || ''
+                })
+            }).then(r => r.json()).then(result => {
+                if (result && result.ok) showMgrToast('🔔 Student notified of dismissal.', 'info');
+            }).catch(() => {});
+        }
     }
 
     function openUploadForReq(id, filename, description, folder, reason) {
