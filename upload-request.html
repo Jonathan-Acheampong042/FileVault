@@ -61,6 +61,8 @@
         .back-link:hover { color: #93c5fd; }
         .char-count { font-size: 10px; color: #475569; text-align: right; margin-top: 3px; }
         .field-note { font-size: 11px; color: #475569; margin-top: 4px; }
+        /* Honeypot — visually hidden from real users, bots fill it */
+        .hp-field { position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}
     </style>
 </head>
 <body>
@@ -86,7 +88,7 @@
                     </div>
                 </div>
 
-                <form id="requestForm" novalidate>
+                <form id="requestForm">
                     <!-- File Name -->
                     <div class="form-group">
                         <label for="req_filename">File / Material Name <span style="color:#ef4444">*</span></label>
@@ -120,8 +122,26 @@
                     <div class="form-group">
                         <label for="req_folder">Course / Folder <span style="color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
                         <input type="text" id="req_folder" name="folder" placeholder="e.g. UGBS 301 or Business Analytics"
-                            style="width:100%;padding:12px 14px;font-size:14px" maxlength="80"/>
+                            style="width:100%;padding:12px 14px;font-size:14px" maxlength="80"
+                            list="folderSuggestions"
+                            oninput="updateCount('req_folder','folder_count',80)"/>
+                        <datalist id="folderSuggestions"></datalist>
+                        <div class="char-count" aria-live="polite"><span id="folder_count">0</span> / 80</div>
                         <p class="field-note">Leave blank if you're unsure.</p>
+                    </div>
+
+                    <!-- Email (optional) -->
+                    <div class="form-group">
+                        <label for="req_email">Your Email <span style="color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+                        <input type="email" id="req_email" name="email" placeholder="e.g. johndoe@university.edu" autocomplete="email"
+                            style="width:100%;padding:12px 14px;font-size:14px"/>
+                        <p class="field-note">If provided, the manager can notify you directly when your file is ready.</p>
+                    </div>
+
+                    <!-- Honeypot — must stay empty; bots fill it, real users never see it -->
+                    <div class="hp-field" aria-hidden="true">
+                        <label for="hp_website">Website (leave blank)</label>
+                        <input type="text" id="hp_website" name="website" autocomplete="off" tabindex="-1"/>
                     </div>
 
                     <!-- Submit -->
@@ -132,10 +152,40 @@
                 </form>
 
                 <!-- Success state (hidden initially) -->
-                <div id="successState" style="display:none;text-align:center;padding:24px 0">
-                    <span class="material-symbols-outlined" style="font-size:56px;color:#34d399;display:block;margin-bottom:12px">check_circle</span>
-                    <h2 style="color:white;font-weight:800;font-size:18px;margin:0 0 8px">Request Submitted!</h2>
-                    <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0 0 20px">Your request has been sent to the manager. Once they upload the file, it'll appear in the Vault.</p>
+                <div id="successState" style="display:none;padding:8px 0">
+                    <div style="text-align:center;margin-bottom:20px">
+                        <span class="material-symbols-outlined" style="font-size:52px;color:#34d399;display:block;margin-bottom:10px">check_circle</span>
+                        <h2 style="color:white;font-weight:800;font-size:18px;margin:0 0 8px">Request Submitted!</h2>
+                        <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0">Your request has been sent. Once the manager uploads the file it'll appear in the Vault.</p>
+                    </div>
+
+                    <!-- Token / request ID display -->
+                    <div id="tokenBox" style="display:none;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:14px;padding:14px 16px;margin-bottom:16px">
+                        <p style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin:0 0 6px">Your Request ID — save this!</p>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <code id="tokenDisplay" style="flex:1;font-size:12px;color:#93c5fd;word-break:break-all;background:rgba(0,0,0,0.25);padding:7px 10px;border-radius:8px;font-family:monospace"></code>
+                            <button onclick="copyToken()" title="Copy ID" style="flex-shrink:0;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.25);border-radius:8px;padding:7px 10px;color:#93c5fd;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px;font-family:inherit;font-weight:700" id="copyTokenBtn">
+                                <span class="material-symbols-outlined" style="font-size:14px">content_copy</span> Copy
+                            </button>
+                        </div>
+                        <p style="font-size:11px;color:#475569;margin:8px 0 0">This page URL also contains your ID — bookmark it to return here and check your status.</p>
+                    </div>
+
+                    <!-- Status poller -->
+                    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:14px 16px;margin-bottom:16px">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                            <p style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin:0">Request Status</p>
+                            <button onclick="pollStatus()" id="refreshStatusBtn" style="background:none;border:none;cursor:pointer;color:#60a5fa;font-size:11px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:4px;padding:0">
+                                <span class="material-symbols-outlined" style="font-size:14px" id="refreshIcon">refresh</span> Refresh
+                            </button>
+                        </div>
+                        <div id="statusDisplay" style="display:flex;align-items:center;gap:8px">
+                            <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;flex-shrink:0;display:inline-block"></span>
+                            <span style="font-size:13px;color:#e2e8f0;font-weight:600">Pending review</span>
+                        </div>
+                        <p id="managerNote" style="display:none;font-size:12px;color:#cbd5e1;margin:8px 0 0;padding:8px 10px;background:rgba(100,116,139,0.1);border-radius:8px;border-left:3px solid rgba(100,116,139,0.4)"></p>
+                    </div>
+
                     <a href="index.html" style="display:inline-flex;align-items:center;gap:6px;padding:10px 22px;background:rgba(59,130,246,0.2);color:#93c5fd;border-radius:12px;font-size:13px;font-weight:700;text-decoration:none">
                         <span class="material-symbols-outlined" style="font-size:16px" aria-hidden="true">folder_shared</span> Back to Vault
                     </a>
@@ -228,6 +278,36 @@
         // Silently try to get push subscription on page load
         window.addEventListener('load', () => {
             _captureRequestPushSub().catch(() => {});
+
+            // ── Populate folder autocomplete from existing folders in DB ──
+            (async () => {
+                try {
+                    const { data, error } = await _supabase
+                        .from('files_list')
+                        .select('folder_name')
+                        .not('folder_name', 'is', null)
+                        .order('folder_name');
+                    if (!error && data && data.length) {
+                        const dl = document.getElementById('folderSuggestions');
+                        const seen = new Set();
+                        data.forEach(row => {
+                            const name = (row.folder_name || '').trim();
+                            if (name && !seen.has(name)) {
+                                seen.add(name);
+                                const opt = document.createElement('option');
+                                opt.value = name;
+                                dl.appendChild(opt);
+                            }
+                        });
+                        // Update field note to hint that suggestions are available
+                        if (seen.size > 0) {
+                            const note = document.querySelector('#req_folder ~ .char-count + .field-note') ||
+                                         document.querySelector('[for="req_folder"]')?.closest('.form-group')?.querySelector('.field-note');
+                            if (note) note.textContent = 'Start typing to see existing folders, or leave blank if unsure.';
+                        }
+                    }
+                } catch(e) { /* non-critical — field still works as plain text */ }
+            })();
             // Pre-fill from ?filename=...&folder=... (set by index.html "Need" button)
             const params = new URLSearchParams(window.location.search);
             const prefillName   = params.get('filename');
@@ -264,6 +344,127 @@
             if (el && cnt) cnt.textContent = el.value.length;
         }
 
+        // ── Request token helpers ────────────────────────────────────
+        let _activeReqId = null;
+
+        function showRequestToken(id) {
+            _activeReqId = id;
+            const box = document.getElementById('tokenBox');
+            const display = document.getElementById('tokenDisplay');
+            if (box && display) {
+                display.textContent = id;
+                box.style.display = 'block';
+            }
+        }
+
+        function copyToken() {
+            if (!_activeReqId) return;
+            const btn = document.getElementById('copyTokenBtn');
+
+            function markCopied() {
+                if (btn) {
+                    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">check</span> Copied!';
+                    setTimeout(() => { btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">content_copy</span> Copy'; }, 2000);
+                }
+            }
+            function markFailed() {
+                if (btn) {
+                    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">error</span> Failed';
+                    setTimeout(() => { btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">content_copy</span> Copy'; }, 2500);
+                }
+                // Last resort: select the text so the user can copy manually
+                const display = document.getElementById('tokenDisplay');
+                if (display) {
+                    const range = document.createRange();
+                    range.selectNodeContents(display);
+                    const sel = window.getSelection();
+                    if (sel) { sel.removeAllRanges(); sel.addRange(range); }
+                }
+            }
+
+            // Primary: modern async clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(_activeReqId).then(markCopied).catch(() => {
+                    // Fallback: execCommand (deprecated but broadly supported, works without HTTPS)
+                    try {
+                        const tmp = document.createElement('textarea');
+                        tmp.value = _activeReqId;
+                        tmp.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+                        document.body.appendChild(tmp);
+                        tmp.focus(); tmp.select();
+                        const ok = document.execCommand('copy');
+                        document.body.removeChild(tmp);
+                        ok ? markCopied() : markFailed();
+                    } catch(e2) { markFailed(); }
+                });
+            } else {
+                // No clipboard API at all — go straight to execCommand
+                try {
+                    const tmp = document.createElement('textarea');
+                    tmp.value = _activeReqId;
+                    tmp.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+                    document.body.appendChild(tmp);
+                    tmp.focus(); tmp.select();
+                    const ok = document.execCommand('copy');
+                    document.body.removeChild(tmp);
+                    ok ? markCopied() : markFailed();
+                } catch(e) { markFailed(); }
+            }
+        }
+
+        const STATUS_CONFIG = {
+            pending:   { dot: '#f59e0b', label: 'Pending review' },
+            approved:  { dot: '#22c55e', label: 'Approved — file uploaded to Vault!' },
+            dismissed: { dot: '#64748b', label: 'Dismissed by manager' }
+        };
+
+        async function pollStatus() {
+            if (!_activeReqId) return;
+            const refreshBtn = document.getElementById('refreshStatusBtn');
+            const refreshIcon = document.getElementById('refreshIcon');
+            if (refreshIcon) { refreshIcon.style.animation = 'spin .7s linear infinite'; }
+            if (refreshBtn) refreshBtn.disabled = true;
+
+            try {
+                const { data, error } = await _supabase
+                    .from('upload_requests')
+                    .select('status, manager_note')
+                    .eq('id', _activeReqId)
+                    .single();
+
+                if (!error && data) {
+                    const cfg = STATUS_CONFIG[data.status] || { dot: '#94a3b8', label: data.status };
+                    document.getElementById('statusDisplay').innerHTML =
+                        `<span style="width:8px;height:8px;border-radius:50%;background:${cfg.dot};flex-shrink:0;display:inline-block"></span>` +
+                        `<span style="font-size:13px;color:#e2e8f0;font-weight:600">${cfg.label}</span>`;
+                    const noteEl = document.getElementById('managerNote');
+                    if (data.manager_note) {
+                        noteEl.textContent = '💬 ' + data.manager_note;
+                        noteEl.style.display = 'block';
+                    } else {
+                        noteEl.style.display = 'none';
+                    }
+                }
+            } catch(e) {}
+
+            if (refreshIcon) refreshIcon.style.animation = '';
+            if (refreshBtn) refreshBtn.disabled = false;
+        }
+
+        // ── On load: check if returning via bookmarked #req= URL ────
+        window.addEventListener('load', () => {
+            // Check URL hash for a stored request ID (e.g. from a bookmark)
+            const hashMatch = window.location.hash.match(/[#&]req=([^&]+)/);
+            if (hashMatch) {
+                const resumeId = hashMatch[1];
+                _activeReqId = resumeId;
+                document.getElementById('requestForm').style.display = 'none';
+                document.getElementById('successState').style.display = 'block';
+                showRequestToken(resumeId);
+                pollStatus();
+            }
+        });
+
         function showToast(msg, type) {
             const t = document.getElementById('toast');
             const m = document.getElementById('toastMsg');
@@ -291,18 +492,30 @@
                 return;
             }
 
+            // Honeypot check — real users never fill this field
+            if (document.getElementById('hp_website').value) {
+                // Silently appear to succeed; bots shouldn't know they were caught
+                document.getElementById('requestForm').style.display = 'none';
+                document.getElementById('successState').style.display = 'block';
+                return;
+            }
+
+            const emailInput = (document.getElementById('req_email').value || '').trim();
+            // Use the logged-in email if available, otherwise fall back to the typed one
+            const contactEmail = _requesterEmail || emailInput || null;
+
             const btn = document.getElementById('submitBtn');
             btn.disabled = true;
             btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;animation:spin .8s linear infinite">refresh</span> Submitting…';
 
             try {
                 // ── Rate-limit: one request per email per hour ──────────────
-                if (_requesterEmail) {
+                if (contactEmail) {
                     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
                     const { count } = await _supabase
                         .from('upload_requests')
                         .select('id', { count: 'exact', head: true })
-                        .eq('requester_email', _requesterEmail)
+                        .eq('requester_email', contactEmail)
                         .gte('created_at', oneHourAgo);
                     if (count > 0) {
                         showToast('You\'ve already submitted a request in the last hour. Please wait before submitting another.', 'error');
@@ -313,17 +526,33 @@
                 }
                 // ───────────────────────────────────────────────────────────
 
-                const { error } = await _supabase.from('upload_requests').insert({
+                const { data: inserted, error } = await _supabase.from('upload_requests').insert({
                     filename: filename,
                     description: document.getElementById('req_desc').value.trim() || null,
                     reason: reason,
                     folder: document.getElementById('req_folder').value.trim() || null,
                     status: 'pending',
-                    requester_email: _requesterEmail || null,
+                    requester_email: contactEmail,
                     subscriber_endpoint: _reqPushEndpoint || null,
                     subscriber_keys: _reqPushKeys ? JSON.stringify(_reqPushKeys) : null
-                });
+                }).select('id').single();
                 if (error) throw error;
+
+                // ── Persist the request ID so the student can check status later ──
+                const reqId = inserted?.id;
+                if (reqId) {
+                    // Store in both localStorage and sessionStorage for resilience
+                    try {
+                        const stored = JSON.parse(localStorage.getItem('fv_request_ids') || '[]');
+                        stored.unshift(reqId);
+                        localStorage.setItem('fv_request_ids', JSON.stringify(stored.slice(0, 10)));
+                    } catch(e) {}
+                    try { sessionStorage.setItem('fv_last_request_id', reqId); } catch(e) {}
+                    // Put it in the URL hash so a bookmark or copy of the URL preserves it
+                    history.replaceState(null, '', '#req=' + reqId);
+                    showRequestToken(reqId);
+                }
+
                 document.getElementById('requestForm').style.display = 'none';
                 document.getElementById('successState').style.display = 'block';
             } catch (err) {

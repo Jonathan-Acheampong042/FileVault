@@ -5,10 +5,22 @@
 // Changing PRECACHE_URLS (add, remove, or rename any entry) will produce a
 // new hash → new cache name → old cache is evicted on activate.
 // You no longer need to remember to bump a version string by hand.
+//
+// IMPORTANT — what this hash does NOT cover:
+// The hash is computed from the URL strings in PRECACHE_URLS, not from the
+// actual file contents on disk. Updating a precached file (e.g. screen.png)
+// without also touching this list will NOT invalidate the cache name, so
+// users could continue receiving the old copy from cache.
+// chat-widget.js is intentionally excluded from PRECACHE_URLS and is served
+// network-first (see fetch handler below), so its on-disk changes are always
+// picked up on the next online request regardless of the hash.
 const PRECACHE_URLS = [
+    '/index.html',            // offline fallback page — must be cached on install
     '/filevault%20logo.png',
-    '/screen.png',
-    '/chat-widget.js'
+    '/screen.png'
+    // chat-widget.js is intentionally excluded from precache: it changes
+    // frequently and must always be fetched fresh. The fetch handler below
+    // uses a network-first strategy for it so stale JS is never served.
 ];
 
 // Simple djb2 hash → 8-char hex string, stable across SW restarts.
@@ -27,7 +39,26 @@ self.addEventListener('install', event => {
             return Promise.allSettled(
                 PRECACHE_URLS.map(url => cache.add(url).catch(() => {}))
             );
-        }).then(() => self.skipWaiting())
+        }).then(() => {
+            // Only skip the waiting phase (and take over immediately) if there
+            // are no currently-controlled clients. If open tabs exist, let the
+            // old SW keep running until all those tabs are closed or refreshed —
+            // this prevents a new SW with a different cache from serving assets
+            // to a page that was loaded under the previous SW, which could break
+            // active Supabase realtime subscriptions or in-flight uploads.
+            //
+            // Tabs that were opened before any SW was registered have
+            // self.clients.matchAll returning an empty list, so a brand-new
+            // installation (first visit) still activates immediately as expected.
+            return self.clients.matchAll({ type: 'window', includeUncontrolled: false })
+                .then(clients => {
+                    if (clients.length === 0) self.skipWaiting();
+                    // If clients exist, the SW sits in 'waiting' until all tabs
+                    // are closed/refreshed. The page can optionally listen for
+                    // the 'waiting' state via navigator.serviceWorker and show
+                    // a "reload to update" prompt to the user.
+                });
+        })
     );
 });
 
@@ -90,14 +121,34 @@ self.addEventListener('fetch', event => {
     if (event.request.destination === 'document') {
         event.respondWith(
             fetch(event.request).catch(() => {
-                // Offline fallback — serve cached index.html if network is down
+                // Offline fallback — serve cached index.html if network is down.
+                // INVARIANT: '/index.html' MUST remain in PRECACHE_URLS above.
+                // If it is removed, this fallback silently returns undefined and
+                // the browser shows a generic network-error page instead of the
+                // offline shell. The periodicsync handler also refreshes this
+                // entry every ~12 hours so the cached copy stays reasonably current.
                 return caches.match('/index.html');
             })
         );
         return;
     }
 
-    // 3. Cache-first for static assets (images, JS, CSS, fonts)
+    // 3. Network-first for chat-widget.js — it changes frequently and must
+    //    never be served stale. Falls back to cache only if truly offline.
+    if (url.pathname.endsWith('/chat-widget.js')) {
+        event.respondWith(
+            fetch(event.request).then(response => {
+                if (response && response.status === 200) {
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+                }
+                return response;
+            }).catch(() => caches.match(event.request))
+        );
+        return;
+    }
+
+    // 4. Cache-first for static assets (images, JS, CSS, fonts)
     event.respondWith(
         caches.match(event.request).then(cached => {
             if (cached) return cached;
@@ -110,4 +161,38 @@ self.addEventListener('fetch', event => {
             }).catch(() => null);
         })
     );
+});
+
+// ── Feature 4: Background Sync — flush queued chat messages ──
+// When the chat widget queues a message offline, it also registers a
+// 'chat-message-sync' sync tag. The SW fires this event when connectivity
+// is confirmed (more reliable than window.online in some browsers).
+// The widget's own _watchForReconnect() handles the actual retry logic;
+// this just posts a message to all open clients so they can flush immediately.
+self.addEventListener('sync', event => {
+    if (event.tag === 'chat-message-sync') {
+        event.waitUntil(
+            self.clients.matchAll({ type: 'window', includeUncontrolled: false }).then(clients => {
+                clients.forEach(client => client.postMessage({ type: 'SW_SYNC_CHAT' }));
+            })
+        );
+    }
+});
+
+// ── Feature 5: Periodic Background Sync — pre-warm cache ──
+// Registered by the page as 'cache-prewarm' (min-interval: 12 hours).
+// Fetches index.html silently so the offline fallback is always the latest
+// published version, not a copy from the user's first-ever visit.
+// The SW cannot reach Supabase (external hostname) so file metadata is
+// intentionally not pre-fetched here — that would require a same-origin proxy.
+self.addEventListener('periodicsync', event => {
+    if (event.tag === 'cache-prewarm') {
+        event.waitUntil(
+            fetch('/index.html', { cache: 'no-store' }).then(response => {
+                if (response && response.status === 200) {
+                    return caches.open(CACHE_NAME).then(cache => cache.put('/index.html', response));
+                }
+            }).catch(() => { /* network unavailable — skip silently */ })
+        );
+    }
 });

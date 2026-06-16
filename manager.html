@@ -504,6 +504,26 @@
         </div>
     </div>
 
+    <!-- Dismiss Request Modal -->
+    <div id="dismissModal" onclick="if(event.target===this)closeDismissModal()" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:16px">
+        <div style="background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:24px;width:100%;max-width:420px;box-shadow:0 32px 80px rgba(0,0,0,0.6)">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+                <span class="material-symbols-outlined" style="font-size:26px;color:#f87171">cancel</span>
+                <div>
+                    <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1px">Dismiss Request</p>
+                    <h3 id="dismissModalTitle" style="color:white;font-weight:700;font-size:16px;margin:0">Dismiss this request?</h3>
+                </div>
+            </div>
+            <p style="font-size:12px;color:#64748b;margin-bottom:10px">Optionally leave a note so the student understands why their request was dismissed.</p>
+            <textarea id="dismissNote" rows="3" placeholder="e.g. This file is already available in the Lecture Notes folder." style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#e2e8f0;font-size:13px;font-family:inherit;padding:10px 12px;outline:none;resize:vertical;transition:border-color .2s" onfocus="this.style.borderColor='rgba(248,113,113,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"></textarea>
+            <div style="display:flex;gap:8px;margin-top:14px">
+                <button onclick="closeDismissModal()" style="flex:1;padding:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#94a3b8;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .2s" onmouseover="this.style.background='rgba(255,255,255,0.09)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">Cancel</button>
+                <button onclick="confirmDismiss()" id="dismissConfirmBtn" style="flex:1;padding:10px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:12px;color:#f87171;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .2s" onmouseover="this.style.background='rgba(239,68,68,0.25)'" onmouseout="this.style.background='rgba(239,68,68,0.15)'">Dismiss Request</button>
+            </div>
+            <p id="dismissModalError" style="font-size:12px;color:#f87171;text-align:center;margin-top:10px;min-height:18px"></p>
+        </div>
+    </div>
+
     <!-- Duplicate File Modal -->
     <div id="dupModal">
         <div id="dupBox">
@@ -1278,17 +1298,46 @@ create policy "Admins can read audit log"
         loadManagerFiles();
     }
 
-    async function dismissRequest(id) {
-        // Ask for an optional note so the student knows why
-        const note = prompt('Add a note for the student (optional):\nLeave blank to dismiss without a reason.', '');
-        if (note === null) return; // cancelled
-        try {
-            const update = { status: 'dismissed' };
-            if (note.trim()) update.manager_note = note.trim();
-            await _supabase.from('upload_requests').update(update).eq('id', id);
-            showMgrToast('Request dismissed.', 'info');
-            loadRequests();
-        } catch(e) { showMgrToast('Error: ' + e.message, 'error'); }
+    let _dismissTargetId = null;
+
+    function dismissRequest(id) {
+        _dismissTargetId = id;
+        document.getElementById('dismissNote').value = '';
+        document.getElementById('dismissModalError').textContent = '';
+        document.getElementById('dismissConfirmBtn').disabled = false;
+        document.getElementById('dismissConfirmBtn').textContent = 'Dismiss Request';
+        document.getElementById('dismissModal').style.display = 'flex';
+        setTimeout(() => document.getElementById('dismissNote').focus(), 50);
+    }
+
+    function closeDismissModal() {
+        document.getElementById('dismissModal').style.display = 'none';
+        _dismissTargetId = null;
+    }
+
+    async function confirmDismiss() {
+        if (!_dismissTargetId) return;
+        const note = document.getElementById('dismissNote').value.trim();
+        const errEl = document.getElementById('dismissModalError');
+        const btn = document.getElementById('dismissConfirmBtn');
+        errEl.textContent = '';
+        btn.disabled = true;
+        btn.textContent = 'Dismissing…';
+
+        const update = { status: 'dismissed' };
+        if (note) update.manager_note = note;
+
+        const { error } = await _supabase.from('upload_requests').update(update).eq('id', _dismissTargetId);
+        if (error) {
+            errEl.textContent = 'Failed to dismiss: ' + error.message;
+            btn.disabled = false;
+            btn.textContent = 'Dismiss Request';
+            return;
+        }
+
+        closeDismissModal();
+        showMgrToast('Request dismissed.', 'info');
+        loadRequests();
     }
 
     function openUploadForReq(id, filename, description, folder, reason) {

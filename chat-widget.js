@@ -442,6 +442,45 @@ function _watchForReconnect() {
     }
 })();
 
+// ── Feature 4: Background Sync registration ──
+// Registers a one-shot 'chat-message-sync' sync tag with the SW so it can
+// trigger _watchForReconnect() via postMessage when the browser confirms
+// connectivity — more reliable than window.online in some mobile browsers.
+function _registerChatSync() {
+    if (!('serviceWorker' in navigator) || !('SyncManager' in window)) return;
+    navigator.serviceWorker.ready.then(reg => {
+        reg.sync.register('chat-message-sync').catch(() => {
+            // Background Sync not permitted (e.g. private browsing) — the
+            // existing window.online polling in _watchForReconnect() handles it.
+        });
+    }).catch(() => {});
+}
+
+// Listen for the SW's SW_SYNC_CHAT postMessage (fired when Background Sync
+// triggers and the SW wants the page to flush its offline queue immediately).
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', event => {
+        if (event.data && event.data.type === 'SW_SYNC_CHAT') {
+            if (_pendingOfflineCount() > 0) _watchForReconnect();
+        }
+    });
+}
+
+// ── Feature 5: Periodic Background Sync registration ──
+// Asks the browser to periodically wake the SW (min-interval 12 h) to
+// refresh the cached index.html so the offline fallback stays current.
+// Requires the user to have granted notification permission or installed
+// the PWA — the browser enforces this; we just request and move on.
+(function _registerPeriodicSync() {
+    if (!('serviceWorker' in navigator) || !('periodicSync' in ServiceWorkerRegistration.prototype)) return;
+    navigator.serviceWorker.ready.then(reg => {
+        reg.periodicSync.register('cache-prewarm', { minInterval: 12 * 60 * 60 * 1000 })
+            .catch(() => {
+                // Permission not granted or API not available — silently skip.
+            });
+    }).catch(() => {});
+})();
+
 
 // ═══════════════════════════════════════════════════════════════
 // FEATURE 9 — SCHEDULED ANNOUNCEMENTS (manager chat commands)
@@ -511,7 +550,9 @@ async function _postAnnouncement(message, expiresStr) {
         if (!isNaN(d.getTime())) expires_at = d.toISOString();
     }
 
-    // Preview card
+    // Preview card — all dynamic values are stored in JS closures / data attributes
+    // rather than being interpolated into onclick strings, which avoids injection risks
+    // when message or expires_at contain quotes, braces, or special characters.
     const previewId = 'fvAnnounce_' + Date.now();
     const expLabel = expires_at
         ? new Date(expires_at).toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' })
@@ -519,21 +560,49 @@ async function _postAnnouncement(message, expiresStr) {
     const wrap = document.createElement('div');
     wrap.id = previewId;
     wrap.style.cssText = 'display:flex;justify-content:flex-start;margin:4px 0';
-    wrap.innerHTML = `<div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);border-radius:14px;padding:14px 16px;max-width:92%;font-size:13px;color:#e2e8f0;line-height:1.6">
-        <p style="font-weight:700;color:#a5b4fc;margin:0 0 6px">📢 Announcement preview</p>
-        <p style="margin:0 0 6px;color:#cbd5e1">"${escapeHtml(message)}"</p>
-        <p style="font-size:11px;color:#64748b;margin:0 0 12px">Expires: ${escapeHtml(expLabel)}</p>
-        <div style="display:flex;gap:8px">
-            <button onclick="_confirmAnnouncement(${JSON.stringify(previewId)}, ${JSON.stringify(message)}, ${JSON.stringify(expires_at)}, ${JSON.stringify(secret)})"
-                style="padding:7px 16px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:10px;color:white;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">
-                Post announcement
-            </button>
-            <button onclick="document.getElementById(${JSON.stringify(previewId)}).remove()"
-                style="padding:7px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:#94a3b8;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit">
-                Cancel
-            </button>
-        </div>
-    </div>`;
+    // Build the card using safe DOM methods for user-supplied text
+    const card = document.createElement('div');
+    card.style.cssText = 'background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);border-radius:14px;padding:14px 16px;max-width:92%;font-size:13px;color:#e2e8f0;line-height:1.6';
+
+    const heading = document.createElement('p');
+    heading.style.cssText = 'font-weight:700;color:#a5b4fc;margin:0 0 6px';
+    heading.textContent = '📢 Announcement preview';
+    card.appendChild(heading);
+
+    const msgEl = document.createElement('p');
+    msgEl.style.cssText = 'margin:0 0 6px;color:#cbd5e1';
+    msgEl.textContent = '\u201C' + message + '\u201D';
+    card.appendChild(msgEl);
+
+    const expEl = document.createElement('p');
+    expEl.style.cssText = 'font-size:11px;color:#64748b;margin:0 0 12px';
+    expEl.textContent = 'Expires: ' + expLabel;
+    card.appendChild(expEl);
+
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px';
+
+    const postBtn = document.createElement('button');
+    postBtn.style.cssText = 'padding:7px 16px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:10px;color:white;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit';
+    postBtn.textContent = 'Post announcement';
+    // Use an event listener closure — no string interpolation of user data
+    postBtn.addEventListener('click', function() {
+        _confirmAnnouncement(previewId, message, expires_at, secret);
+    });
+    btnRow.appendChild(postBtn);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.style.cssText = 'padding:7px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:#94a3b8;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', function() {
+        const el = document.getElementById(previewId);
+        if (el) el.remove();
+    });
+    btnRow.appendChild(cancelBtn);
+
+    card.appendChild(btnRow);
+    wrap.appendChild(card);
+
     const container = document.getElementById('chatMessages');
     if (container) { container.appendChild(wrap); container.scrollTop = container.scrollHeight; }
 }
@@ -1510,9 +1579,16 @@ async function sendChatMessage() {
         if (err.name === 'AbortError') {
             appendBubble('assistant', '⏱️ The server took too long to respond (30 s). Check your connection or try again.');
         } else {
-            // Queue the message for retry when connectivity returns
+            // Queue the message for retry when connectivity returns.
+            // Note: the AI backend runs on an external server (Render), so the
+            // service worker cannot cache or proxy these requests — offline
+            // fallback is handled entirely here in the page.
             _queueOfflineMessage(text);
-            appendBubble('assistant', '📶 <strong>You appear to be offline.</strong> Your message has been saved and will be sent automatically when your connection returns.');
+            appendBubble('assistant', '📶 <strong>The AI assistant is unreachable.</strong> This is usually a network issue — the chat backend runs on an external server and isn\'t available offline. Your message has been saved and will be sent automatically when your connection returns.');
+
+            // Also register a Background Sync tag so the SW can trigger a
+            // flush via postMessage even if the 'online' event is unreliable.
+            _registerChatSync();
         }
         console.error('Chat error:', err);
     }
@@ -1805,7 +1881,47 @@ function openQuiz() {
         return;
     }
     const files = typeof allFiles !== 'undefined' ? allFiles : [];
+
+    // allFiles may still be loading asynchronously when the user opens the quiz.
+    // Detect this by checking whether the variable exists but is empty AND the page
+    // appears to have finished loading. We show an in-modal loading state and poll
+    // briefly rather than presenting a silently empty experience.
     if (!files.length) {
+        const pageFullyLoaded = document.readyState === 'complete';
+        if (!pageFullyLoaded || typeof allFiles === 'undefined') {
+            // Page or allFiles not ready yet — show a waiting state and retry
+            _showQuizModal();
+            const titleEl    = document.getElementById('fvQuizTitle');
+            const progressEl = document.getElementById('fvQuizProgress');
+            const content    = document.getElementById('fvQuizContent');
+            const actions    = document.getElementById('fvQuizActions');
+            if (titleEl)    titleEl.textContent    = 'Loading files…';
+            if (progressEl) progressEl.textContent = 'Just a moment';
+            if (content)    content.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;padding:32px 0;gap:14px">
+                <div style="display:flex;gap:6px">
+                    <span style="width:10px;height:10px;border-radius:50%;background:rgba(59,130,246,0.7);animation:fvBounce 1.2s ease-in-out infinite"></span>
+                    <span style="width:10px;height:10px;border-radius:50%;background:rgba(59,130,246,0.7);animation:fvBounce 1.2s ease-in-out 0.2s infinite"></span>
+                    <span style="width:10px;height:10px;border-radius:50%;background:rgba(59,130,246,0.7);animation:fvBounce 1.2s ease-in-out 0.4s infinite"></span>
+                </div>
+                <p style="color:#64748b;font-size:13px">Waiting for the file list to load…</p>
+            </div>`;
+            if (actions)    actions.innerHTML = `<button onclick="closeQuiz()" style="padding:10px 18px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#94a3b8;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Cancel</button>`;
+            // Poll for up to 5 s then give up with a clear message
+            var _quizRetries = 0;
+            var _quizPoll = setInterval(function() {
+                _quizRetries++;
+                const loaded = typeof allFiles !== 'undefined' ? allFiles : [];
+                if (loaded.length) {
+                    clearInterval(_quizPoll);
+                    openQuiz(); // retry now that files are ready
+                } else if (_quizRetries >= 10) {
+                    clearInterval(_quizPoll);
+                    if (content) content.innerHTML = '<p style="color:#f87171;font-size:13px;text-align:center;padding:32px 0">Could not load file list. Please refresh the page and try again.</p>';
+                }
+            }, 500);
+            return;
+        }
+        // Page is loaded and allFiles is genuinely empty
         showToast('No files in the vault yet — quiz needs some content!', 'warning', 3000);
         return;
     }

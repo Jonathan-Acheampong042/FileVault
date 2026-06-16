@@ -15,7 +15,8 @@
     https://fonts.gstatic.com;
   img-src 'self' data:
     https://lh3.googleusercontent.com
-    https://cdn.discordapp.com;
+    https://cdn.discordapp.com
+    https://*.supabase.co;
   connect-src 'self'
     https://*.supabase.co
     wss://*.supabase.co
@@ -45,8 +46,8 @@
         body.compact-mode .section-title { margin-bottom: 8px; }
         body.compact-mode .toggle-row { padding: 7px 0; }
         body.compact-mode .glass-card { padding: 18px !important; }
-        body.fs-large #profileContent { zoom: 1.1; }
-        body.fs-small #profileContent { zoom: 0.92; }
+        body.fs-large #profileContent { font-size: 110%; }
+        body.fs-small #profileContent { font-size: 92%; }
 
         .bg-fixed-image { position: fixed; inset: 0; background-image: url('screen.png'); background-size: cover; background-position: center; background-repeat: no-repeat; filter: saturate(0.72) brightness(0.4); z-index: -2; }
         .bg-overlay { position: fixed; inset: 0; background: radial-gradient(circle at top left, rgba(59,130,246,0.18), transparent 30%), radial-gradient(circle at bottom right, rgba(139,92,246,0.16), transparent 25%), linear-gradient(180deg, rgba(4,7,18,0.90), rgba(2,6,23,0.97)); z-index: -1; pointer-events: none; }
@@ -138,8 +139,10 @@
         .avatar-overlay .material-symbols-outlined { color:white;font-size:18px; }
 
         /* ── Stats strip ── */
+        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
         .stats-strip { display:grid;grid-template-columns:repeat(3,1fr);gap:10px; }
-        .stat-cell { background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:12px;text-align:center; }
+        .stat-cell { background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:12px;text-align:center;transition:background .3s; }
+        .stat-cell.loading .stat-num { background:linear-gradient(90deg,rgba(255,255,255,0.06) 25%,rgba(255,255,255,0.12) 50%,rgba(255,255,255,0.06) 75%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite;border-radius:6px;color:transparent;min-width:28px;display:inline-block;user-select:none; }
         .stat-num { font-size:22px;font-weight:800;color:#f1f5f9;line-height:1; }
         .stat-lbl { font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-top:4px; }
 
@@ -233,6 +236,24 @@
         @media (max-width: 380px) {
             .otp-input { width:40px; height:46px; font-size:18px; }
         }
+
+        /* ── Header ── */
+        .profile-header { border-bottom:1px solid rgba(255,255,255,0.06); }
+        .header-signout { display:flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid rgba(239,68,68,0.25);border-radius:10px;background:rgba(239,68,68,0.07);color:#fca5a5;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;transition:all .2s;text-decoration:none; }
+        .header-signout:hover { background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.4); }
+
+        /* ── Achievements: locked badge frosted look ── */
+        .badge-cell:not(.unlocked) { backdrop-filter:blur(4px); }
+        .badge-cell:not(.unlocked) .badge-icon { position:relative; }
+        .badge-cell:not(.unlocked) .badge-icon .material-symbols-outlined { opacity:0.18; }
+        .badge-cell:not(.unlocked) .badge-icon::after { content:'lock'; font-family:'Material Symbols Outlined'; font-size:14px; color:#475569; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 20; }
+
+        /* ── Empty state illustration ── */
+        .empty-state { display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px 12px;text-align:center; }
+        .empty-state-icon { width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:center; }
+        .empty-state-icon .material-symbols-outlined { font-size:22px;color:#334155; }
+        .empty-state-title { font-size:12px;font-weight:700;color:#475569;margin:0; }
+        .empty-state-sub { font-size:11px;color:#334155;margin:0;line-height:1.5; }
     </style>
 </head>
 <body>
@@ -242,18 +263,22 @@
 
     <div class="min-h-screen flex flex-col">
         <!-- Header -->
-        <header class="flex items-center justify-between px-4 sm:px-6 py-4 max-w-2xl mx-auto w-full">
+        <header class="profile-header flex items-center justify-between px-4 sm:px-6 py-3 max-w-2xl mx-auto w-full">
             <a href="index.html" class="flex items-center gap-2 text-slate-400 hover:text-white transition" style="text-decoration:none">
                 <span class="material-symbols-outlined" style="font-size:20px">arrow_back</span>
                 <span style="font-size:13px;font-weight:700">Back to Vault</span>
             </a>
             <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined" style="color:#60a5fa">shield_person</span>
-                <span style="font-weight:800;font-size:14px">My Profile</span>
+                <img src="filevault%20logo.png" alt="FileVault" style="width:22px;height:22px;border-radius:6px;object-fit:contain;flex-shrink:0" onerror="this.style.display='none'"/>
+                <span style="font-weight:800;font-size:14px;color:#f1f5f9">My Profile</span>
             </div>
+            <button class="header-signout" onclick="signOutFromProfile()">
+                <span class="material-symbols-outlined" style="font-size:14px">logout</span>
+                Sign out
+            </button>
         </header>
 
-        <main class="flex-1 px-4 sm:px-6 pb-28 lg:pb-12 max-w-2xl mx-auto w-full">
+        <main class="flex-1 px-4 sm:px-6 pb-10 lg:pb-12 max-w-2xl mx-auto w-full">
             <!-- Loading -->
             <div id="profileLoading">
                 <div class="spinner" style="width:28px;height:28px;border-width:3px"></div>
@@ -282,16 +307,16 @@
 
                     <!-- Stats strip -->
                     <div class="stats-strip mt-4">
-                        <div class="stat-cell">
-                            <p class="stat-num" id="statDownloads">—</p>
+                        <div class="stat-cell loading">
+                            <p class="stat-num" id="statDownloads">0</p>
                             <p class="stat-lbl">Downloads</p>
                         </div>
-                        <div class="stat-cell">
-                            <p class="stat-num" id="statRequests">—</p>
+                        <div class="stat-cell loading">
+                            <p class="stat-num" id="statRequests">0</p>
                             <p class="stat-lbl">Requests</p>
                         </div>
-                        <div class="stat-cell">
-                            <p class="stat-num" id="statDaysMember">—</p>
+                        <div class="stat-cell loading">
+                            <p class="stat-num" id="statDaysMember">0</p>
                             <p class="stat-lbl">Days Active</p>
                         </div>
                     </div>
@@ -367,6 +392,10 @@
                     <div class="section-title"><span class="material-symbols-outlined">lock_reset</span> Change Password</div>
                     <p style="font-size:12px;color:#64748b;margin-bottom:12px">Choose a new password for your account. You'll stay signed in.</p>
                     <div class="space-y-3">
+                        <div class="relative">
+                            <span class="auth-input-icon material-symbols-outlined">lock_person</span>
+                            <input type="password" id="currentPwdProfile" class="auth-input" placeholder="Current password" autocomplete="current-password"/>
+                        </div>
                         <div class="relative">
                             <span class="auth-input-icon material-symbols-outlined">lock</span>
                             <input type="password" id="newPwdProfile" class="auth-input" placeholder="New password" autocomplete="new-password" oninput="updateProfilePwdStrength(this.value)" style="padding-right:46px"/>
@@ -522,7 +551,11 @@
                 <div class="section-card" id="requestHistorySection">
                     <div class="section-title"><span class="material-symbols-outlined">history</span> My File Requests</div>
                     <div id="requestHistoryList">
-                        <p style="font-size:12px;color:#64748b;text-align:center;padding:8px 0">Loading your requests…</p>
+                        <div class="empty-state">
+                            <div class="empty-state-icon"><span class="material-symbols-outlined">inbox</span></div>
+                            <p class="empty-state-title">No requests yet</p>
+                            <p class="empty-state-sub">File requests you submit will be tracked here.</p>
+                        </div>
                     </div>
                     <a href="upload-request.html" class="btn-secondary mt-3" style="text-decoration:none">
                         <span class="material-symbols-outlined" style="font-size:16px">add_circle</span> Make a New Request
@@ -533,7 +566,11 @@
                 <div class="section-card" id="recentDlSection">
                     <div class="section-title"><span class="material-symbols-outlined">download_done</span> Recently Downloaded</div>
                     <div id="recentDlList" class="space-y-2">
-                        <p style="font-size:12px;color:#475569;text-align:center;padding:8px 0">No downloads recorded on this device yet.</p>
+                        <div class="empty-state">
+                            <div class="empty-state-icon"><span class="material-symbols-outlined">download</span></div>
+                            <p class="empty-state-title">No downloads yet</p>
+                            <p class="empty-state-sub">Files you download from the Vault will appear here.</p>
+                        </div>
                     </div>
                     <button onclick="clearDownloadHistory()" id="clearDlBtn" style="display:none;margin-top:12px;width:100%;padding:9px;border:1px solid rgba(255,255,255,0.08);border-radius:11px;background:rgba(255,255,255,0.03);color:#64748b;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s">
                         <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle">delete_sweep</span> Clear history
@@ -544,7 +581,11 @@
                 <div class="section-card" id="pinnedSection">
                     <div class="section-title"><span class="material-symbols-outlined">push_pin</span> Pinned Files</div>
                     <div id="pinnedList" class="space-y-2">
-                        <p style="font-size:12px;color:#475569;text-align:center;padding:8px 0">You haven't pinned any files yet.</p>
+                        <div class="empty-state">
+                            <div class="empty-state-icon"><span class="material-symbols-outlined">push_pin</span></div>
+                            <p class="empty-state-title">No pinned files</p>
+                            <p class="empty-state-sub">Pin files on the Vault to bookmark them here.</p>
+                        </div>
                     </div>
                     <a href="index.html" class="btn-secondary mt-3" style="text-decoration:none;margin-top:12px">
                         <span class="material-symbols-outlined" style="font-size:16px">open_in_new</span> Browse the Vault
@@ -585,19 +626,6 @@
                             <p class="danger-item-sub">Clears notification settings, view preferences, and cached data</p>
                         </div>
                         <button class="btn-danger-sm" onclick="resetAllPrefs()">Reset</button>
-                    </div>
-                </div>
-
-                <!-- Account actions -->
-                <div class="section-card">
-                    <div class="section-title"><span class="material-symbols-outlined">manage_accounts</span> Account</div>
-                    <div class="space-y-2">
-                        <a href="index.html" class="btn-secondary" style="text-decoration:none">
-                            <span class="material-symbols-outlined" style="font-size:16px">folder_shared</span> Back to Vault
-                        </a>
-                        <button class="btn-danger" onclick="signOutFromProfile()">
-                            <span class="material-symbols-outlined" style="font-size:16px">logout</span> Sign Out
-                        </button>
                     </div>
                 </div>
 
@@ -723,9 +751,11 @@
         // PASSWORD CHANGE
         // ═══════════════════════════════════════════════════════════
         async function changeProfilePassword() {
+            const currentPwd = document.getElementById('currentPwdProfile').value;
             const newPwd     = document.getElementById('newPwdProfile').value;
             const confirmPwd = document.getElementById('confirmPwdProfile').value;
 
+            if (!currentPwd) { setMsg('pwdMsg', 'Please enter your current password.', 'error'); return; }
             if (!newPwd) { setMsg('pwdMsg','Please enter a new password.', 'error'); return; }
 
             const { rules, score } = checkPwdStrength(newPwd);
@@ -735,13 +765,33 @@
                 return;
             }
             if (newPwd !== confirmPwd) { setMsg('pwdMsg','Passwords do not match. Please re-enter them.', 'error'); return; }
+            if (newPwd === currentPwd) { setMsg('pwdMsg', 'New password must differ from your current password.', 'error'); return; }
 
-            setBtnLoading('changePwdBtn','changePwdText','Updating…');
+            setBtnLoading('changePwdBtn','changePwdText','Verifying…');
+
+            // Re-authenticate with the current password before allowing the change.
+            // signInWithPassword is the only way to verify the current credential
+            // client-side with Supabase; it does not create a new session when one
+            // already exists — it just returns a fresh session for the same user.
+            const { error: signInError } = await _supabase.auth.signInWithPassword({
+                email: _currentUser.email,
+                password: currentPwd,
+            });
+            if (signInError) {
+                clearBtnLoading('changePwdBtn','changePwdText','Update Password');
+                setMsg('pwdMsg', 'Current password is incorrect.', 'error');
+                document.getElementById('currentPwdProfile').classList.add('error-shake');
+                setTimeout(() => document.getElementById('currentPwdProfile').classList.remove('error-shake'), 500);
+                return;
+            }
+
+            document.getElementById('changePwdBtn').querySelector('#changePwdText').textContent = 'Updating…';
             const { error } = await _supabase.auth.updateUser({ password: newPwd });
             clearBtnLoading('changePwdBtn','changePwdText','Update Password');
 
             if (error) { setMsg('pwdMsg', error.message, 'error'); return; }
 
+            document.getElementById('currentPwdProfile').value = '';
             document.getElementById('newPwdProfile').value = '';
             document.getElementById('confirmPwdProfile').value = '';
             document.getElementById('profilePwdRules').classList.remove('visible');
@@ -802,62 +852,118 @@
         async function handleAvatarUpload(input) {
             const file = input.files[0];
             if (!file) return;
+
+            // ── 1. MIME type check (extension-rename catch) ──────────
+            if (!file.type.startsWith('image/')) {
+                setMsg('avatarMsg', 'Only image files are allowed (JPEG, PNG, WebP, GIF).', 'error');
+                input.value = '';
+                return;
+            }
+            // ── 2. Size check ─────────────────────────────────────────
             if (file.size > 2 * 1024 * 1024) {
                 setMsg('avatarMsg', 'Image must be under 2 MB.', 'error');
                 input.value = '';
                 return;
             }
+            // ── 3. Magic-byte check (read first 4 bytes) ──────────────
+            // Defends against a renamed .exe/.html with image MIME spoofed by JS
+            try {
+                const header = await file.slice(0, 4).arrayBuffer();
+                const bytes  = new Uint8Array(header);
+                const isJpeg = bytes[0] === 0xFF && bytes[1] === 0xD8;
+                const isPng  = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47;
+                const isGif  = bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46;
+                const isWebP = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x41; // 'RIFF' — WebP container
+                if (!isJpeg && !isPng && !isGif && !isWebP) {
+                    setMsg('avatarMsg', 'File does not appear to be a valid image.', 'error');
+                    input.value = '';
+                    return;
+                }
+            } catch(e) {
+                setMsg('avatarMsg', 'Could not verify file. Please try a different image.', 'error');
+                input.value = '';
+                return;
+            }
+
             setMsg('avatarMsg', 'Uploading…', 'info');
 
-            // Convert to base64 data URL for preview and store in user_metadata
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-                const dataUrl = e.target.result;
+            // ── 4. Show local preview immediately (ObjectURL, no base64 bloat) ──
+            const previewUrl = URL.createObjectURL(file);
+            const photoWrap  = document.getElementById('pPhotoWrap');
+            photoWrap.innerHTML = '';
+            const previewImg = document.createElement('img');
+            previewImg.src = previewUrl;
+            previewImg.style.cssText = 'width:84px;height:84px;border-radius:50%;object-fit:cover;display:block';
+            photoWrap.style.background = 'transparent';
+            photoWrap.appendChild(previewImg);
 
-                // Show preview immediately
-                const photoWrap = document.getElementById('pPhotoWrap');
-                photoWrap.innerHTML = '';
-                const img = document.createElement('img');
-                img.src = dataUrl;
-                img.style.cssText = 'width:84px;height:84px;border-radius:50%;object-fit:cover;display:block';
-                photoWrap.style.background = 'transparent';
-                photoWrap.appendChild(img);
+            try {
+                // ── 5. Upload to Supabase Storage (avatars bucket) ────
+                const ext      = file.name.split('.').pop().toLowerCase() || 'jpg';
+                const userId   = _currentUser.id;
+                const path     = `${userId}/avatar.${ext}`;
 
-                // Save to Supabase user metadata
-                const { data, error } = await _supabase.auth.updateUser({
-                    data: { avatar_url: dataUrl }
+                const { error: uploadError } = await _supabase.storage
+                    .from('avatars')
+                    .upload(path, file, { upsert: true, contentType: file.type });
+
+                if (uploadError) throw uploadError;
+
+                // ── 6. Get public URL and store only that in user_metadata ──
+                const { data: urlData } = _supabase.storage
+                    .from('avatars')
+                    .getPublicUrl(path);
+
+                const publicUrl = urlData?.publicUrl;
+                if (!publicUrl) throw new Error('Could not get public URL for uploaded avatar.');
+
+                const { data, error: metaError } = await _supabase.auth.updateUser({
+                    data: { avatar_url: publicUrl }
                 });
-                if (error) {
-                    setMsg('avatarMsg', 'Failed to save photo: ' + error.message, 'error');
-                } else {
-                    if (data && data.user) _currentUser = data.user;
-                    setMsg('avatarMsg', '✅ Profile photo updated.', 'success');
-                    showToast('Profile photo updated', 'success');
-                    setTimeout(() => setMsg('avatarMsg', '', 'info'), 3000);
-                }
-                input.value = '';
-            };
-            reader.readAsDataURL(file);
+                if (metaError) throw metaError;
+
+                // Update preview to the canonical URL (revokes the ObjectURL)
+                previewImg.src = publicUrl;
+                URL.revokeObjectURL(previewUrl);
+
+                if (data && data.user) _currentUser = data.user;
+                setMsg('avatarMsg', '✅ Profile photo updated.', 'success');
+                showToast('Profile photo updated', 'success');
+                setTimeout(() => setMsg('avatarMsg', '', 'info'), 3000);
+
+            } catch(err) {
+                // Roll back preview on failure
+                previewImg.src = '';
+                photoWrap.innerHTML = (_currentUser?.user_metadata?.avatar_url || _currentUser?.user_metadata?.picture)
+                    ? `<img src="${_currentUser.user_metadata.avatar_url || _currentUser.user_metadata.picture}" style="width:84px;height:84px;border-radius:50%;object-fit:cover;display:block"/>`
+                    : '?';
+                URL.revokeObjectURL(previewUrl);
+                setMsg('avatarMsg', 'Failed to save photo: ' + err.message, 'error');
+            }
+
+            input.value = '';
         }
 
         // ═══════════════════════════════════════════════════════════
         // STATS STRIP
         // ═══════════════════════════════════════════════════════════
         async function loadProfileStats(user) {
-            // Days active since account creation
+            // Days active since account creation — synchronous, set immediately
             if (user.created_at) {
                 const days = Math.floor((Date.now() - new Date(user.created_at)) / 86400000);
                 document.getElementById('statDaysMember').textContent = days;
+                document.getElementById('statDaysMember').closest('.stat-cell').classList.remove('loading');
             }
 
             // Download count from localStorage (tracks downloads on this device)
             const dlHistory = JSON.parse(localStorage.getItem('fvDownloadHistory') || '[]');
             document.getElementById('statDownloads').textContent = dlHistory.length;
+            document.getElementById('statDownloads').closest('.stat-cell').classList.remove('loading');
 
-            // Request count from Supabase (file_requests table — gracefully fails if table doesn't exist)
+            // Request count from Supabase (upload_requests table — gracefully fails if table doesn't exist)
             try {
                 const { data, error } = await _supabase
-                    .from('file_requests')
+                    .from('upload_requests')
                     .select('id', { count: 'exact', head: true })
                     .eq('requester_email', user.email);
                 if (!error) {
@@ -868,6 +974,7 @@
             } catch (_) {
                 document.getElementById('statRequests').textContent = '—';
             }
+            document.getElementById('statRequests').closest('.stat-cell').classList.remove('loading');
 
             loadAchievements();
         }
@@ -1020,7 +1127,11 @@
 
                 if (error) throw error;
                 if (!data || data.length === 0) {
-                    list.innerHTML = '<p style="font-size:12px;color:#64748b;text-align:center;padding:8px 0">You haven\'t made any file requests yet.</p>';
+                    list.innerHTML = `<div class="empty-state">
+                        <div class="empty-state-icon"><span class="material-symbols-outlined">inbox</span></div>
+                        <p class="empty-state-title">No requests yet</p>
+                        <p class="empty-state-sub">File requests you submit will be tracked here.</p>
+                    </div>`;
                     document.getElementById('statRequests').textContent = '0';
                     return;
                 }
@@ -1088,16 +1199,29 @@
             // fvDownloadHistory: array of { name, url, folder, ts }
             let history = [];
             try { history = JSON.parse(localStorage.getItem('fvDownloadHistory') || '[]'); } catch(_) {}
-            // Also check flat key used by some versions: fvDLHistory
+            // Migrate legacy key fvDLHistory → fvDownloadHistory (written by older versions).
+            // If the canonical key is empty, copy over the old data then remove the old key.
             if (!history.length) {
-                try { history = JSON.parse(localStorage.getItem('fvDLHistory') || '[]'); } catch(_) {}
+                try {
+                    const legacy = JSON.parse(localStorage.getItem('fvDLHistory') || '[]');
+                    if (legacy.length) {
+                        history = legacy;
+                        localStorage.setItem('fvDownloadHistory', JSON.stringify(history));
+                    }
+                } catch(_) {}
+                localStorage.removeItem('fvDLHistory');
             }
 
             document.getElementById('statDownloads').textContent = history.length || 0;
 
             if (!history.length) {
-                list.innerHTML = '<p style="font-size:12px;color:#475569;text-align:center;padding:8px 0">No downloads recorded on this device yet.</p>';
+                list.innerHTML = `<div class="empty-state">
+                    <div class="empty-state-icon"><span class="material-symbols-outlined">download</span></div>
+                    <p class="empty-state-title">No downloads yet</p>
+                    <p class="empty-state-sub">Files you download from the Vault will appear here.</p>
+                </div>`;
                 clearBtn.style.display = 'none';
+                loadAchievements();
                 return;
             }
             clearBtn.style.display = '';
@@ -1139,7 +1263,11 @@
             const entries = Object.values(pinned);
 
             if (!entries.length) {
-                list.innerHTML = '<p style="font-size:12px;color:#475569;text-align:center;padding:8px 0">You haven\'t pinned any files yet. Pin files on the Vault to see them here.</p>';
+                list.innerHTML = `<div class="empty-state">
+                    <div class="empty-state-icon"><span class="material-symbols-outlined">push_pin</span></div>
+                    <p class="empty-state-title">No pinned files</p>
+                    <p class="empty-state-sub">Pin files on the Vault to bookmark them here.</p>
+                </div>`;
                 loadAchievements();
                 return;
             }

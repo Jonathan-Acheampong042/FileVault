@@ -579,66 +579,22 @@ app.get('/api/cron/announcement-cleanup', async (req, res) => {
 });
 
 // ── File Requests ─────────────────────────────────────────────────────────────
-// Students submit requests; managers fulfill them. The student can poll
-// GET /api/file-requests?token=<token> to see their own request status.
+// Students submit requests via upload-request.html directly to Supabase.
+// These server routes let managers list and update requests server-side.
 //
-// Required table (run once in Supabase SQL editor):
+// Uses the existing `upload_requests` table. Run these two ALTER statements
+// once in the Supabase SQL editor to add the columns this code needs:
 //
-//   create table if not exists file_requests (
-//     id          uuid primary key default gen_random_uuid(),
-//     folder      text,
-//     description text not null,
-//     status      text not null default 'pending',  -- pending | fulfilled | declined
-//     requester_name text,
-//     token       text unique not null,             -- secret per-requester lookup token
-//     created_at  timestamptz default now(),
-//     updated_at  timestamptz default now(),
-//     note        text                              -- manager's reply/note
-//   );
-//   alter table file_requests enable row level security;
-//   -- No public access — all reads go through the server with service_role key
-//   create policy "No public access" on file_requests using (false) with check (false);
+//   alter table upload_requests add column if not exists requester_name text;
+//   alter table upload_requests add column if not exists manager_note text;
+//
+// Existing columns used: id, filename, description, reason, folder, status,
+//   requester_email, subscriber_endpoint, subscriber_keys, created_at.
 
-// POST /api/file-requests  { folder, description, requesterName }
-// Creates a new pending request and returns a lookup token the student can save.
-const fileRequestRateLimit = rateLimiter({ windowMs: 60_000, max: 5, message: 'Too many file requests — please wait a minute.' });
-app.post('/api/file-requests', fileRequestRateLimit, async (req, res) => {
-    if (!_supa) return res.status(503).json({ error: 'Supabase not configured' });
-    const { folder, description, requesterName } = req.body;
-    if (!description || !description.trim())
-        return res.status(400).json({ error: 'description is required' });
-
-    // Strip HTML/control characters from free-text fields before DB insert.
-    // description already has .trim().slice(0, 500) applied below, but
-    // requesterName and folder are sent straight to the DB without sanitisation.
-    const stripControls = s => (typeof s === 'string')
-        ? s.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').replace(/<[^>]*>/g, '').trim()
-        : '';
-
-    const safeRequesterName = stripControls(requesterName).slice(0, 80) || null;
-    const safeFolder        = stripControls(folder).slice(0, 80) || null;
-
-    // Generate a random token the student can use to look up their request later
-    const token = require('crypto').randomBytes(18).toString('hex');
-
-    const { data, error } = await _supa.from('file_requests').insert({
-        folder: safeFolder,
-        description: description.trim().slice(0, 500),
-        requester_name: safeRequesterName,
-        token
-    }).select('id, token, status, created_at').single();
-
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ ok: true, token: data.token, requestId: data.id });
-});
-
-// GET /api/file-requests?token=<token>
-// Returns the status of a specific request (student polling their own).
-// Manager listing: pass secret in X-Manager-Secret header (preferred) or
-// ?secret= query param (deprecated — appears in server logs, avoid in production).
+// GET /api/file-requests
+// Manager listing: pass secret in X-Manager-Secret header.
 app.get('/api/file-requests', async (req, res) => {
     if (!_supa) return res.status(503).json({ error: 'Supabase not configured' });
-    const { token } = req.query;
 
     // Prefer header; fall back to query param with a deprecation warning
     const secret = req.headers['x-manager-secret'] || req.query.secret;
@@ -646,46 +602,39 @@ app.get('/api/file-requests', async (req, res) => {
         console.warn('[file-requests] secret passed as query param — move to X-Manager-Secret header to keep it out of access logs');
     }
 
-    // Manager listing: requires secret, returns all requests
-    if (secret && process.env.PUSH_SECRET && secret === process.env.PUSH_SECRET) {
-        const { data, error } = await _supa
-            .from('file_requests')
-            .select('id, folder, description, status, requester_name, created_at, updated_at, note')
-            .order('created_at', { ascending: false });
-        if (error) return res.status(500).json({ error: error.message });
-        return res.json({ requests: data || [] });
+    if (!secret || !process.env.PUSH_SECRET || secret !== process.env.PUSH_SECRET) {
+        return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Student lookup by token
-    if (!token) return res.status(400).json({ error: 'token is required' });
     const { data, error } = await _supa
-        .from('file_requests')
-        .select('id, folder, description, status, created_at, updated_at, note')
-        .eq('token', token)
-        .maybeSingle();
+        .from('upload_requests')
+        .select('id, filename, description, reason, folder, status, requester_name, requester_email, manager_note, created_at')
+        .order('created_at', { ascending: false });
     if (error) return res.status(500).json({ error: error.message });
-    if (!data) return res.status(404).json({ error: 'Request not found' });
-    res.json({ request: data });
+    return res.json({ requests: data || [] });
 });
 
-// PATCH /api/file-requests/:id  { status, note, secret }
-// Manager updates a request status (fulfilled / declined).
+// PATCH /api/file-requests/:id  { status, manager_note, secret }
+// Manager updates a request status (fulfilled | dismissed) and optional note.
 app.patch('/api/file-requests/:id', async (req, res) => {
-    const { status, note, secret } = req.body;
+    const { status, manager_note, secret } = req.body;
     if (process.env.PUSH_SECRET && secret !== process.env.PUSH_SECRET)
         return res.status(401).json({ error: 'Unauthorized' });
     if (!_supa) return res.status(503).json({ error: 'Supabase not configured' });
-    const allowed = ['pending', 'fulfilled', 'declined'];
+    const allowed = ['pending', 'fulfilled', 'dismissed'];
     if (status && !allowed.includes(status))
-        return res.status(400).json({ error: 'status must be pending, fulfilled, or declined' });
+        return res.status(400).json({ error: 'status must be pending, fulfilled, or dismissed' });
 
-    const updates = { updated_at: new Date().toISOString() };
+    const updates = {};
     if (status) updates.status = status;
-    if (typeof note === 'string') updates.note = note.trim().slice(0, 500);
+    if (typeof manager_note === 'string') updates.manager_note = manager_note.trim().slice(0, 500);
+
+    if (!Object.keys(updates).length)
+        return res.status(400).json({ error: 'Nothing to update' });
 
     const { data, error } = await _supa
-        .from('file_requests').update(updates).eq('id', req.params.id)
-        .select('id, status, note').single();
+        .from('upload_requests').update(updates).eq('id', req.params.id)
+        .select('id, status, manager_note').single();
     if (error) return res.status(500).json({ error: error.message });
     res.json({ ok: true, request: data });
 });
