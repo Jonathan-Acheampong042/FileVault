@@ -35,8 +35,19 @@
     <script>
         tailwind.config = { darkMode: 'class', theme: { extend: { colors: { primary: '#3b82f6', secondary: '#8b5cf6' }, fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] } } } }
     </script>
+    <meta name="robots" content="noindex, nofollow">
     <link rel="icon" href="filevault%20logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+    <!-- Run theme + contrast init before first paint to prevent flash -->
+    <script>
+        (function() {
+            var saved = localStorage.getItem('fvTheme');
+            var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            var isLight = saved ? saved === 'light' : !prefersDark;
+            if (isLight) document.documentElement.classList.add('light');
+            if (localStorage.getItem('fvHighContrast') === '1') document.documentElement.classList.add('high-contrast');
+        })();
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0; }
@@ -199,6 +210,15 @@
         html.light .text-white\/60 { color:#475569 !important; }
         html.light header { background:rgba(255,255,255,0.88) !important; border-bottom-color:rgba(0,0,0,0.08) !important; }
         html.light select, html.light input { background:rgba(255,255,255,0.9) !important; color:#0f172a !important; border-color:rgba(0,0,0,0.12) !important; }
+        /* ── Light mode: never-downloaded section ── */
+        html.light #mgrNeverDownloadedSection { background:rgba(255,255,255,0.78) !important; border-color:rgba(0,0,0,0.08) !important; }
+        html.light #mgrNeverDownloadedSection h4 { color:#475569 !important; }
+        html.light #mgrNeverDownloadedSection p { color:#64748b !important; }
+        html.light #mgrNeverDownloadedSection .text-white\/80 { color:#1e293b !important; }
+        html.light #mgrNeverDownloadedCount { background:rgba(239,68,68,0.1) !important; color:#dc2626 !important; border-color:rgba(239,68,68,0.25) !important; }
+        html.light #mgrPopularSection { background:rgba(255,255,255,0.78) !important; border-color:rgba(0,0,0,0.08) !important; }
+        html.light #mgrPopularSection h4 { color:#475569 !important; }
+
         /* ── 31: New-since-last-visit badge ── */
         .folder-new-badge { display:inline-flex;align-items:center;font-size:8px;font-weight:800;background:rgba(16,185,129,0.2);color:#34d399;border:1px solid rgba(52,211,153,0.35);padding:1px 5px;border-radius:99px;margin-left:4px; }
 
@@ -3937,6 +3957,39 @@ create policy "Admins can read audit log"
         ).join('');
     }
 
+    // ── 33b: Never-downloaded files ──
+    function renderMgrNeverDownloaded(files) {
+        const sec = document.getElementById('mgrNeverDownloadedSection');
+        const lst = document.getElementById('mgrNeverDownloadedList');
+        const cnt = document.getElementById('mgrNeverDownloadedCount');
+        if (!sec || !lst) return;
+        const never = [...files].filter(f => (f.download_count || 0) === 0)
+            // Files without created_at sort to the end (not to epoch 1970)
+            .sort((a, b) => {
+                if (!a.created_at && !b.created_at) return 0;
+                if (!a.created_at) return 1;
+                if (!b.created_at) return -1;
+                return new Date(a.created_at) - new Date(b.created_at);
+            });
+        if (!never.length) { sec.style.display = 'none'; return; }
+        sec.style.display = '';
+        if (cnt) cnt.textContent = never.length;
+        const now = Date.now();
+        lst.innerHTML = never.map(f => {
+            const age = f.created_at ? Math.floor((now - new Date(f.created_at).getTime()) / 86400000) : null;
+            const ageStr = age !== null ? (age === 0 ? 'today' : age + 'd ago') : '';
+            const ageBadgeColor = age !== null && age > 30 ? '#ef4444' : age > 7 ? '#f59e0b' : '#64748b';
+            return '<div class="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">' +
+                '<span class="material-symbols-outlined" style="font-size:16px;color:#475569;flex-shrink:0">block</span>' +
+                '<div class="flex-1 min-w-0">' +
+                '<p class="text-xs font-semibold text-white/80 truncate">' + f.file_name + '</p>' +
+                (f.folder_name ? '<p style="font-size:10px;color:#475569;margin-top:1px">📁 ' + f.folder_name + '</p>' : '') +
+                '</div>' +
+                (ageStr ? '<span style="font-size:10px;font-weight:700;color:' + ageBadgeColor + ';flex-shrink:0;background:rgba(255,255,255,0.05);padding:2px 7px;border-radius:99px;border:1px solid currentColor">' + ageStr + '</span>' : '') +
+                '</div>';
+        }).join('');
+    }
+
     // ── Manager Ratings Cache ──────────────────────────────────
     const _mgrRatings = {}; // fileId -> count
     async function loadMgrRatings(fileIds) {
@@ -3986,6 +4039,7 @@ create policy "Admins can read audit log"
         // Re-apply search term if any
         if (_mgrSearchTerm) _renderFilteredManagerFiles();
         renderMgrPopular(allFiles);
+        renderMgrNeverDownloaded(allFiles);
         // Load ratings for visible DB files
         const ids = allFiles.filter(f => f.id).map(f => String(f.id));
         if (ids.length) setTimeout(() => loadMgrRatings(ids), 300);
@@ -4000,8 +4054,9 @@ create policy "Admins can read audit log"
     };
 
     initMgrLastVisit();
-    initMgrHighContrast();
-    initMgrTheme();
+    initMgrHighContrast(); // still needed to keep the toggle function wired
+    initMgrTheme();        // still needed to keep the icon in sync
+    loadDashboardStats();  // was defined but never called
 
     // ── DASHBOARD SUMMARY CARDS ──────────────────────────────
     async function loadDashboardStats() {
@@ -4034,10 +4089,22 @@ create policy "Admins can read audit log"
         }
     }
     </script>
-    <section id="mgrPopularSection" class="glass-card p-4 sm:p-6 rounded-2xl border border-white/10 mb-4" style="display:none;max-width:896px;margin:0 auto 16px">
-        <h4 class="text-white/60 font-bold mb-4 flex items-center gap-2 text-sm"><span class="material-symbols-outlined text-amber-400">trending_up</span> Most Downloaded</h4>
-        <div id="mgrPopularList" class="space-y-2"></div>
-    </section>
+    <!-- Analytics sections — inside wrapper so they inherit overflow and layout correctly -->
+    <div style="max-width:896px;margin:0 auto;padding:0 16px 8px">
+        <section id="mgrPopularSection" class="glass-card p-4 sm:p-6 rounded-2xl border border-white/10 mb-4" style="display:none">
+            <h4 class="text-white/60 font-bold mb-4 flex items-center gap-2 text-sm"><span class="material-symbols-outlined text-amber-400">trending_up</span> Most Downloaded</h4>
+            <div id="mgrPopularList" class="space-y-2"></div>
+        </section>
+        <section id="mgrNeverDownloadedSection" class="glass-card p-4 sm:p-6 rounded-2xl border border-white/10 mb-4" style="display:none">
+            <h4 class="text-white/60 font-bold mb-4 flex items-center gap-2 text-sm">
+                <span class="material-symbols-outlined text-red-400">block</span>
+                Never Downloaded
+                <span id="mgrNeverDownloadedCount" style="font-size:10px;font-weight:800;background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);padding:1px 8px;border-radius:99px;margin-left:4px"></span>
+            </h4>
+            <p style="font-size:11px;color:#475569;margin:-8px 0 12px">Files with zero downloads — candidates for pruning. Oldest uploads listed first.</p>
+            <div id="mgrNeverDownloadedList" class="space-y-2"></div>
+        </section>
+    </div>
     <footer class="text-center text-white/20 text-xs py-6">Built by <span class="text-white/40 font-semibold">Jonathan Acheampong</span> · FileVault</footer>
     </div><!-- end wrapper -->
     <script src="chat-widget.js"></script>

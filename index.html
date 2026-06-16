@@ -37,6 +37,20 @@
     <meta name="apple-mobile-web-app-title" content="FileVault">
     <link rel="apple-touch-icon" href="filevault%20logo.png">
     <title>FileVault | User Library</title>
+
+    <!-- ── SEO & shareability ── -->
+    <meta name="description" content="FileVault — secure, organised access to lecture slides, notes, and course materials for university students.">
+    <!-- Open Graph (Facebook, WhatsApp, Discord previews) -->
+    <meta property="og:type"        content="website">
+    <meta property="og:url"         content="https://filevault.works/">
+    <meta property="og:title"       content="FileVault | Student File Library">
+    <meta property="og:description" content="Browse and download lecture slides, notes, and course materials — all in one place.">
+    <meta property="og:image"       content="https://filevault.works/filevault%20logo.png">
+    <!-- Twitter / X card -->
+    <meta name="twitter:card"        content="summary">
+    <meta name="twitter:title"       content="FileVault | Student File Library">
+    <meta name="twitter:description" content="Browse and download lecture slides, notes, and course materials — all in one place.">
+    <meta name="twitter:image"       content="https://filevault.works/filevault%20logo.png">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -153,6 +167,13 @@
         #offlineBanner.visible { display:flex; }
         @keyframes offlineSlide { from{transform:translateY(-100%);opacity:0} to{transform:translateY(0);opacity:1} }
         #offlineBanner.visible { animation:offlineSlide 0.3s ease; }
+
+        /* ── Polling degraded-mode banner (Realtime unavailable, polling every N s) ── */
+        /* Subtler than the offline banner — amber dot + muted text so it doesn't alarm */
+        #pollingBanner { display:none;position:fixed;top:0;left:0;right:0;z-index:99997;align-items:center;justify-content:center;gap:8px;padding:7px 20px;background:rgba(30,41,59,0.88);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.07);color:#94a3b8;font-size:11px;font-weight:600;text-align:center;pointer-events:none; }
+        #pollingBanner.visible { display:flex;animation:offlineSlide 0.3s ease; }
+        #pollingDot { width:6px;height:6px;border-radius:50%;background:#f59e0b;flex-shrink:0;animation:pollingPulse 2s ease-in-out infinite; }
+        @keyframes pollingPulse { 0%,100%{opacity:1} 50%{opacity:.35} }
 
         /* ── Description tooltip on hover ── */
         #globalDescTooltip { position:fixed;background:rgba(15,23,42,0.97);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:8px 12px;font-size:11px;color:#cbd5e1;white-space:normal;width:220px;text-align:left;z-index:9990;pointer-events:none;opacity:0;transition:opacity .15s;line-height:1.5;box-shadow:0 8px 32px rgba(0,0,0,.5);max-width:calc(100vw - 24px); }
@@ -542,6 +563,11 @@
     <div id="offlineBanner" role="status" aria-live="polite">
         <span class="material-symbols-outlined" style="font-size:18px">wifi_off</span>
         <span>You're offline: showing cached files. Some actions may be unavailable.</span>
+    </div>
+    <!-- Realtime-degraded polling banner — shown only when Supabase Realtime is unavailable -->
+    <div id="pollingBanner" role="status" aria-live="polite">
+        <span id="pollingDot"></span>
+        <span>Live updates unavailable — refreshing every <span id="pollingIntervalLabel">45</span>s</span>
     </div>
     <div class="bg-fixed-image"></div>
     <div class="bg-overlay"></div>
@@ -3475,20 +3501,32 @@
                 .subscribe(function(status) {
                     if (status === 'SUBSCRIBED') {
                         console.info('[FileVault] Realtime live updates active.');
+                        // Ensure the degraded-mode banner is hidden (e.g. after a reconnect)
+                        var banner = document.getElementById('pollingBanner');
+                        if (banner) banner.classList.remove('visible');
                     } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
                         console.warn('[FileVault] Realtime unavailable (' + status + ') — falling back to periodic refresh.');
                         _startPollingFallback();
                     }
                 });
 
-            // ── Fallback: if Realtime can't connect, poll quietly every 45s ──
+            // ── Fallback: if Realtime can't connect, poll quietly every N seconds ──
+            // POLL_INTERVAL_MS controls how often files are refreshed when Supabase
+            // Realtime is unavailable. 45 s balances freshness vs. Supabase read cost.
+            // Change this value here if you need faster or slower degraded-mode polling.
+            var POLL_INTERVAL_MS = 45000; // 45 seconds
             var _pollingStarted = false;
             function _startPollingFallback() {
                 if (_pollingStarted) return;
                 _pollingStarted = true;
+                // Show the degraded-mode indicator so students know updates aren't instant
+                var banner = document.getElementById('pollingBanner');
+                var label  = document.getElementById('pollingIntervalLabel');
+                if (banner) banner.classList.add('visible');
+                if (label)  label.textContent = Math.round(POLL_INTERVAL_MS / 1000);
                 setInterval(function() {
                     _refreshFilesWhenIdle();
-                }, 45000);
+                }, POLL_INTERVAL_MS);
             }
         })();
 
@@ -4585,7 +4623,7 @@
         </div>
     </div>
 
-  <script src="chat-widget.js?v=4"></script>
+  <script src="chat-widget.js?v=5"></script>
    <script>
    // ══════════════════════════════════════════════════════════════════
    // FEATURE 9: AI "Related Files" suggestions in preview

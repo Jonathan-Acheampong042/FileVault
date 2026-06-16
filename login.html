@@ -108,12 +108,6 @@
         .panel { display:none; }
         .panel.active { display:block; animation:fadeIn .3s ease; }
 
-        /* ── Mode selector at top ── */
-        .mode-btn { flex:1; padding:10px 12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:12px; color:#64748b; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; transition:all .2s; display:flex; flex-direction:column; align-items:center; gap:3px; }
-        .mode-btn.active { background:linear-gradient(135deg,rgba(59,130,246,0.18),rgba(139,92,246,0.14)); border-color:rgba(59,130,246,0.3); color:#93c5fd; }
-        .mode-btn:hover:not(.active) { background:rgba(255,255,255,0.07); color:#94a3b8; }
-        .mode-btn .material-symbols-outlined { font-size:22px; }
-
         /* ── Auth option cards ── */
         .auth-opt { display:flex; align-items:center; gap:12px; padding:13px 16px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:14px; cursor:pointer; transition:all .2s; }
         .auth-opt:hover { background:rgba(59,130,246,0.1); border-color:rgba(59,130,246,0.3); }
@@ -171,22 +165,9 @@
                 <div class="w-14 h-14 rounded-2xl overflow-hidden mx-auto mb-3 shadow-lg" style="box-shadow:0 8px 32px rgba(59,130,246,0.3)">
                     <img src="filevault%20logo.png" alt="FileVault" class="w-full h-full object-contain"/>
                 </div>
-                <h1 class="text-2xl font-extrabold text-white" id="mainTitle">Welcome to FileVault</h1>
-                <p class="text-sm mt-1" id="mainSubtitle" style="color:#64748b">Choose how you'd like to continue</p>
+                <h1 class="text-2xl font-extrabold text-white" id="mainTitle">Sign In to FileVault</h1>
+                <p class="text-sm mt-1" id="mainSubtitle" style="color:#64748b">Access your lecture materials</p>
             </div>
-
-            <!-- ══ MODE SELECTOR ══ -->
-            <div id="modeSelector" class="flex gap-3 mb-6">
-                <button class="mode-btn active" id="modeStudentBtn" onclick="setMode('student')">
-                    <span class="material-symbols-outlined">school</span>
-                    <span>Student</span>
-                </button>
-                <button class="mode-btn" id="modeAdminBtn" onclick="setMode('admin')">
-                    <span class="material-symbols-outlined">admin_panel_settings</span>
-                    <span>Admin</span>
-                </button>
-            </div>
-
             <!-- ════════════════════════════════════════════
                  STUDENT PANELS
                  ════════════════════════════════════════════ -->
@@ -398,43 +379,6 @@
 
 
             <!-- ════════════════════════════════════════════
-                 ADMIN PANELS
-                 ════════════════════════════════════════════ -->
-            <div id="adminSection" style="display:none">
-                <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:12px;margin-bottom:18px">
-                    <span class="material-symbols-outlined" style="color:#fca5a5;font-size:18px;flex-shrink:0">shield_person</span>
-                    <p style="font-size:12px;font-weight:600;color:#fca5a5">Admin access only. Unauthorised sign-ins will be rejected.</p>
-                </div>
-
-                <div class="space-y-4">
-                    <div class="relative">
-                        <span class="auth-input-icon material-symbols-outlined">admin_panel_settings</span>
-                        <input type="email" id="aEmail" class="auth-input" placeholder="Admin email address" autocomplete="email"/>
-                    </div>
-                    <div class="relative">
-                        <span class="auth-input-icon material-symbols-outlined">lock</span>
-                        <input type="password" id="aPassword" class="auth-input" placeholder="Admin password" autocomplete="current-password" onkeydown="if(event.key==='Enter')adminSignIn()" style="padding-right:46px"/>
-                        <button type="button" onclick="togglePwd('aPassword','aEye')" class="absolute right-4 top-1/2 -translate-y-1/2" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.35);line-height:0">
-                            <span id="aEye" class="material-symbols-outlined" style="font-size:18px">visibility</span>
-                        </button>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <label class="flex items-center gap-2 cursor-pointer select-none">
-                            <input type="checkbox" id="aRemember" class="w-4 h-4 rounded" style="accent-color:#ef4444"/>
-                            <span style="color:#64748b;font-size:13px">Remember me</span>
-                        </label>
-                        <button onclick="openAdminForgotPassword()" style="background:none;border:none;cursor:pointer;color:#fca5a5;font-size:13px;font-weight:600;font-family:inherit">Forgot password?</button>
-                    </div>
-                    <button class="btn-primary" id="aSignInBtn" onclick="adminSignIn()" style="background:linear-gradient(135deg,#dc2626,#9f1239)">
-                        <span class="material-symbols-outlined" style="font-size:16px">admin_panel_settings</span>
-                        <span id="aSignInText">Sign In as Admin</span>
-                    </button>
-                </div>
-                <p id="aSignInMsg" class="mt-3 text-center text-sm min-h-5" style="color:#f87171"></p>
-            </div><!-- /adminSection -->
-
-
-            <!-- ════════════════════════════════════════════
                  RESET PASSWORD (shown via URL hash)
                  ════════════════════════════════════════════ -->
             <div id="resetSection" style="display:none">
@@ -551,7 +495,6 @@
     // ═══════════════════════════════════════════════════════════════
     // STATE
     // ═══════════════════════════════════════════════════════════════
-    let _currentMode   = 'student'; // 'student' | 'admin'
     let _studentSubTab = 'signin';
     let _otpEmail      = '';
     let _redirecting   = false;   // prevents double-fire from onAuthStateChange
@@ -638,25 +581,6 @@
         showToast('✓ Signed in! Welcome back.', 'success');
         sessionStorage.setItem('fv_just_signed_in', user.email || '1');
         setTimeout(() => { window.location.href = 'index.html'; }, 800);
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // MODE SWITCHING (Student / Admin)
-    // ═══════════════════════════════════════════════════════════════
-    function setMode(mode) {
-        _currentMode = mode;
-        document.getElementById('modeStudentBtn').classList.toggle('active', mode === 'student');
-        document.getElementById('modeAdminBtn').classList.toggle('active', mode === 'admin');
-        document.getElementById('studentSection').style.display = mode === 'student' ? '' : 'none';
-        document.getElementById('adminSection').style.display   = mode === 'admin'   ? '' : 'none';
-
-        if (mode === 'student') {
-            document.getElementById('mainTitle').textContent    = 'Student Sign In';
-            document.getElementById('mainSubtitle').textContent = 'Access your lecture materials';
-        } else {
-            document.getElementById('mainTitle').textContent    = 'Admin Login';
-            document.getElementById('mainSubtitle').textContent = 'Manager portal access only';
-        }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -972,71 +896,10 @@
         }
 
         document.getElementById('mfaChallengeModal').style.display = 'none';
-        const mode = _mfaTargetMode;
         _mfaFactorId = null; _mfaChallengeId = null; _mfaTargetMode = null; _mfaPending = false;
 
-        if (mode === 'admin') {
-            await finishAdminSignIn(data.user);
-        } else {
-            _redirecting = false; // allow routeUser to proceed now that aal2 is satisfied
-            await routeUser(data.user);
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // ADMIN SIGN IN
-    // ═══════════════════════════════════════════════════════════════
-    async function adminSignIn() {
-        const email = (document.getElementById('aEmail').value || '').trim();
-        const pwd   = document.getElementById('aPassword').value;
-        if (!email || !pwd) { setMsg('aSignInMsg','Please enter both email and password.', 'error'); return; }
-
-        setBtnLoading('aSignInBtn','aSignInText','Signing in…');
-        const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pwd });
-
-        if (error) {
-            clearBtnLoading('aSignInBtn','aSignInText','Sign In as Admin');
-            setMsg('aSignInMsg', error.message, 'error');
-            shake('aSignInBtn');
-            return;
-        }
-
-        // Prevent onAuthStateChange's generic routeUser() from racing with
-        // this admin-specific flow (role check + its own MFA gate below).
-        _redirecting = true;
-
-        // ── Two-factor: if this account has TOTP MFA enrolled, require
-        // the authenticator code before we trust this session ──
-        if (await checkMfaRequired('admin')) return;
-
-        await finishAdminSignIn(data.user);
-    }
-
-    // Runs the admin role check + redirect — called either directly after
-    // password sign-in, or after a successful MFA verification.
-    async function finishAdminSignIn(user) {
-        let isAdmin = ADMIN_EMAILS.includes(user.email);
-        if (!isAdmin) {
-            try {
-                const { data: profile } = await _supabase
-                    .from('user_profiles').select('role').eq('id', user.id).single();
-                isAdmin = profile?.role === 'admin' || profile?.role === 'manager';
-            } catch(e) {}
-        }
-
-        if (!isAdmin) {
-            await _supabase.auth.signOut();
-            _redirecting = false;
-            clearBtnLoading('aSignInBtn','aSignInText','Sign In as Admin');
-            setMsg('aSignInMsg','Access denied. This portal is for administrators only.', 'error');
-            shake('aSignInBtn');
-            return;
-        }
-
-        _redirecting = true;
-        clearBtnLoading('aSignInBtn','aSignInText','✓ Redirecting to Manager…');
-        showToast('✓ Admin verified! Redirecting…', 'success');
-        setTimeout(() => { window.location.href = 'manager.html'; }, 700);
+        _redirecting = false; // allow routeUser to proceed now that aal2 is satisfied
+        await routeUser(data.user);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1047,23 +910,12 @@
         document.getElementById('forgotEmail').value = emailVal;
         hideAllSections();
         document.getElementById('forgotSection').style.display = '';
-        document.getElementById('modeSelector').style.display = 'none';
-        document.getElementById('mainTitle').textContent = 'Reset Password';
-        document.getElementById('mainSubtitle').textContent = 'We\'ll send a reset link to your email';
-    }
-    function openAdminForgotPassword() {
-        const emailVal = document.getElementById('aEmail').value.trim() || '';
-        document.getElementById('forgotEmail').value = emailVal;
-        hideAllSections();
-        document.getElementById('forgotSection').style.display = '';
-        document.getElementById('modeSelector').style.display = 'none';
         document.getElementById('mainTitle').textContent = 'Reset Password';
         document.getElementById('mainSubtitle').textContent = 'We\'ll send a reset link to your email';
     }
     function closeForgotPassword() {
         document.getElementById('forgotSection').style.display = 'none';
-        document.getElementById('modeSelector').style.display = '';
-        setMode(_currentMode);
+        document.getElementById('studentSection').style.display = '';
     }
     async function sendPasswordReset() {
         const email = (document.getElementById('forgotEmail').value || '').trim();
@@ -1083,7 +935,6 @@
     function showReset() {
         hideAllSections();
         document.getElementById('resetSection').style.display = '';
-        document.getElementById('modeSelector').style.display = 'none';
         document.getElementById('mainTitle').textContent    = 'Set New Password';
         document.getElementById('mainSubtitle').textContent = 'Choose a strong new password below';
     }
@@ -1195,7 +1046,6 @@
     // ═══════════════════════════════════════════════════════════════
     function hideAllSections() {
         document.getElementById('studentSection').style.display = 'none';
-        document.getElementById('adminSection').style.display   = 'none';
         document.getElementById('resetSection').style.display   = 'none';
         document.getElementById('forgotSection').style.display  = 'none';
     }

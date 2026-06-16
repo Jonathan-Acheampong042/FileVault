@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="
+  <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
   script-src 'self' 'unsafe-inline'
     https://cdn.jsdelivr.net
@@ -26,7 +26,7 @@
   manifest-src 'self';
   object-src 'self' https://*.supabase.co blob:;
   base-uri 'self';
-"/>
+  "/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Terms of Service | FileVault</title>
   <link rel="icon" href="/filevault%20logo.png" media="(prefers-color-scheme: light)" />
@@ -152,6 +152,54 @@
       padding: 2rem;
       border-top: 1px solid var(--border);
     }
+
+    /* ── Consent banner ── */
+    #consent-banner {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+      z-index: 999;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    #consent-banner p { margin: 0; flex: 1; min-width: 200px; color: var(--muted); }
+
+    #consent-banner button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.45rem 1.1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    #consent-banner button:hover { opacity: 0.88; }
+
+    /* ── Print styles ── */
+    @media print {
+      header, footer, #consent-banner { display: none !important; }
+      body { background: #fff !important; color: #000 !important; font-size: 11pt; }
+      main { max-width: 100%; padding: 0; }
+      h1 { font-size: 18pt; color: #000; }
+      h2 { font-size: 12pt; color: #000; margin-top: 1.5rem; }
+      p, ul, li { color: #222 !important; }
+      a { color: #000 !important; text-decoration: underline; }
+      .card { border: 1px solid #ccc; background: #f9f9f9; }
+      .eyebrow { color: #555; }
+      .meta { border-bottom: 1px solid #ccc; }
+    }
   </style>
 </head>
 <body>
@@ -165,12 +213,13 @@
 <main>
   <p class="eyebrow">Legal</p>
   <h1>Terms of Service</h1>
-  <p class="meta">Last updated: June 2026 &nbsp;·&nbsp; Applies to filevault.works</p>
+  <!-- UPDATE DATE ON EDIT -->
+  <p class="meta">Last updated: <span id="last-updated"></span> &nbsp;·&nbsp; Applies to filevault.works</p>
 
   <p>These Terms of Service govern your use of FileVault at <a href="https://filevault.works">filevault.works</a>. By using FileVault, you agree to these terms. If you don't agree, please don't use the service.</p>
 
   <h2>1. What FileVault Is</h2>
-  <p>FileVault is a platform for sharing academic files: lecture slides, notes, and course materials  with a group of students or users. It is not a general-purpose cloud storage service.</p>
+  <p>FileVault is a platform for sharing academic files: lecture slides, notes, and course materials with a group of students or users. It is not a general-purpose cloud storage service.</p>
 
   <h2>2. Your Account</h2>
   <p>You sign in using your Google account. You are responsible for any activity that occurs under your account. Do not share your login or allow others to use your account.</p>
@@ -214,14 +263,36 @@
 
   <div class="card">
     <p>Questions about these terms? Contact us at <a href="mailto:nharnharblay21@gmail.com">nharnharblay21@gmail.com</a></p>
-     <p class="text-center mt-5 animate-fade-in" style="color:#334155;font-size:12px">FileVault · Built by <span style="color:#475569;font-weight:600">Jonathan Acheampong</span></p>
+    <p class="text-center mt-5 animate-fade-in" style="color:#334155;font-size:12px">FileVault · Built by <span style="color:#475569;font-weight:600">Jonathan Acheampong</span></p>
   </div>
 </main>
 
 <footer>
   &copy; <span id="yr"></span> FileVault &nbsp;·&nbsp; <a href="privacy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="index.html">Back to Vault</a>
 </footer>
-<script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+
+<!-- Storage consent banner -->
+<div id="consent-banner" role="region" aria-label="Storage notice" style="display:none">
+  <p>FileVault uses browser local storage to keep you signed in and save your preferences. No third-party tracking cookies are used. <a href="privacy.html#5-cookies--local-storage">Learn more</a></p>
+  <button id="consent-ok" aria-label="Dismiss storage notice">Got it</button>
+</div>
+
+<script>
+  // UPDATE THIS DATE WHEN THE TERMS CHANGE <!-- UPDATE DATE ON EDIT -->
+  const lastUpdated = 'June 2026';
+  document.getElementById('last-updated').textContent = lastUpdated;
+  document.getElementById('yr').textContent = new Date().getFullYear();
+
+  // Consent banner
+  const banner = document.getElementById('consent-banner');
+  if (!localStorage.getItem('fv_consent')) {
+    banner.style.display = 'flex';
+  }
+  document.getElementById('consent-ok').addEventListener('click', () => {
+    localStorage.setItem('fv_consent', '1');
+    banner.style.display = 'none';
+  });
+</script>
 
 </body>
 </html>

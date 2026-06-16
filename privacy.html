@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="
+  <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
   script-src 'self' 'unsafe-inline'
     https://cdn.jsdelivr.net
@@ -26,7 +26,7 @@
   manifest-src 'self';
   object-src 'self' https://*.supabase.co blob:;
   base-uri 'self';
-"/>
+  "/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Privacy Policy | FileVault</title>
   <link rel="icon" href="/filevault%20logo.png" media="(prefers-color-scheme: light)" />
@@ -162,6 +162,54 @@
       padding: 2rem;
       border-top: 1px solid var(--border);
     }
+
+    /* ── Consent banner ── */
+    #consent-banner {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+      z-index: 999;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    #consent-banner p { margin: 0; flex: 1; min-width: 200px; color: var(--muted); }
+
+    #consent-banner button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.45rem 1.1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    #consent-banner button:hover { opacity: 0.88; }
+
+    /* ── Print styles ── */
+    @media print {
+      header, footer, #consent-banner { display: none !important; }
+      body { background: #fff !important; color: #000 !important; font-size: 11pt; }
+      main { max-width: 100%; padding: 0; }
+      h1 { font-size: 18pt; color: #000; }
+      h2 { font-size: 12pt; color: #000; margin-top: 1.5rem; }
+      p, ul, li { color: #222 !important; }
+      a { color: #000 !important; text-decoration: underline; }
+      .card { border: 1px solid #ccc; background: #f9f9f9; }
+      .eyebrow { color: #555; }
+      .meta { border-bottom: 1px solid #ccc; }
+    }
   </style>
 </head>
 <body>
@@ -175,7 +223,8 @@
 <main>
   <p class="eyebrow">Legal</p>
   <h1>Privacy Policy</h1>
-  <p class="meta">Last updated: June 2026 &nbsp;·&nbsp; Applies to filevault.works</p>
+  <!-- UPDATE DATE ON EDIT -->
+  <p class="meta">Last updated: <span id="last-updated"></span> &nbsp;·&nbsp; Applies to filevault.works</p>
 
   <p>FileVault is a secure file-sharing platform built for students and educators. This policy explains what information we collect, how we use it, and how we protect it. We keep it simple because we don't do anything complicated with your data.</p>
 
@@ -189,7 +238,7 @@
   <ul>
     <li>Files you upload and associated metadata (name, folder, size, description)</li>
     <li>File download and access activity</li>
-    <li>File requests you submit</li>
+    <li>File requests you submit via the upload-request form (including your name, email, and the details of what you're requesting)</li>
     <li>Push notification subscription tokens (if you opt in)</li>
   </ul>
 
@@ -199,7 +248,7 @@
     <li>To display your name and profile picture within the app</li>
     <li>To manage and organise uploaded files</li>
     <li>To send push notifications about new uploads or fulfilled file requests (only if you opt in)</li>
-    <li>To respond to file requests and communicate approvals</li>
+    <li>To process and respond to file requests submitted through the upload-request form</li>
   </ul>
   <p>We do not sell, rent, or share your personal data with any third party for marketing or advertising purposes.</p>
 
@@ -242,7 +291,29 @@
 <footer>
   &copy; <span id="yr"></span> FileVault &nbsp;·&nbsp; <a href="terms.html">Terms of Service</a> &nbsp;·&nbsp; <a href="index.html">Back to Vault</a>
 </footer>
-<script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+
+<!-- Storage consent banner -->
+<div id="consent-banner" role="region" aria-label="Storage notice" style="display:none">
+  <p>FileVault uses browser local storage to keep you signed in and save your preferences. No third-party tracking cookies are used. <a href="privacy.html#5-cookies--local-storage">Learn more</a></p>
+  <button id="consent-ok" aria-label="Dismiss storage notice">Got it</button>
+</div>
+
+<script>
+  // UPDATE THIS DATE WHEN THE POLICY CHANGES <!-- UPDATE DATE ON EDIT -->
+  const lastUpdated = 'June 2026';
+  document.getElementById('last-updated').textContent = lastUpdated;
+  document.getElementById('yr').textContent = new Date().getFullYear();
+
+  // Consent banner
+  const banner = document.getElementById('consent-banner');
+  if (!localStorage.getItem('fv_consent')) {
+    banner.style.display = 'flex';
+  }
+  document.getElementById('consent-ok').addEventListener('click', () => {
+    localStorage.setItem('fv_consent', '1');
+    banner.style.display = 'none';
+  });
+</script>
 
 </body>
 </html>

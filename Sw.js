@@ -1,14 +1,24 @@
 // FileVault Service Worker — v2
 // HTML pages always fetched fresh; static assets cached for speed
 
-const CACHE_NAME = 'filevault-v4';
-
-// Only cache static assets — NO HTML files
+// Cache version is derived automatically from the list of precached URLs.
+// Changing PRECACHE_URLS (add, remove, or rename any entry) will produce a
+// new hash → new cache name → old cache is evicted on activate.
+// You no longer need to remember to bump a version string by hand.
 const PRECACHE_URLS = [
     '/filevault%20logo.png',
     '/screen.png',
     '/chat-widget.js'
 ];
+
+// Simple djb2 hash → 8-char hex string, stable across SW restarts.
+const _cacheHash = (function(urls) {
+    let h = 5381;
+    for (const s of urls) for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
+    return (h >>> 0).toString(16).padStart(8, '0');
+})(PRECACHE_URLS);
+
+const CACHE_NAME = 'filevault-' + _cacheHash;
 
 // ── Install: pre-cache static assets only ──
 self.addEventListener('install', event => {
@@ -66,15 +76,13 @@ self.addEventListener('notificationclick', event => {
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
 
-    // 1. Skip non-GET and external requests (Supabase, CDNs, Render API)
+    // 1. Skip non-GET and external requests (Supabase, CDNs, Render API).
+    //    The Cache API only stores GET responses, so there is no cache
+    //    fallback for these — just let the network failure propagate so the
+    //    page can surface a real error to the user.
     const isExternal = url.hostname !== self.location.hostname;
     if (isExternal || event.request.method !== 'GET') {
-        event.respondWith(
-            fetch(event.request).catch(() =>
-                caches.match(event.request)
-            )
-        );
-        return;
+        return; // fall through to browser default (network only)
     }
 
     // 2. Always fetch HTML pages fresh from the network
