@@ -742,9 +742,11 @@
             if (data && data.user) {
                 _currentUser = data.user;
                 populateProfile(_currentUser);
+                loadAchievements(); // re-evaluate Profile Pro & Verified after user metadata refreshes
             }
             setMsg('nameMsg', '✅ Display name updated.', 'success');
             showToast('Display name updated', 'success');
+            loadAchievements(); // re-evaluate badges (Profile Pro)
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -1133,6 +1135,7 @@
                         <p class="empty-state-sub">File requests you submit will be tracked here.</p>
                     </div>`;
                     document.getElementById('statRequests').textContent = '0';
+                    loadAchievements();
                     return;
                 }
                 document.getElementById('statRequests').textContent = data.length;
@@ -1158,6 +1161,7 @@
                         ${noteHtml}
                     </div>`;
                 }).join('');
+                loadAchievements(); // re-evaluate badges (Requester)
             } catch (e) {
                 // table probably doesn't exist yet — hide the section silently
                 document.getElementById('requestHistorySection').style.display = 'none';
@@ -1406,6 +1410,9 @@
         // ═══════════════════════════════════════════════════════════
         // ACHIEVEMENTS
         // ═══════════════════════════════════════════════════════════
+        // Track previously unlocked badges to detect new unlocks
+        let _prevUnlockedBadges = null;
+
         function loadAchievements() {
             const downloads = parseInt(document.getElementById('statDownloads').textContent, 10) || 0;
             const requests  = parseInt(document.getElementById('statRequests').textContent, 10) || 0;
@@ -1430,6 +1437,16 @@
                 { name: 'Regular',        desc: '30 days active',        icon: 'calendar_month',     unlocked: days >= 30 },
                 { name: 'Veteran',        desc: '1 year active',         icon: 'workspace_premium',  unlocked: days >= 365 },
             ];
+
+            // Detect newly unlocked badges and show toast
+            if (_prevUnlockedBadges !== null) {
+                badges.forEach(b => {
+                    if (b.unlocked && !_prevUnlockedBadges.has(b.name)) {
+                        showToast('🏅 Achievement unlocked: ' + b.name, 'success');
+                    }
+                });
+            }
+            _prevUnlockedBadges = new Set(badges.filter(b => b.unlocked).map(b => b.name));
 
             document.getElementById('badgeGrid').innerHTML = badges.map(b => `
                 <div class="badge-cell ${b.unlocked ? 'unlocked' : ''}">
@@ -1722,5 +1739,6 @@
             setTimeout(() => { wrap.style.opacity = '0'; wrap.style.transition = 'opacity .3s'; setTimeout(() => wrap.remove(), 300); }, 3000);
         }
     </script>
+    <script src="chat-widget.js"></script>
 </body>
 </html>
