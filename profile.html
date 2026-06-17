@@ -1031,11 +1031,17 @@
                 document.getElementById('statDaysMember').closest('.stat-cell').classList.remove('loading');
             }
 
-            // Download count from localStorage (tracks downloads on this device)
-            const dlHistory = JSON.parse(localStorage.getItem('fvDownloadHistory') || '[]');
-            document.getElementById('statDownloads').textContent = dlHistory.length;
+// Download count from Supabase (cross-device)
+            try {
+                const { count, error } = await _supabase
+                    .from('user_downloads')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('user_id', user.id);
+                document.getElementById('statDownloads').textContent = (!error && count != null) ? count : 0;
+            } catch(_) {
+                document.getElementById('statDownloads').textContent = 0;
+            }
             document.getElementById('statDownloads').closest('.stat-cell').classList.remove('loading');
-
             // Request count from Supabase (upload_requests table — gracefully fails if table doesn't exist)
             try {
                 const { data, error } = await _supabase
@@ -1271,28 +1277,39 @@
         // ═══════════════════════════════════════════════════════════
         // RECENT DOWNLOADS
         // ═══════════════════════════════════════════════════════════
-        function loadRecentDownloads() {
+        async function loadRecentDownloads() {
             const list = document.getElementById('recentDlList');
             const clearBtn = document.getElementById('clearDlBtn');
-            // fvDownloadHistory: array of { name, url, folder, ts }
-            let history = [];
-            try { history = JSON.parse(localStorage.getItem('fvDownloadHistory') || '[]'); } catch(_) {}
-            // Migrate legacy key fvDLHistory → fvDownloadHistory (written by older versions).
-            // If the canonical key is empty, copy over the old data then remove the old key.
-            if (!history.length) {
-                try {
-                    const legacy = JSON.parse(localStorage.getItem('fvDLHistory') || '[]');
-                    if (legacy.length) {
-                        history = legacy;
-                        localStorage.setItem('fvDownloadHistory', JSON.stringify(history));
-                    }
-                } catch(_) {}
-                localStorage.removeItem('fvDLHistory');
+
+            // Migrate any existing localStorage history into Supabase first
+            if (_currentUser) {
+                let legacy = [];
+                try { legacy = JSON.parse(localStorage.getItem('fvDownloadHistory') || '[]'); } catch(_) {}
+                try { const old = JSON.parse(localStorage.getItem('fvDLHistory') || '[]'); if (old.length) legacy = [...legacy, ...old]; } catch(_) {}
+                if (legacy.length) {
+                    const rows = legacy.map(f => ({
+                        user_id: _currentUser.id,
+                        file_name: f.name || null,
+                        file_url: f.url || null,
+                        file_folder: f.folder || null,
+                        downloaded_at: f.ts ? new Date(f.ts).toISOString() : new Date().toISOString()
+                    }));
+                    await _supabase.from('user_downloads').upsert(rows, { onConflict: 'user_id,file_url,downloaded_at', ignoreDuplicates: true });
+                    localStorage.removeItem('fvDownloadHistory');
+                    localStorage.removeItem('fvDLHistory');
+                }
             }
 
-            document.getElementById('statDownloads').textContent = history.length || 0;
+            if (!_currentUser) { list.innerHTML = ''; clearBtn.style.display = 'none'; return; }
 
-            if (!history.length) {
+            const { data: history, error } = await _supabase
+                .from('user_downloads')
+                .select('file_name, file_url, file_folder, downloaded_at')
+                .eq('user_id', _currentUser.id)
+                .order('downloaded_at', { ascending: false })
+                .limit(8);
+
+            if (error || !history || !history.length) {
                 list.innerHTML = `<div class="empty-state">
                     <div class="empty-state-icon"><span class="material-symbols-outlined">download</span></div>
                     <p class="empty-state-title">No downloads yet</p>
@@ -1302,30 +1319,32 @@
                 loadAchievements();
                 return;
             }
+
             clearBtn.style.display = '';
-            const recent = history.slice(-8).reverse();
-            list.innerHTML = recent.map(f => {
-                const ext = ((f.name || '').split('.').pop() || '').toLowerCase();
+            list.innerHTML = history.map(f => {
+                const ext = ((f.file_name || '').split('.').pop() || '').toLowerCase();
                 const { bg, icon, color } = fileIconStyle(ext);
-                const ts = f.ts ? new Date(f.ts).toLocaleDateString(undefined, { month:'short', day:'numeric' }) : '';
-                const folder = f.folder ? f.folder : '';
-                const meta = [folder, ts].filter(Boolean).join(' · ');
-                return `<a href="${f.url || '#'}" target="_blank" class="file-history-chip" title="${f.name || ''}">
+                const ts = f.downloaded_at ? new Date(f.downloaded_at).toLocaleDateString(undefined, { month:'short', day:'numeric' }) : '';
+                const meta = [f.file_folder, ts].filter(Boolean).join(' · ');
+                return `<a href="${f.file_url || '#'}" target="_blank" class="file-history-chip" title="${f.file_name || ''}">
                     <div class="file-icon-dot" style="background:${bg}">
                         <span class="material-symbols-outlined" style="font-size:15px;color:${color}">${icon}</span>
                     </div>
-                    <span class="file-chip-name">${f.name || 'File'}</span>
+                    <span class="file-chip-name">${f.file_name || 'File'}</span>
                     ${meta ? `<span class="file-chip-meta">${meta}</span>` : ''}
                 </a>`;
             }).join('');
+            loadAchievements();
         }
 
-        function clearDownloadHistory() {
-            if (!confirm('Clear your download history on this device?')) return;
+        async function clearDownloadHistory() {
+            if (!confirm('Clear your download history?')) return;
+            if (_currentUser) {
+                await _supabase.from('user_downloads').delete().eq('user_id', _currentUser.id);
+            }
             localStorage.removeItem('fvDownloadHistory');
             localStorage.removeItem('fvDLHistory');
-            loadRecentDownloads();
-            loadPinnedFiles(); // refresh stat
+            await loadRecentDownloads();
             document.getElementById('statDownloads').textContent = '0';
             showToast('Download history cleared', 'info');
         }
@@ -1487,13 +1506,13 @@
         // Track previously unlocked badges to detect new unlocks
         let _prevUnlockedBadges = null;
 
-        function loadAchievements() {
+        async function loadAchievements() {
             const downloads = parseInt(document.getElementById('statDownloads').textContent, 10) || 0;
-            const requests  = parseInt(document.getElementById('statRequests').textContent, 10) || 0;
+            const requests  = parseInt(document.getElementById('statRequests').textContent,  10) || 0;
             const days      = parseInt(document.getElementById('statDaysMember').textContent, 10) || 0;
 
             let pinned = {};
-            try { pinned = JSON.parse(localStorage.getItem('fvPinned') || '{}'); } catch (_) {}
+            try { pinned = JSON.parse(localStorage.getItem('fvPinned') || '{}'); } catch(_) {}
             const pinnedCount = Object.keys(pinned).length;
 
             const verified = !!(_currentUser && _currentUser.email_confirmed_at);
@@ -1501,18 +1520,39 @@
             const hasCustomName = !!(meta.display_name && meta.display_name.trim());
 
             const badges = [
-                { name: 'First Download', desc: 'Download a file',     icon: 'download',           unlocked: downloads >= 1 },
-                { name: 'Power User',     desc: '10 downloads',          icon: 'bolt',               unlocked: downloads >= 10 },
-                { name: 'Requester',      desc: 'Made a file request',   icon: 'forum',              unlocked: requests >= 1 },
-                { name: 'Collector',      desc: 'Pinned a file',         icon: 'push_pin',           unlocked: pinnedCount >= 1 },
-                { name: 'Verified',       desc: 'Verified your email',   icon: 'verified',           unlocked: verified },
-                { name: 'Profile Pro',    desc: 'Set a display name',    icon: 'badge',              unlocked: hasCustomName },
-                { name: 'Week One',       desc: '7 days active',         icon: 'calendar_today',     unlocked: days >= 7 },
-                { name: 'Regular',        desc: '30 days active',        icon: 'calendar_month',     unlocked: days >= 30 },
-                { name: 'Veteran',        desc: '1 year active',         icon: 'workspace_premium',  unlocked: days >= 365 },
+                { name: 'First Download', desc: 'Download a file',       icon: 'download',          unlocked: downloads >= 1   },
+                { name: 'Power User',     desc: '10 downloads',           icon: 'bolt',              unlocked: downloads >= 10  },
+                { name: 'Requester',      desc: 'Made a file request',    icon: 'forum',             unlocked: requests >= 1    },
+                { name: 'Collector',      desc: 'Pinned a file',          icon: 'push_pin',          unlocked: pinnedCount >= 1 },
+                { name: 'Verified',       desc: 'Verified your email',    icon: 'verified',          unlocked: verified         },
+                { name: 'Profile Pro',    desc: 'Set a display name',     icon: 'badge',             unlocked: hasCustomName    },
+                { name: 'Week One',       desc: '7 days active',          icon: 'calendar_today',    unlocked: days >= 7        },
+                { name: 'Regular',        desc: '30 days active',         icon: 'calendar_month',    unlocked: days >= 30       },
+                { name: 'Veteran',        desc: '1 year active',          icon: 'workspace_premium', unlocked: days >= 365      },
             ];
 
-            // Detect newly unlocked badges and show toast
+            // Load existing unlock timestamps from Supabase
+            let unlockedAt = {};
+            if (_currentUser) {
+                const { data: existing } = await _supabase
+                    .from('user_achievements')
+                    .select('badge_name, unlocked_at')
+                    .eq('user_id', _currentUser.id);
+                if (existing) existing.forEach(r => { unlockedAt[r.badge_name] = r.unlocked_at; });
+
+                // Persist any newly unlocked badges
+                const newlyUnlocked = badges.filter(b => b.unlocked && !unlockedAt[b.name]);
+                if (newlyUnlocked.length) {
+                    const rows = newlyUnlocked.map(b => ({ user_id: _currentUser.id, badge_name: b.name }));
+                    const { data: inserted } = await _supabase
+                        .from('user_achievements')
+                        .upsert(rows, { onConflict: 'user_id,badge_name', ignoreDuplicates: true })
+                        .select('badge_name, unlocked_at');
+                    if (inserted) inserted.forEach(r => { unlockedAt[r.badge_name] = r.unlocked_at; });
+                }
+            }
+
+            // Toast for newly unlocked (only badges not previously in unlockedAt before this call)
             if (_prevUnlockedBadges !== null) {
                 badges.forEach(b => {
                     if (b.unlocked && !_prevUnlockedBadges.has(b.name)) {
@@ -1522,13 +1562,16 @@
             }
             _prevUnlockedBadges = new Set(badges.filter(b => b.unlocked).map(b => b.name));
 
-            document.getElementById('badgeGrid').innerHTML = badges.map(b => `
-                <div class="badge-cell ${b.unlocked ? 'unlocked' : ''}">
+            document.getElementById('badgeGrid').innerHTML = badges.map(b => {
+                const ts = unlockedAt[b.name]
+                    ? new Date(unlockedAt[b.name]).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' })
+                    : null;
+                return `<div class="badge-cell ${b.unlocked ? 'unlocked' : ''}">
                     <div class="badge-icon"><span class="material-symbols-outlined">${b.icon}</span></div>
                     <p class="badge-name">${b.name}</p>
-                    <p class="badge-desc">${b.desc}</p>
-                </div>
-            `).join('');
+                    <p class="badge-desc">${ts ? 'Unlocked ' + ts : b.desc}</p>
+                </div>`;
+            }).join('');
         }
 
         // ═══════════════════════════════════════════════════════════

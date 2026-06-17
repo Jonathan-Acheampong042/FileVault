@@ -1298,6 +1298,7 @@ window.isFolderSubscribed = function(folder) {
         // Stores the logged-in user's email so realtime listeners can filter
         // request-approval events to only show toasts for THIS user's requests.
         var _currentUserEmail = null;
+        var _currentUserId = null;
 
         async function checkAuth() {
             const { data: { session } } = await _supabase.auth.getSession();
@@ -1329,6 +1330,8 @@ window.isFolderSubscribed = function(folder) {
                 }
 
                 _currentUserEmail = session.user.email || null;
+                _currentUserId = session.user.id || null;
+                window._currentUserId = _currentUserId;
                 populateProfileUI(session.user, isAdmin && adminBrowseMode);
             }
             // Show welcome toast if arriving fresh from login
@@ -1662,7 +1665,6 @@ window.isFolderSubscribed = function(folder) {
             renderRecent(files);
             renderFileList(getFilteredFiles());
             updateTypeCounts();
-        }
         
         function renderFileList(files) {
             document.getElementById('fileCount').innerText = files.length;
@@ -3128,8 +3130,8 @@ window.isFolderSubscribed = function(folder) {
                     while (card.firstChild) inner.appendChild(card.firstChild);
                     card.style.position = 'relative';
                     card.style.overflow = 'hidden';
-                   card.appendChild(inner);
-card.style.padding = '0'; // padding moved into swipe-inner
+                    card.appendChild(inner);
+                    card.style.padding = '0'; // padding moved into swipe-inner
                     const idx = card.dataset.idx;
                     const tray = document.createElement('div');
                     tray.className = 'swipe-tray';
@@ -5096,6 +5098,22 @@ card.style.padding = '0'; // padding moved into swipe-inner
        window.track = function(id, name, url) {
            _origTrackHistory && _origTrackHistory(id, name, url);
            addDLHistory(name, url);
+           // Persist to Supabase for cross-device history
+           if (window._currentUserId && window._supabase) {
+               const folder = (function() {
+                   try {
+                       const f = (window._fileRegistry || []).find(function(x) { return x.url === url; });
+                       return f ? (f.folder || null) : null;
+                   } catch(_) { return null; }
+               })();
+               window._supabase.from('user_downloads').insert({
+                   user_id: window._currentUserId,
+                   file_id: id || null,
+                   file_name: name || null,
+                   file_url: url || null,
+                   file_folder: folder
+               }).catch(function(){});
+           }
        };
    })();
    </script>
