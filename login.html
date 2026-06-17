@@ -7,7 +7,9 @@
   script-src 'self' 'unsafe-inline'
     https://cdn.jsdelivr.net
     https://cdnjs.cloudflare.com
-    https://cdn.tailwindcss.com;
+    https://cdn.tailwindcss.com
+    https://js.hcaptcha.com
+    https://*.hcaptcha.com;
   style-src 'self' 'unsafe-inline'
     https://fonts.googleapis.com
     https://cdn.tailwindcss.com;
@@ -15,20 +17,26 @@
     https://fonts.gstatic.com;
   img-src 'self' data:
     https://lh3.googleusercontent.com
-    https://cdn.discordapp.com;
+    https://cdn.discordapp.com
+    https://*.hcaptcha.com;
   connect-src 'self'
     https://*.supabase.co
     wss://*.supabase.co
     https://project-one-187u.onrender.com
-    https://cdn.jsdelivr.net;
+    https://cdn.jsdelivr.net
+    https://*.hcaptcha.com;
   worker-src 'self' blob:;
-  frame-src 'self' https://*.supabase.co blob:;
+  frame-src 'self'
+    https://*.supabase.co
+    https://*.hcaptcha.com
+    blob:;
   manifest-src 'self';
   object-src 'self' https://*.supabase.co blob:;
   base-uri 'self';
 "/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
     <!-- iOS PWA / Safari full-bleed -->
+    <meta name="mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
     <meta name="apple-mobile-web-app-title" content="FileVault"/>
@@ -158,14 +166,7 @@
         /* ── Reset password full-page state ── */
         #resetSection .reset-card { background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.15); border-radius:16px; padding:20px; }
 
-        /* ── Passkey button ── */
-        .btn-passkey { display:flex; align-items:center; gap:10px; width:100%; padding:12px 16px; background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.12)); border:1px solid rgba(99,102,241,0.3); border-radius:12px; color:white; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; transition:all .2s; position:relative; overflow:hidden; }
-        .btn-passkey::before { content:''; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent); transform:translateX(-100%); transition:transform .5s; }
-        .btn-passkey:hover::before { transform:translateX(100%); }
-        .btn-passkey:hover { background:linear-gradient(135deg,rgba(99,102,241,0.22),rgba(139,92,246,0.22)); border-color:rgba(139,92,246,0.5); transform:translateY(-1px); }
-        .btn-passkey:disabled { opacity:.5; cursor:not-allowed; transform:none; }
-        .passkey-badge { font-size:9px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; background:rgba(99,102,241,0.25); color:#a5b4fc; border:1px solid rgba(99,102,241,0.4); border-radius:99px; padding:1px 7px; flex-shrink:0; }
-        #passkeyUnavailableNote { display:none; font-size:11px; color:#475569; text-align:center; margin-top:6px; }
+
 
         /* ── Sign-in error alert banner ── */
         .signin-error-banner { display:none; align-items:center; gap:10px; padding:11px 14px; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); border-radius:12px; margin-top:4px; animation:fadeIn .25s ease; }
@@ -240,6 +241,7 @@
                                 <span id="sEye" class="material-symbols-outlined" style="font-size:18px">visibility</span>
                             </button>
                         </div>
+                        <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
 
                         <div class="flex items-center justify-between">
                             <label class="flex items-center gap-2 cursor-pointer select-none" title="Keeps you signed in across browser restarts for up to 30 days">
@@ -248,29 +250,11 @@
                             </label>
                             <button onclick="openForgotPassword()" style="background:none;border:none;cursor:pointer;color:#60a5fa;font-size:13px;font-weight:600;font-family:inherit">Forgot password?</button>
                         </div>
+                        <div class="h-captcha" data-sitekey="f7dcb47a-d48c-48fe-b802-401c1bc48492"></div>
 
                         <button class="btn-primary" id="sSignInBtn" onclick="studentSignIn()">
                             <span id="sSignInText">Sign In</span>
                         </button>
-
-                        <div class="divider"><span></span><p>or sign in faster</p><span></span></div>
-
-                        <!-- Passkey option (WebAuthn) -->
-                        <button id="passkeyBtn" class="btn-passkey" onclick="signInWithPasskey()">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                <circle cx="9" cy="7" r="4" stroke="#a5b4fc" stroke-width="1.8"/>
-                                <path d="M2 20c0-3.314 3.134-6 7-6" stroke="#a5b4fc" stroke-width="1.8" stroke-linecap="round"/>
-                                <rect x="14" y="13" width="8" height="5.5" rx="1.5" stroke="#c4b5fd" stroke-width="1.8"/>
-                                <circle cx="18" cy="13" r="2.5" stroke="#c4b5fd" stroke-width="1.8"/>
-                                <circle cx="18" cy="15.75" r=".75" fill="#c4b5fd"/>
-                            </svg>
-                            <div style="text-align:left;flex:1">
-                                <p style="font-size:13px;color:white;margin:0 0 1px">Sign in with a Passkey</p>
-                                <p style="font-size:11px;color:#94a3b8;font-weight:500;margin:0">Face ID, fingerprint, or security key</p>
-                            </div>
-                            <span class="passkey-badge">Fastest</span>
-                        </button>
-                        <p id="passkeyUnavailableNote">Passkeys aren't supported in this browser.</p>
 
                         <!-- Magic link option -->
                         <button onclick="switchStudentTab('magiclink')" class="btn-social">
@@ -290,14 +274,6 @@
                             </div>
                         </button>
 
-                        <!-- Register passkey (shown only when WebAuthn is available) -->
-                        <button id="registerPasskeyBtn" class="btn-social" onclick="registerPasskey()" style="display:none;border-color:rgba(99,102,241,0.25)">
-                            <span class="material-symbols-outlined" style="color:#a5b4fc;font-size:20px">passkey</span>
-                            <div style="text-align:left">
-                                <p style="font-weight:700;color:white;font-size:13px">Set up a Passkey</p>
-                                <p style="font-size:11px;color:#64748b">Sign in faster next time with biometrics</p>
-                            </div>
-                        </button>
                     </div>
                     <p id="sSignInMsg" class="mt-3 text-center text-sm min-h-5" style="color:#f87171;display:none" aria-live="polite" aria-atomic="true"></p>
                     <!-- Inline error/success banner — more visible than a plain text line -->
@@ -910,11 +886,18 @@
         // (the storage adapter was chosen at client-init time based on the previous value;
         //  if the user changed the checkbox this session the new preference takes effect
         //  on the NEXT visit, which is the standard browser pattern).
-        try { localStorage.setItem('fv_remember_me', remember ? '1' : '0'); } catch(e) {}
+        // Get the hCaptcha token before calling Supabase
+const captchaToken = hcaptcha.getResponse();
+if (!captchaToken) {
+    showSignInAlert('Please complete the CAPTCHA.', 'error');
+    return;
+}
 
-        setBtnLoading('sSignInBtn','sSignInText','Signing in…');
-        const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pwd });
-        clearBtnLoading('sSignInBtn','sSignInText','Sign In');
+const { data, error } = await _supabase.auth.signInWithPassword({
+    email,
+    password: pwd,
+    options: { captchaToken }   // ← add this
+});
 
         if (error) {
             if (error.message && error.message.toLowerCase().includes('email not confirmed')) {
@@ -1519,145 +1502,6 @@
         t.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;flex-shrink:0">' + (icons[type]||'info') + '</span><span style="flex:1">' + msg + '</span>';
         wrap.appendChild(t);
         setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 3500);
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // PASSKEYS / WebAuthn (Supabase built-in support)
-    // ═══════════════════════════════════════════════════════════════
-    // Supabase JS v2 exposes signInWithPasskey / createPasskey via the
-    // experimental auth.signIn / auth.admin APIs — we use the raw
-    // WebAuthn browser API + Supabase's navigator.credentials bridge.
-    // Supabase Auth supports passkeys as a "factor" via the MFA API
-    // (type: 'webauthn') in newer SDK versions. We feature-detect and
-    // gracefully degrade to hide the button on unsupported browsers.
-
-    const _passkeySupported = !!(
-        window.PublicKeyCredential &&
-        typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function'
-    );
-
-    (async function _initPasskeyUI() {
-        if (!_passkeySupported) {
-            // Show the "not supported" note under the button
-            const note = document.getElementById('passkeyUnavailableNote');
-            const btn  = document.getElementById('passkeyBtn');
-            if (btn)  btn.style.display  = 'none';
-            if (note) note.style.display = 'block';
-            return;
-        }
-        // Check if platform authenticator (Face ID, fingerprint) is available
-        try {
-            const hasPlatform = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-            const btn = document.getElementById('passkeyBtn');
-            if (btn && hasPlatform) {
-                // Update subtitle to be more specific about what's available
-                const sub = btn.querySelector('p:last-child');
-                if (sub) sub.textContent = 'Face ID, Touch ID, or Windows Hello';
-            }
-        } catch(e) {}
-
-        // Show "Set up a Passkey" button if user is already signed in (came back to page)
-        try {
-            const { data: { session } } = await _supabase.auth.getSession();
-            if (session) {
-                const rpBtn = document.getElementById('registerPasskeyBtn');
-                if (rpBtn) rpBtn.style.display = 'flex';
-            }
-        } catch(e) {}
-    })();
-
-    async function signInWithPasskey() {
-        if (!_passkeySupported) {
-            showSignInAlert('Passkeys are not supported in this browser. Try Chrome, Safari, or Edge.', 'error');
-            return;
-        }
-
-        const btn = document.getElementById('passkeyBtn');
-        if (btn) { btn.disabled = true; btn.querySelector('p')?.setAttribute('data-orig', btn.querySelector('p').textContent); if (btn.querySelector('p')) btn.querySelector('p').textContent = 'Waiting for authenticator…'; }
-
-        try {
-            // Supabase JS v2.x exposes signInWithPasskey in newer builds;
-            // fall back to a clear message if the method isn't present yet.
-            if (typeof _supabase.auth.signInWithPasskey !== 'function') {
-                throw new Error('not_supported');
-            }
-            const { data, error } = await _supabase.auth.signInWithPasskey({
-                // No email needed — the authenticator selects the credential
-            });
-            if (error) throw error;
-            clearSignInAlert();
-            await routeUser(data.user);
-        } catch(err) {
-            if (btn) { btn.disabled = false; if (btn.querySelector('p')) btn.querySelector('p').textContent = 'Sign in with a Passkey'; }
-            const msg = (err?.message || '').toLowerCase();
-            if (msg === 'not_supported') {
-                showSignInAlert('Passkey sign-in requires a newer version of the Supabase library. Please use email/password or social login for now.', 'error');
-            } else if (msg.includes('cancelled') || msg.includes('not allowed') || err?.name === 'NotAllowedError') {
-                // User dismissed the biometric prompt — not an error, just reset silently
-                clearSignInAlert();
-            } else if (msg.includes('no credentials') || msg.includes('no passkey')) {
-                showSignInAlert('No passkey found for this device. Sign in with your password first, then set up a passkey.', 'error');
-            } else {
-                // Any other error from the passkey flow — most likely the SDK
-                // doesn't support it yet in this build. Show a friendly fallback.
-                showSignInAlert('Passkey sign-in isn\'t available yet on this device. Please use email/password instead.', 'info');
-            }
-        } finally {
-            if (btn) btn.disabled = false;
-        }
-    }
-
-    async function registerPasskey() {
-        if (!_passkeySupported) {
-            showToast('Passkeys are not supported in this browser.', 'error');
-            return;
-        }
-
-        const btn = document.getElementById('registerPasskeyBtn');
-        const origHTML = btn ? btn.innerHTML : '';
-        if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div><span style="flex:1;text-align:left;font-size:13px">Setting up passkey…</span>'; }
-
-        try {
-            // Verify the user is currently signed in before attempting registration
-            const { data: { session } } = await _supabase.auth.getSession();
-            if (!session) {
-                showToast('Please sign in first before setting up a passkey.', 'info');
-                if (btn) { btn.disabled = false; btn.innerHTML = origHTML; }
-                return;
-            }
-
-            // webauthn enrollment via mfa.enroll is not available in the current
-            // Supabase JS v2 CDN build — show a clear message instead of a
-            // generic error.
-            if (typeof _supabase.auth.mfa?.enroll !== 'function' ||
-                typeof _supabase.auth.mfa?.enroll === 'function') {
-                // Always show not-supported for now until Supabase ships WebAuthn
-                // enrollment in the public CDN SDK.
-                showToast('Passkey setup isn\'t available yet — sign in with email/password for now.', 'info');
-                if (btn) { btn.disabled = false; btn.innerHTML = origHTML; }
-                return;
-            }
-
-            const { data, error } = await _supabase.auth.mfa.enroll({
-                factorType: 'webauthn',
-                friendlyName: 'Passkey — ' + (navigator.platform || 'this device'),
-            });
-            if (error) throw error;
-
-            showToast('🔑 Passkey registered! You can now sign in with biometrics.', 'success');
-            if (btn) btn.innerHTML = '<span class="material-symbols-outlined" style="color:#34d399;font-size:20px">check_circle</span><span style="flex:1;font-size:13px;color:#6ee7b7">Passkey registered!</span>';
-            setTimeout(() => { if (btn) { btn.disabled = false; btn.innerHTML = origHTML; } }, 3000);
-        } catch(err) {
-            if (btn) { btn.disabled = false; btn.innerHTML = origHTML; }
-            const msg = (err?.message || '').toLowerCase();
-            if (msg === 'not_supported') {
-                showToast('Passkey setup isn\'t available yet — sign in with email/password for now.', 'info');
-            } else if (err?.name === 'NotAllowedError' || msg.includes('cancelled')) {
-                // User dismissed — silent
-            } else {
-                showToast('Passkey setup isn\'t available yet — sign in with email/password for now.', 'info');
-            }
-        }
     }
 
     // Keyboard shortcuts

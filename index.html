@@ -810,6 +810,12 @@
                     <div class="folder-skeleton skeleton" style="height:64px;border-radius:16px;animation-delay:.2s"></div>
                     <div class="folder-skeleton skeleton" style="height:64px;border-radius:16px;animation-delay:.3s"></div>
                 </div>
+                </div>
+                <div id="folderSubNudge" style="display:none" class="mt-3 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold">
+                    <span class="material-symbols-outlined" style="font-size:15px;flex-shrink:0">notifications</span>
+                    Tap the 🔔 bell on any folder to get notified when new files are added.
+                </div>
+            </section>
             </section>
             <div class="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4 sm:gap-6 mb-6 sm:mb-8">
                 <section id="recentSection" class="glass-card p-4 sm:p-6 rounded-3xl overflow-hidden min-w-0">
@@ -933,8 +939,14 @@
         </main>
     </div>
     <script>
-
-        // ── TOAST ───────────────────────────────────────────────
+window.isFolderSubscribed = function(folder) {
+    try {
+        return new Set(JSON.parse(localStorage.getItem('fvFolderSubscriptions') || '[]')).has(folder);
+    } catch { return false; }
+};
+</script>
+    <script>
+            // ── TOAST ───────────────────────────────────────────────
         const _CHAT_API_URL = window.location.hostname === 'localhost'
             ? 'http://localhost:3000/api/chat'
             : 'https://project-one-187u.onrender.com/api/chat';
@@ -1623,6 +1635,13 @@
                     });
                 });
             }
+            }
+            // Show nudge if user has zero subscriptions
+            try {
+                const subs = new Set(JSON.parse(localStorage.getItem('fvFolderSubscriptions') || '[]'));
+                const nudge = document.getElementById('folderSubNudge');
+                if (nudge) nudge.style.display = subs.size === 0 ? 'flex' : 'none';
+            } catch(e) {}
 
             // ── Sidebar folder list (desktop) ──
             const sidebarFolderList = document.getElementById('sidebarFolderList');
@@ -5866,6 +5885,8 @@
             subs.add(folder);
         }
         saveFolderSubs(subs);
+        const nudge = document.getElementById('folderSubNudge');
+        if (nudge) nudge.style.display = getFolderSubs().size === 0 ? 'flex' : 'none';
         // Update every bell button in the grid for this folder
         document.querySelectorAll('#folderGrid .folder-sub-btn').forEach(function(btn) {
             const card = btn.closest('button.folder-btn');
