@@ -157,6 +157,36 @@
         .auth-input.input-ok    { border-color:#10b981 !important; }
         /* ── Reset password full-page state ── */
         #resetSection .reset-card { background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.15); border-radius:16px; padding:20px; }
+
+        /* ── Passkey button ── */
+        .btn-passkey { display:flex; align-items:center; gap:10px; width:100%; padding:12px 16px; background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.12)); border:1px solid rgba(99,102,241,0.3); border-radius:12px; color:white; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; transition:all .2s; position:relative; overflow:hidden; }
+        .btn-passkey::before { content:''; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent); transform:translateX(-100%); transition:transform .5s; }
+        .btn-passkey:hover::before { transform:translateX(100%); }
+        .btn-passkey:hover { background:linear-gradient(135deg,rgba(99,102,241,0.22),rgba(139,92,246,0.22)); border-color:rgba(139,92,246,0.5); transform:translateY(-1px); }
+        .btn-passkey:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+        .passkey-badge { font-size:9px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; background:rgba(99,102,241,0.25); color:#a5b4fc; border:1px solid rgba(99,102,241,0.4); border-radius:99px; padding:1px 7px; flex-shrink:0; }
+        #passkeyUnavailableNote { display:none; font-size:11px; color:#475569; text-align:center; margin-top:6px; }
+
+        /* ── Sign-in error alert banner ── */
+        .signin-error-banner { display:none; align-items:center; gap:10px; padding:11px 14px; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); border-radius:12px; margin-top:4px; animation:fadeIn .25s ease; }
+        .signin-error-banner.visible { display:flex; }
+        .signin-error-banner .err-icon { font-size:18px; color:#f87171; flex-shrink:0; }
+        .signin-error-banner .err-text { font-size:13px; color:#fca5a5; font-weight:600; line-height:1.4; flex:1; }
+        .signin-success-banner { display:none; align-items:center; gap:10px; padding:11px 14px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); border-radius:12px; margin-top:4px; animation:fadeIn .25s ease; }
+        .signin-success-banner.visible { display:flex; }
+        .signin-success-banner .suc-icon { font-size:18px; color:#34d399; flex-shrink:0; }
+        .signin-success-banner .suc-text { font-size:13px; color:#6ee7b7; font-weight:600; line-height:1.4; flex:1; }
+
+        /* ── Confirmation pending panel ── */
+        #panelConfirmPending { display:none; }
+        #panelConfirmPending.active { display:block; animation:fadeIn .35s ease; }
+        .confirm-inbox-icon { width:64px; height:64px; border-radius:20px; background:linear-gradient(135deg,rgba(59,130,246,0.18),rgba(139,92,246,0.18)); border:1px solid rgba(59,130,246,0.3); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; }
+        .confirm-email-chip { display:inline-flex; align-items:center; gap:6px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.25); border-radius:99px; padding:4px 12px; font-size:12px; font-weight:700; color:#93c5fd; word-break:break-all; }
+        .confirm-step { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+        .confirm-step:last-child { border-bottom:none; }
+        .confirm-step-num { width:22px; height:22px; border-radius:50%; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.3); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:#60a5fa; flex-shrink:0; margin-top:1px; }
+        @keyframes bounce-mail { 0%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} 60%{transform:translateY(-3px)} }
+        .bounce-mail { animation:bounce-mail 2.2s ease-in-out infinite; }
     </style>
 </head>
 <body class="login-page min-h-screen flex items-center justify-center p-4 relative overflow-x-hidden">
@@ -201,20 +231,20 @@
                     <div class="space-y-4">
                         <div class="relative">
                             <span class="auth-input-icon material-symbols-outlined">mail</span>
-                            <input type="email" id="sEmail" class="auth-input" placeholder="Your email address" autocomplete="email"/>
+                            <input type="email" id="sEmail" class="auth-input" placeholder="Your email address" autocomplete="email" oninput="this.classList.remove('input-error');clearSignInAlert()"/>
                         </div>
                         <div class="relative">
                             <span class="auth-input-icon material-symbols-outlined">lock</span>
-                            <input type="password" id="sPassword" class="auth-input" placeholder="Your password" autocomplete="current-password" onkeydown="if(event.key==='Enter')studentSignIn()" style="padding-right:46px"/>
+                            <input type="password" id="sPassword" class="auth-input" placeholder="Your password" autocomplete="current-password" onkeydown="if(event.key==='Enter')studentSignIn()" oninput="this.classList.remove('input-error');clearSignInAlert()" style="padding-right:46px"/>
                             <button type="button" onclick="togglePwd('sPassword','sEye')" class="absolute right-4 top-1/2 -translate-y-1/2" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.35);line-height:0">
                                 <span id="sEye" class="material-symbols-outlined" style="font-size:18px">visibility</span>
                             </button>
                         </div>
 
                         <div class="flex items-center justify-between">
-                            <label class="flex items-center gap-2 cursor-pointer select-none">
+                            <label class="flex items-center gap-2 cursor-pointer select-none" title="Keeps you signed in across browser restarts for up to 30 days">
                                 <input type="checkbox" id="sRemember" class="w-4 h-4 rounded" style="accent-color:#3b82f6"/>
-                                <span style="color:#64748b;font-size:13px">Remember me</span>
+                                <span style="color:#64748b;font-size:13px">Stay signed in on this device</span>
                             </label>
                             <button onclick="openForgotPassword()" style="background:none;border:none;cursor:pointer;color:#60a5fa;font-size:13px;font-weight:600;font-family:inherit">Forgot password?</button>
                         </div>
@@ -224,6 +254,23 @@
                         </button>
 
                         <div class="divider"><span></span><p>or sign in faster</p><span></span></div>
+
+                        <!-- Passkey option (WebAuthn) -->
+                        <button id="passkeyBtn" class="btn-passkey" onclick="signInWithPasskey()">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <circle cx="9" cy="7" r="4" stroke="#a5b4fc" stroke-width="1.8"/>
+                                <path d="M2 20c0-3.314 3.134-6 7-6" stroke="#a5b4fc" stroke-width="1.8" stroke-linecap="round"/>
+                                <rect x="14" y="13" width="8" height="5.5" rx="1.5" stroke="#c4b5fd" stroke-width="1.8"/>
+                                <circle cx="18" cy="13" r="2.5" stroke="#c4b5fd" stroke-width="1.8"/>
+                                <circle cx="18" cy="15.75" r=".75" fill="#c4b5fd"/>
+                            </svg>
+                            <div style="text-align:left;flex:1">
+                                <p style="font-size:13px;color:white;margin:0 0 1px">Sign in with a Passkey</p>
+                                <p style="font-size:11px;color:#94a3b8;font-weight:500;margin:0">Face ID, fingerprint, or security key</p>
+                            </div>
+                            <span class="passkey-badge">Fastest</span>
+                        </button>
+                        <p id="passkeyUnavailableNote">Passkeys aren't supported in this browser.</p>
 
                         <!-- Magic link option -->
                         <button onclick="switchStudentTab('magiclink')" class="btn-social">
@@ -242,8 +289,28 @@
                                 <p style="font-size:11px;color:#64748b">Get a 6-digit code sent to your email</p>
                             </div>
                         </button>
+
+                        <!-- Register passkey (shown only when WebAuthn is available) -->
+                        <button id="registerPasskeyBtn" class="btn-social" onclick="registerPasskey()" style="display:none;border-color:rgba(99,102,241,0.25)">
+                            <span class="material-symbols-outlined" style="color:#a5b4fc;font-size:20px">passkey</span>
+                            <div style="text-align:left">
+                                <p style="font-weight:700;color:white;font-size:13px">Set up a Passkey</p>
+                                <p style="font-size:11px;color:#64748b">Sign in faster next time with biometrics</p>
+                            </div>
+                        </button>
                     </div>
-                    <p id="sSignInMsg" class="mt-3 text-center text-sm min-h-5" style="color:#f87171" aria-live="polite" aria-atomic="true"></p>
+                    <p id="sSignInMsg" class="mt-3 text-center text-sm min-h-5" style="color:#f87171;display:none" aria-live="polite" aria-atomic="true"></p>
+                    <!-- Inline error/success banner — more visible than a plain text line -->
+                    <div id="sSignInAlert" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div id="sSignInErrorBanner" class="signin-error-banner">
+                            <span class="err-icon material-symbols-outlined">error</span>
+                            <span id="sSignInErrorText" class="err-text"></span>
+                        </div>
+                        <div id="sSignInSuccessBanner" class="signin-success-banner">
+                            <span class="suc-icon material-symbols-outlined">check_circle</span>
+                            <span id="sSignInSuccessText" class="suc-text"></span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ── Student Sign Up ── -->
@@ -283,6 +350,57 @@
                         </button>
                     </div>
                     <p id="sSignUpMsg" class="mt-3 text-center text-sm min-h-5" aria-live="polite" aria-atomic="true"></p>
+                </div>
+
+                <!-- ── Confirmation Pending ── -->
+                <div id="panelConfirmPending">
+                    <div style="text-align:center;margin-bottom:20px">
+                        <div class="confirm-inbox-icon">
+                            <span class="material-symbols-outlined bounce-mail" style="font-size:32px;color:#60a5fa">mark_email_unread</span>
+                        </div>
+                        <h3 style="color:white;font-weight:800;font-size:18px;margin:0 0 6px">Check your inbox</h3>
+                        <p style="color:#64748b;font-size:13px;line-height:1.55;margin:0 0 14px">We sent a confirmation link to</p>
+                        <div style="display:flex;justify-content:center">
+                            <span class="confirm-email-chip">
+                                <span class="material-symbols-outlined" style="font-size:14px">mail</span>
+                                <span id="confirmEmailDisplay"></span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:4px 14px;margin-bottom:18px">
+                        <div class="confirm-step">
+                            <div class="confirm-step-num">1</div>
+                            <div>
+                                <p style="color:#cbd5e1;font-size:13px;font-weight:600;margin:0 0 2px">Open the email from FileVault</p>
+                                <p style="color:#64748b;font-size:11px;margin:0">Subject: "Confirm Your Email Address"</p>
+                            </div>
+                        </div>
+                        <div class="confirm-step">
+                            <div class="confirm-step-num">2</div>
+                            <div>
+                                <p style="color:#cbd5e1;font-size:13px;font-weight:600;margin:0 0 2px">Click the confirmation link</p>
+                                <p style="color:#64748b;font-size:11px;margin:0">You'll be signed in automatically</p>
+                            </div>
+                        </div>
+                        <div class="confirm-step">
+                            <div class="confirm-step-num">3</div>
+                            <div>
+                                <p style="color:#cbd5e1;font-size:13px;font-weight:600;margin:0 0 2px">Not in your inbox?</p>
+                                <p style="color:#64748b;font-size:11px;margin:0">Check your spam or junk folder</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn-primary" id="resendConfirmBtn" onclick="resendSignupConfirmation()" style="background:rgba(59,130,246,0.18);border:1px solid rgba(59,130,246,0.3);color:#93c5fd">
+                        <span class="material-symbols-outlined" style="font-size:16px">send</span>
+                        <span id="resendConfirmText">Resend confirmation email</span>
+                    </button>
+                    <p id="resendConfirmMsg" class="mt-3 text-center text-sm min-h-5" aria-live="polite" aria-atomic="true"></p>
+
+                    <button onclick="backToSignUp()" style="margin-top:10px;background:none;border:none;cursor:pointer;color:#475569;font-size:12px;width:100%;text-align:center;font-family:inherit">
+                        ← Used a different email? Sign up again
+                    </button>
                 </div>
 
                 <!-- ── Social Login ── -->
@@ -500,19 +618,42 @@
     // CONFIG
     // ═══════════════════════════════════════════════════════════════
     const BASE = 'https://filevault.works';
+    // ── Session storage strategy ─────────────────────────────────
+    // "Remember me" checked  → localStorage  (survives tab/browser close, 30-day refresh window)
+    // "Remember me" unchecked → sessionStorage (cleared when the tab is closed)
+    // We read the preference before creating the client so the correct storage
+    // is active from the very first token write.
+    const _remembered = localStorage.getItem('fv_remember_me') === '1';
     const _supabase = supabase.createClient(
         'https://lvhecpvwpzmstciewziv.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI'
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI',
+        {
+            auth: {
+                // Use localStorage when remembered, sessionStorage otherwise.
+                // Supabase JS v2 accepts any Storage-compatible object.
+                storage: _remembered ? window.localStorage : window.sessionStorage,
+                persistSession: true,
+                // autoRefreshToken keeps the session alive while the tab is open.
+                // When storage is localStorage the refresh token persists across
+                // restarts, giving returning users a seamless "still signed in" experience.
+                autoRefreshToken: true,
+                detectSessionInUrl: true,
+            }
+        }
     );
 
-    // Admin emails — users in this list get directed to manager.html
-    const ADMIN_EMAILS = ['nharnharblay21@gmail.com'];
+    // Keep the checkbox visually in sync with the saved preference on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        const cb = document.getElementById('sRemember');
+        if (cb) cb.checked = _remembered;
+    });
 
     // ═══════════════════════════════════════════════════════════════
     // STATE
     // ═══════════════════════════════════════════════════════════════
     let _studentSubTab = 'signin';
     let _otpEmail      = '';
+    let _signUpEmail   = '';   // email used for the most recent sign-up; used for resend
     let _redirecting   = false;   // prevents double-fire from onAuthStateChange
     let _inRecoveryFlow = false;  // true while a recovery session is active but not yet completed
     let _recoveryCompleted = false;
@@ -542,7 +683,17 @@
         }
 
         const { data: { session } } = await _supabase.auth.getSession();
-        if (session) await routeUser(session.user);
+        if (session) { await routeUser(session.user); return; }
+
+        // Returning user who signed up but hasn't confirmed yet — restore the banner
+        try {
+            const pendingEmail = sessionStorage.getItem('fv_pending_confirm_email');
+            if (pendingEmail) {
+                _signUpEmail = pendingEmail;
+                switchStudentTab('signup');
+                _showConfirmPending(pendingEmail);
+            }
+        } catch(e) {}
     })();
 
     _supabase.auth.onAuthStateChange(async (event, session) => {
@@ -567,6 +718,9 @@
     async function routeUser(user) {
         if (!user || _redirecting) return;
 
+        // Clear any pending sign-up confirmation state — this user is now confirmed
+        try { sessionStorage.removeItem('fv_pending_confirm_email'); } catch(e) {}
+
         // Gate on MFA first — onAuthStateChange fires SIGNED_IN as soon as
         // signInWithPassword returns an aal1 session, even if the account
         // has TOTP enrolled. Catch that here so we never auto-redirect a
@@ -575,16 +729,13 @@
 
         _redirecting = true;
 
-        // 1. Check user_profiles table for explicit role
+        // Check user_profiles table for explicit role — single source of truth
         let isAdmin = false;
         try {
             const { data: profile } = await _supabase
                 .from('user_profiles').select('role').eq('id', user.id).single();
             if (profile?.role === 'admin' || profile?.role === 'manager') isAdmin = true;
         } catch(e) {}
-
-        // 2. Fallback: check against hardcoded admin emails
-        if (!isAdmin && ADMIN_EMAILS.includes(user.email)) isAdmin = true;
 
         if (isAdmin) {
             // Show admin a choice: Manager Portal or Browse as Admin
@@ -593,7 +744,7 @@
             return;
         }
 
-        // 3. Regular student — go to main page, pass a flag so index.html shows welcome
+        // Regular student — go to main page, pass a flag so index.html shows welcome
         showToast('✓ Signed in! Welcome back.', 'success');
         sessionStorage.setItem('fv_just_signed_in', user.email || '1');
         setTimeout(() => { window.location.href = 'index.html'; }, 800);
@@ -715,11 +866,24 @@
     }
 
     async function studentSignIn() {
-        const email = (document.getElementById('sEmail').value || '').trim();
-        const pwd   = document.getElementById('sPassword').value;
-        if (!email)              { setMsg('sSignInMsg', 'Please enter your email address.', 'error'); shake('sSignInBtn'); return; }
-        if (!isValidEmail(email)){ setMsg('sSignInMsg', 'Please enter a valid email address (e.g. name@university.edu).', 'error'); shake('sSignInBtn'); return; }
-        if (!pwd)                { setMsg('sSignInMsg', 'Please enter your password.', 'error'); shake('sSignInBtn'); return; }
+        const email    = (document.getElementById('sEmail').value || '').trim();
+        const pwd      = document.getElementById('sPassword').value;
+        const remember = document.getElementById('sRemember')?.checked ?? false;
+
+        if (!email)              { showSignInAlert('Please enter your email address.', 'error'); document.getElementById('sEmail').classList.add('input-error'); shake('sSignInBtn'); return; }
+        if (!isValidEmail(email)){ showSignInAlert('Please enter a valid email address (e.g. name@university.edu).', 'error'); document.getElementById('sEmail').classList.add('input-error'); shake('sSignInBtn'); return; }
+        if (!pwd)                { showSignInAlert('Please enter your password.', 'error'); document.getElementById('sPassword').classList.add('input-error'); shake('sSignInBtn'); return; }
+
+        // Clear any previous error state on the inputs
+        document.getElementById('sEmail').classList.remove('input-error');
+        document.getElementById('sPassword').classList.remove('input-error');
+        clearSignInAlert();
+
+        // Persist the remember-me preference so it's applied on the next page load
+        // (the storage adapter was chosen at client-init time based on the previous value;
+        //  if the user changed the checkbox this session the new preference takes effect
+        //  on the NEXT visit, which is the standard browser pattern).
+        try { localStorage.setItem('fv_remember_me', remember ? '1' : '0'); } catch(e) {}
 
         setBtnLoading('sSignInBtn','sSignInText','Signing in…');
         const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pwd });
@@ -727,18 +891,21 @@
 
         if (error) {
             if (error.message && error.message.toLowerCase().includes('email not confirmed')) {
-                const msgEl = document.getElementById('sSignInMsg');
-                msgEl.innerHTML = '⚠️ Email not verified yet. <button onclick="resendConfirmation(\'' + email.replace(/'/g,"\'") + '\')" style="background:none;border:none;cursor:pointer;color:#60a5fa;font-size:13px;font-weight:700;font-family:inherit;text-decoration:underline;padding:0">Resend confirmation email</button>';
-                msgEl.style.color = '#fcd34d';
-            } else if (error.message && error.message.toLowerCase().includes('invalid login')) {
-                setMsg('sSignInMsg', 'Incorrect email or password. Please try again.', 'error');
+                const resendLink = `<span>⚠️ Email not verified yet. <button onclick="resendConfirmation('${email.replace(/'/g,"\\'")}')" style="background:none;border:none;cursor:pointer;color:#93c5fd;font-size:13px;font-weight:700;font-family:inherit;text-decoration:underline;padding:0">Resend confirmation email</button></span>`;
+                showSignInAlert(resendLink, 'error');
+            } else if (error.message && (error.message.toLowerCase().includes('invalid login') || error.message.toLowerCase().includes('invalid credentials'))) {
+                showSignInAlert('Incorrect email or password. Please check your details and try again.', 'error');
+                // Highlight the password field to point to where the likely mistake is
+                document.getElementById('sPassword').classList.add('input-error');
+                document.getElementById('sPassword').value = '';
+                document.getElementById('sPassword').focus();
             } else {
-                setMsg('sSignInMsg', friendlyError(error), 'error');
+                showSignInAlert(friendlyError(error), 'error');
             }
             shake('sSignInBtn');
             return;
         }
-        setMsg('sSignInMsg','', 'info');
+        clearSignInAlert();
 
         // ── Two-factor: if this account has TOTP MFA enrolled, Supabase
         // will require an aal2 session before issuing a full session ──
@@ -749,15 +916,15 @@
 
     async function resendConfirmation(email) {
         const { error } = await _supabase.auth.resend({ type: 'signup', email });
-        if (error) { setMsg('sSignInMsg', friendlyError(error), 'error'); return; }
-        setMsg('sSignInMsg', '✉️ Confirmation email resent! Check your inbox and spam folder.', 'success');
+        if (error) { showSignInAlert(friendlyError(error), 'error'); return; }
+        showSignInAlert('✉️ Confirmation email resent! Check your inbox and spam folder.', 'success');
     }
 
 
     // ═══════════════════════════════════════════════════════════════
-    // ═══════════════════════════════════════════════════════════════
     // STUDENT — SIGN UP
     // ═══════════════════════════════════════════════════════════════
+
     async function studentSignUp() {
         const name  = (document.getElementById('sName').value || '').trim();
         const email = (document.getElementById('sEmailSignup').value || '').trim();
@@ -782,7 +949,66 @@
         clearBtnLoading('sSignUpBtn','sSignUpText','Create Account');
 
         if (error) { setMsg('sSignUpMsg', friendlyError(error), 'error'); return; }
-        setMsg('sSignUpMsg', '✅ Account created! Check your inbox — click the confirmation link to activate your account. (Check spam too.)', 'success');
+
+        // Success — show the persistent confirmation panel
+        _signUpEmail = email;
+        // Persist so returning users see the banner if they reload before confirming
+        try { sessionStorage.setItem('fv_pending_confirm_email', email); } catch(e) {}
+        _showConfirmPending(email);
+    }
+
+    function _showConfirmPending(email) {
+        // Swap the sign-up panel for the confirmation pending panel
+        const signupPanel = document.getElementById('panelStudentSignup');
+        const pendingPanel = document.getElementById('panelConfirmPending');
+        const emailDisplay = document.getElementById('confirmEmailDisplay');
+        if (signupPanel)  signupPanel.className  = 'panel';
+        if (pendingPanel) pendingPanel.className  = 'active';
+        if (emailDisplay) emailDisplay.textContent = email;
+        // Update the card header to match the state
+        const title    = document.getElementById('mainTitle');
+        const subtitle = document.getElementById('mainSubtitle');
+        if (title)    title.textContent    = 'Almost there!';
+        if (subtitle) subtitle.textContent = 'Confirm your email to activate your account';
+        // Hide the tab bar — no need to show Sign In / Create Account tabs now
+        const tabBar = document.querySelector('#studentSection .flex.gap-2.mb-5');
+        if (tabBar) tabBar.style.display = 'none';
+    }
+
+    async function resendSignupConfirmation() {
+        const email = _signUpEmail || (function() {
+            try { return sessionStorage.getItem('fv_pending_confirm_email') || ''; } catch(e) { return ''; }
+        })();
+        if (!email) { setMsg('resendConfirmMsg', 'Could not determine your email. Please sign up again.', 'error'); return; }
+        setBtnLoading('resendConfirmBtn','resendConfirmText','Sending…');
+        const { error } = await _supabase.auth.resend({ type: 'signup', email });
+        clearBtnLoading('resendConfirmBtn','resendConfirmText','Resend confirmation email');
+        if (error) {
+            setMsg('resendConfirmMsg', friendlyError(error), 'error');
+        } else {
+            setMsg('resendConfirmMsg', '✉️ Sent! Check your inbox (and spam folder).', 'success');
+            // Disable the button briefly so users don't spam-click
+            const btn = document.getElementById('resendConfirmBtn');
+            if (btn) {
+                btn.disabled = true;
+                setTimeout(() => { if (btn) btn.disabled = false; }, 30000);
+            }
+        }
+    }
+
+    function backToSignUp() {
+        try { sessionStorage.removeItem('fv_pending_confirm_email'); } catch(e) {}
+        _signUpEmail = '';
+        const pendingPanel = document.getElementById('panelConfirmPending');
+        const signupPanel  = document.getElementById('panelStudentSignup');
+        if (pendingPanel) pendingPanel.className = '';
+        if (signupPanel)  signupPanel.className  = 'panel active';
+        const tabBar = document.querySelector('#studentSection .flex.gap-2.mb-5');
+        if (tabBar) tabBar.style.display = '';
+        const title    = document.getElementById('mainTitle');
+        const subtitle = document.getElementById('mainSubtitle');
+        if (title)    title.textContent    = 'Sign In to FileVault';
+        if (subtitle) subtitle.textContent = 'Access your lecture materials';
     }
 
 
@@ -1208,6 +1434,34 @@
         el.style.color = type === 'error' ? '#f87171' : type === 'success' ? '#34d399' : '#94a3b8';
     }
 
+    // Dedicated sign-in alert banner — more prominent than setMsg for the sign-in form
+    function showSignInAlert(text, type) {
+        const errBanner  = document.getElementById('sSignInErrorBanner');
+        const errText    = document.getElementById('sSignInErrorText');
+        const sucBanner  = document.getElementById('sSignInSuccessBanner');
+        const sucText    = document.getElementById('sSignInSuccessText');
+        if (!errBanner) { setMsg('sSignInMsg', text, type); return; }
+
+        // Reset both
+        errBanner.classList.remove('visible');
+        sucBanner.classList.remove('visible');
+        if (!text) return;
+
+        if (type === 'success') {
+            sucText.textContent = text;
+            sucBanner.classList.add('visible');
+        } else {
+            errText.innerHTML = text; // allow inline HTML for the "resend" link case
+            errBanner.classList.add('visible');
+        }
+    }
+    function clearSignInAlert() {
+        const errBanner = document.getElementById('sSignInErrorBanner');
+        const sucBanner = document.getElementById('sSignInSuccessBanner');
+        if (errBanner) errBanner.classList.remove('visible');
+        if (sucBanner) sucBanner.classList.remove('visible');
+    }
+
     function shake(id) {
         const el = document.getElementById(id);
         if (!el) return;
@@ -1223,6 +1477,135 @@
         t.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;flex-shrink:0">' + (icons[type]||'info') + '</span><span style="flex:1">' + msg + '</span>';
         wrap.appendChild(t);
         setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 3500);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PASSKEYS / WebAuthn (Supabase built-in support)
+    // ═══════════════════════════════════════════════════════════════
+    // Supabase JS v2 exposes signInWithPasskey / createPasskey via the
+    // experimental auth.signIn / auth.admin APIs — we use the raw
+    // WebAuthn browser API + Supabase's navigator.credentials bridge.
+    // Supabase Auth supports passkeys as a "factor" via the MFA API
+    // (type: 'webauthn') in newer SDK versions. We feature-detect and
+    // gracefully degrade to hide the button on unsupported browsers.
+
+    const _passkeySupported = !!(
+        window.PublicKeyCredential &&
+        typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function'
+    );
+
+    (async function _initPasskeyUI() {
+        if (!_passkeySupported) {
+            // Show the "not supported" note under the button
+            const note = document.getElementById('passkeyUnavailableNote');
+            const btn  = document.getElementById('passkeyBtn');
+            if (btn)  btn.style.display  = 'none';
+            if (note) note.style.display = 'block';
+            return;
+        }
+        // Check if platform authenticator (Face ID, fingerprint) is available
+        try {
+            const hasPlatform = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+            const btn = document.getElementById('passkeyBtn');
+            if (btn && hasPlatform) {
+                // Update subtitle to be more specific about what's available
+                const sub = btn.querySelector('p:last-child');
+                if (sub) sub.textContent = 'Face ID, Touch ID, or Windows Hello';
+            }
+        } catch(e) {}
+
+        // Show "Set up a Passkey" button if user is already signed in (came back to page)
+        try {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (session) {
+                const rpBtn = document.getElementById('registerPasskeyBtn');
+                if (rpBtn) rpBtn.style.display = 'flex';
+            }
+        } catch(e) {}
+    })();
+
+    async function signInWithPasskey() {
+        if (!_passkeySupported) {
+            showSignInAlert('Passkeys are not supported in this browser. Try Chrome, Safari, or Edge.', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('passkeyBtn');
+        if (btn) { btn.disabled = true; btn.querySelector('p')?.setAttribute('data-orig', btn.querySelector('p').textContent); if (btn.querySelector('p')) btn.querySelector('p').textContent = 'Waiting for authenticator…'; }
+
+        try {
+            // Supabase JS v2.x exposes signInWithPasskey in newer builds;
+            // fall back to a clear message if the method isn't present yet.
+            if (typeof _supabase.auth.signInWithPasskey !== 'function') {
+                throw new Error('not_supported');
+            }
+            const { data, error } = await _supabase.auth.signInWithPasskey({
+                // No email needed — the authenticator selects the credential
+            });
+            if (error) throw error;
+            clearSignInAlert();
+            await routeUser(data.user);
+        } catch(err) {
+            if (btn) { btn.disabled = false; if (btn.querySelector('p')) btn.querySelector('p').textContent = 'Sign in with a Passkey'; }
+            const msg = (err?.message || '').toLowerCase();
+            if (msg === 'not_supported') {
+                showSignInAlert('Passkey sign-in requires a newer version of the Supabase library. Please use email/password or social login for now.', 'error');
+            } else if (msg.includes('cancelled') || msg.includes('not allowed') || err?.name === 'NotAllowedError') {
+                // User dismissed the biometric prompt — not an error, just reset silently
+                clearSignInAlert();
+            } else if (msg.includes('no credentials') || msg.includes('no passkey')) {
+                showSignInAlert('No passkey found for this device. Sign in with your password first, then set up a passkey.', 'error');
+            } else {
+                showSignInAlert(friendlyError(err), 'error');
+            }
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    async function registerPasskey() {
+        if (!_passkeySupported) {
+            showToast('Passkeys are not supported in this browser.', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('registerPasskeyBtn');
+        const origHTML = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div><span style="flex:1;text-align:left;font-size:13px">Setting up passkey…</span>'; }
+
+        try {
+            // Verify the user is currently signed in before attempting registration
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (!session) {
+                showToast('Please sign in first before setting up a passkey.', 'info');
+                if (btn) { btn.disabled = false; btn.innerHTML = origHTML; }
+                return;
+            }
+
+            if (typeof _supabase.auth.mfa?.enroll !== 'function') {
+                throw new Error('not_supported');
+            }
+
+            const { data, error } = await _supabase.auth.mfa.enroll({
+                factorType: 'webauthn',
+                friendlyName: 'Passkey — ' + (navigator.platform || 'this device'),
+            });
+            if (error) throw error;
+
+            showToast('🔑 Passkey registered! You can now sign in with biometrics.', 'success');
+            if (btn) btn.innerHTML = '<span class="material-symbols-outlined" style="color:#34d399;font-size:20px">check_circle</span><span style="flex:1;font-size:13px;color:#6ee7b7">Passkey registered!</span>';
+            setTimeout(() => { if (btn) { btn.disabled = false; btn.innerHTML = origHTML; } }, 3000);
+        } catch(err) {
+            if (btn) { btn.disabled = false; btn.innerHTML = origHTML; }
+            const msg = (err?.message || '').toLowerCase();
+            if (msg === 'not_supported') {
+                showToast('Passkey registration requires the latest Supabase build. Check back soon.', 'info');
+            } else if (err?.name === 'NotAllowedError' || msg.includes('cancelled')) {
+                // User dismissed — silent
+            } else {
+                showToast(friendlyError(err), 'error');
+            }
+        }
     }
 
     // Keyboard shortcuts

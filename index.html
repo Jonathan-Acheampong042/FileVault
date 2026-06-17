@@ -175,6 +175,12 @@
         #pollingDot { width:6px;height:6px;border-radius:50%;background:#f59e0b;flex-shrink:0;animation:pollingPulse 2s ease-in-out infinite; }
         @keyframes pollingPulse { 0%,100%{opacity:1} 50%{opacity:.35} }
 
+        /* ── Folder subscription bell ── */
+        .folder-sub-btn { display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);cursor:pointer;color:#64748b;transition:all .2s;flex-shrink:0;font-size:0;line-height:0; }
+        .folder-sub-btn:hover { background:rgba(245,158,11,0.12);border-color:rgba(245,158,11,0.3);color:#fbbf24; }
+        .folder-sub-btn.subscribed { background:rgba(245,158,11,0.15);border-color:rgba(245,158,11,0.35);color:#fbbf24; }
+        .folder-sub-btn .material-symbols-outlined { font-size:14px;display:block; }
+
         /* ── Description tooltip on hover ── */
         #globalDescTooltip { position:fixed;background:rgba(15,23,42,0.97);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:8px 12px;font-size:11px;color:#cbd5e1;white-space:normal;width:220px;text-align:left;z-index:9990;pointer-events:none;opacity:0;transition:opacity .15s;line-height:1.5;box-shadow:0 8px 32px rgba(0,0,0,.5);max-width:calc(100vw - 24px); }
         #globalDescTooltip.show { opacity:1; }
@@ -1599,6 +1605,7 @@
                             '<p class="text-[11px] text-slate-500 mt-0.5"><span class="folder-count" data-target="' + count + '">0</span> file' + (count !== 1 ? 's' : '') + '</p>' +
                             dotsHtml +
                         '</div>' +
+                        '<button class="folder-sub-btn' + (isFolderSubscribed(folder) ? ' subscribed' : '') + '" onclick="toggleFolderSubscription(\'' + folder.replace(/'/g,"\\'") + '\',event)" title="' + (isFolderSubscribed(folder) ? 'Unsubscribe from updates' : 'Notify me when this folder updates') + '" aria-label="Subscribe to folder"><span class="material-symbols-outlined">' + (isFolderSubscribed(folder) ? 'notifications_active' : 'notifications') + '</span></button>' +
                     '</button>';
                 }).join('');
                 // Animate file counts counting up
@@ -1754,6 +1761,7 @@
                     '<button class="card-react-btn p-2 text-slate-400 hover:text-pink-400 material-symbols-outlined text-xl" data-fid="' + escapeHtml(file.id||'') + '" title="Add reaction" aria-label="React to ' + safeNameText + '">add_reaction</button>' +
                     '<button onclick="previewByIdx(' + _ri + ');event.stopPropagation()" class="p-2 text-slate-400 hover:text-primary material-symbols-outlined text-xl" title="Preview" aria-label="Preview ' + safeNameText + '">visibility</button>' +
                     '<button onclick="copyFileLink(\'' + jsUrl + '\',event);event.stopPropagation()" class="btn-copy" title="Copy link" aria-label="Copy link for ' + safeNameText + '"><span class="material-symbols-outlined text-xl" style="font-size:20px;display:block" aria-hidden="true">link</span></button>' +
+                    '<button onclick="shareViaWhatsApp(\'' + jsUrl + '\',\'' + jsName + '\');event.stopPropagation()" class="btn-copy" title="Share on WhatsApp" aria-label="Share on WhatsApp"><svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px;display:block;color:#4ade80" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.272-.099-.47-.149-.67.15-.198.297-.767.967-.94 1.166-.173.198-.347.223-.644.075-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.148-.173.198-.297.297-.495.099-.198.05-.372-.025-.521-.075-.149-.67-1.612-.916-2.213-.242-.581-.487-.502-.67-.512l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.262.489 1.693.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414-.074-.124-.272-.198-.57-.347zM12.004 2.003c-5.514 0-9.996 4.482-9.996 9.997 0 1.762.463 3.456 1.342 4.957L2 22l4.08-1.074a9.94 9.94 0 0 0 5.924 1.832c5.514 0 9.996-4.482 9.996-9.997s-4.482-9.996-9.996-9.996z"/></svg></button>' +
                     '<a href="' + safeUrlAttr + '" download onclick="track(\'' + jsId + '\',\'' + jsName + '\',\'' + jsUrl + '\');event.stopPropagation()" class="p-2 text-slate-400 hover:text-green-400 material-symbols-outlined text-xl" title="Download" aria-label="Download ' + safeNameText + '">download</a>' +
                     '</div></div>';
             });
@@ -5836,5 +5844,117 @@
 })();
 </script>
 
+<!-- ══ NEW FEATURES: Folder subscriptions, Keyboard folder nav, WhatsApp share ══ -->
+<script>
+(function() {
+
+    // ─── 1. FOLDER-LEVEL SUBSCRIPTIONS ──────────────────────────────────────
+    const FOLDER_SUB_KEY = 'fvFolderSubscriptions';
+    function getFolderSubs() {
+        try { return new Set(JSON.parse(localStorage.getItem(FOLDER_SUB_KEY) || '[]')); } catch { return new Set(); }
+    }
+    function saveFolderSubs(s) { localStorage.setItem(FOLDER_SUB_KEY, JSON.stringify([...s])); }
+    window.isFolderSubscribed = function(folder) { return getFolderSubs().has(folder); };
+
+    window.toggleFolderSubscription = function(folder, e) {
+        if (e) { e.stopPropagation(); e.preventDefault(); }
+        const subs = getFolderSubs();
+        const wasSubbed = subs.has(folder);
+        if (wasSubbed) {
+            subs.delete(folder);
+        } else {
+            subs.add(folder);
+        }
+        saveFolderSubs(subs);
+        // Update every bell button in the grid for this folder
+        document.querySelectorAll('#folderGrid .folder-sub-btn').forEach(function(btn) {
+            const card = btn.closest('button.folder-btn');
+            if (!card) return;
+            const nameEl = card.querySelector('p.text-sm.font-semibold');
+            if (!nameEl || nameEl.textContent.trim() !== folder) return;
+            const isNow = !wasSubbed;
+            btn.classList.toggle('subscribed', isNow);
+            btn.title = isNow ? 'Unsubscribe from updates' : 'Notify me when this folder updates';
+            btn.querySelector('.material-symbols-outlined').textContent = isNow ? 'notifications_active' : 'notifications';
+        });
+        showToast(wasSubbed
+            ? '🔕 Notifications off for "' + folder + '"'
+            : '🔔 You\'ll be notified when "' + folder + '" gets new files',
+            wasSubbed ? 'info' : 'success', 3000);
+    };
+
+    // Wire up folder subscriptions to Supabase Realtime INSERT events
+    // When a new file lands in a subscribed folder, show a persistent banner toast
+    (function hookSubsToRealtime() {
+        // We patch the existing Realtime handler by wrapping the toast logic
+        // that fires on INSERT. We listen for when allFiles gets an entry in a subscribed folder.
+        const _origRFL = window.renderAll;
+        let _prevFileIds = new Set();
+        window.renderAll = function(files) {
+            _origRFL && _origRFL(files);
+            // Build current id set
+            const nowIds = new Set(files.map(f => f.id || f.url));
+            // Find new entries
+            const subs = getFolderSubs();
+            if (subs.size && _prevFileIds.size) {
+                files.forEach(function(f) {
+                    if (!_prevFileIds.has(f.id || f.url) && f.folder && subs.has(f.folder)) {
+                        showToast('📂 New file in "' + f.folder + '": ' + f.name, 'success', 8000);
+                    }
+                });
+            }
+            _prevFileIds = nowIds;
+        };
+    })();
+
+
+    // ─── 2. KEYBOARD FOLDER SHORTCUTS (digits 1–9) ───────────────────────────
+    document.addEventListener('keydown', function(e) {
+        const active = document.activeElement;
+        const inInput = active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT';
+        if (inInput) return;
+        // Only when no modifier keys (Ctrl/Meta used for Ctrl+F etc.)
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        const digit = parseInt(e.key, 10);
+        if (digit >= 1 && digit <= 9) {
+            // Get rendered folder buttons in order (from the pill row or folder grid)
+            const pills = [...document.querySelectorAll('#folderSection .folder-btn')];
+            // Skip the first "All" pill (index 0), so digit 1 = first real folder
+            const folderPills = pills.slice(1); // remove the "All" button
+            const target = folderPills[digit - 1];
+            if (!target) return;
+            e.preventDefault();
+            target.click();
+            // Brief visual flash on the pill to confirm action
+            target.style.transition = 'box-shadow .15s';
+            target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.45)';
+            setTimeout(function() { target.style.boxShadow = ''; }, 350);
+            showToast('📁 Folder ' + digit + ' selected', 'info', 1200);
+        }
+    });
+    // Register shortcut in the shortcuts modal
+    document.addEventListener('DOMContentLoaded', function() {
+        var scBox = document.getElementById('shortcutBox');
+        if (!scBox) return;
+        var row = document.createElement('div');
+        row.className = 'sc-row';
+        row.innerHTML = '<span style="color:#cbd5e1;font-size:13px">Jump to folder 1–9</span><span class="sc-key"><kbd>1</kbd> … <kbd>9</kbd></span>';
+        // Insert before the last <p> (the "press Esc" note)
+        var lastP = scBox.querySelector('p');
+        if (lastP) scBox.insertBefore(row, lastP);
+        else scBox.appendChild(row);
+    });
+
+
+    // ─── 3. WHATSAPP SHARE ───────────────────────────────────────────────────
+    window.shareViaWhatsApp = function(url, name) {
+        var text = name ? name + '\n' + url : url;
+        var waUrl = 'https://wa.me/?text=' + encodeURIComponent(text);
+        window.open(waUrl, '_blank', 'noopener,noreferrer');
+    };
+
+
+})();
+</script>
 </body>
 </html>
