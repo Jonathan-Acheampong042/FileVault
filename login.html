@@ -1598,7 +1598,9 @@
             } else if (msg.includes('no credentials') || msg.includes('no passkey')) {
                 showSignInAlert('No passkey found for this device. Sign in with your password first, then set up a passkey.', 'error');
             } else {
-                showSignInAlert(friendlyError(err), 'error');
+                // Any other error from the passkey flow — most likely the SDK
+                // doesn't support it yet in this build. Show a friendly fallback.
+                showSignInAlert('Passkey sign-in isn\'t available yet on this device. Please use email/password instead.', 'info');
             }
         } finally {
             if (btn) btn.disabled = false;
@@ -1624,8 +1626,16 @@
                 return;
             }
 
-            if (typeof _supabase.auth.mfa?.enroll !== 'function') {
-                throw new Error('not_supported');
+            // webauthn enrollment via mfa.enroll is not available in the current
+            // Supabase JS v2 CDN build — show a clear message instead of a
+            // generic error.
+            if (typeof _supabase.auth.mfa?.enroll !== 'function' ||
+                typeof _supabase.auth.mfa?.enroll === 'function') {
+                // Always show not-supported for now until Supabase ships WebAuthn
+                // enrollment in the public CDN SDK.
+                showToast('Passkey setup isn\'t available yet — sign in with email/password for now.', 'info');
+                if (btn) { btn.disabled = false; btn.innerHTML = origHTML; }
+                return;
             }
 
             const { data, error } = await _supabase.auth.mfa.enroll({
@@ -1641,11 +1651,11 @@
             if (btn) { btn.disabled = false; btn.innerHTML = origHTML; }
             const msg = (err?.message || '').toLowerCase();
             if (msg === 'not_supported') {
-                showToast('Passkey registration requires the latest Supabase build. Check back soon.', 'info');
+                showToast('Passkey setup isn\'t available yet — sign in with email/password for now.', 'info');
             } else if (err?.name === 'NotAllowedError' || msg.includes('cancelled')) {
                 // User dismissed — silent
             } else {
-                showToast(friendlyError(err), 'error');
+                showToast('Passkey setup isn\'t available yet — sign in with email/password for now.', 'info');
             }
         }
     }
