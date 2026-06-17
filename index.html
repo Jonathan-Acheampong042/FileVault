@@ -3129,6 +3129,7 @@ window.isFolderSubscribed = function(folder) {
                     card.style.position = 'relative';
                     card.style.overflow = 'hidden';
                     card.appendChild(inner);
+                    card.style.padding = '0'; // padding moved into swipe-inner
                     const idx = card.dataset.idx;
                     const tray = document.createElement('div');
                     tray.className = 'swipe-tray';
