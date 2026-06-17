@@ -676,11 +676,13 @@
         }
 
         // Handle email confirmation / magic link callback
+        // AFTER — let onAuthStateChange do the work; don't double-process:
         const params = new URLSearchParams(window.location.hash.replace('#','?'));
         if (params.get('type') === 'magiclink' || params.get('type') === 'signup' || params.get('access_token')) {
-            // Let Supabase pick up the session, then redirect
-            await new Promise(r => setTimeout(r, 800));
-        }
+        // Token is handled by detectSessionInUrl + onAuthStateChange.
+       // Do NOT call getSession() here — just return and wait for the event.
+         return;
+}
 
         const { data: { session } } = await _supabase.auth.getSession();
         if (session) { await routeUser(session.user); return; }
@@ -1371,8 +1373,15 @@
     function friendlyError(err) {
         if (!err) return 'Something went wrong. Please try again.';
         const msg = (err.message || String(err)).toLowerCase();
-        if (msg.includes('invalid login') || msg.includes('invalid credentials') || msg.includes('email not confirmed') === false && msg.includes('user not found'))
+        // Log the raw error so the real cause is visible in DevTools — the
+        // friendly messages below intentionally hide internal details from
+        // the UI, but we don't want to lose them entirely while debugging.
+        console.error('[FileVault Auth] Raw error:', err);
+
+        if (msg.includes('invalid login') || msg.includes('invalid credentials'))
             return 'Incorrect email or password. Please try again.';
+        if (msg.includes('user not found'))
+            return 'No account found with that email address.';
         if (msg.includes('email not confirmed'))
             return 'Your email hasn\'t been verified yet. Check your inbox for a confirmation link.';
         if (msg.includes('user already registered') || msg.includes('already exists'))
@@ -1383,10 +1392,17 @@
             return 'Too many attempts. Please wait a moment before trying again.';
         if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch'))
             return 'Network error. Please check your connection and try again.';
-        if (msg.includes('token') || msg.includes('otp') || msg.includes('expired'))
+        // OTP / magic-link expiry — only match the phrasing Supabase actually
+        // uses for THOSE flows. We deliberately do NOT match bare "token" or
+        // "expired" here, because session/JWT errors (unrelated to a code or
+        // link) also contain those words and were being mislabeled as an
+        // expired code/link, which is confusing on the password sign-in form.
+        if (msg.includes('otp') || msg.includes('email link') || msg.includes('one-time password'))
             return 'The code or link has expired. Please request a new one.';
-        if (msg.includes('missing sub') || msg.includes('invalid claim') || msg.includes('jwt'))
-            return 'Session error. Please sign in again.';
+        if (msg.includes('jwt') || msg.includes('missing sub') || msg.includes('invalid claim') ||
+            msg.includes('refresh token') || msg.includes('session') ||
+            msg.includes('token') || msg.includes('expired'))
+            return 'Your session has expired. Please sign in again.';
         // Generic fallback — don't expose raw internal messages
         return 'Something went wrong. Please try again or contact support if the problem persists.';
     }
