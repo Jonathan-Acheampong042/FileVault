@@ -749,7 +749,21 @@
         // Regular student — go to main page, pass a flag so index.html shows welcome
         showToast('✓ Signed in! Welcome back.', 'success');
         sessionStorage.setItem('fv_just_signed_in', user.email || '1');
-        setTimeout(() => { window.location.href = 'index.html'; }, 800);
+
+        // Wait for the session to be fully persisted to storage before navigating.
+        // Without this, index.html creates its Supabase client before the tokens
+        // are written, sees no session, and redirects back with "session expired".
+        let attempts = 0;
+        const confirmAndRedirect = async () => {
+            const { data: { session: confirmedSession } } = await _supabase.auth.getSession();
+            if (confirmedSession || attempts >= 10) {
+                window.location.href = 'index.html';
+            } else {
+                attempts++;
+                setTimeout(confirmAndRedirect, 150);
+            }
+        };
+        setTimeout(confirmAndRedirect, 300);
     }
 
     // ── Admin choice screen ───────────────────────────────────────
@@ -827,11 +841,22 @@
         window.location.href = 'manager.html';
     }
 
-    function _goToBrowseAsAdmin() {
+    async function _goToBrowseAsAdmin() {
         // Set a flag so index.html and profile.html know this is an admin browsing
         sessionStorage.setItem('fv_admin_browse_mode', '1');
         sessionStorage.setItem('fv_just_signed_in', '1');
-        window.location.href = 'index.html';
+        // Confirm session is persisted before navigating (same race-condition guard as student flow)
+        let attempts = 0;
+        const confirmAndRedirect = async () => {
+            const { data: { session: confirmedSession } } = await _supabase.auth.getSession();
+            if (confirmedSession || attempts >= 10) {
+                window.location.href = 'index.html';
+            } else {
+                attempts++;
+                setTimeout(confirmAndRedirect, 150);
+            }
+        };
+        setTimeout(confirmAndRedirect, 300);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1400,8 +1425,9 @@
         if (msg.includes('otp') || msg.includes('email link') || msg.includes('one-time password'))
             return 'The code or link has expired. Please request a new one.';
         if (msg.includes('jwt') || msg.includes('missing sub') || msg.includes('invalid claim') ||
-            msg.includes('refresh token') || msg.includes('session') ||
-            msg.includes('token') || msg.includes('expired'))
+            msg.includes('refresh token') || msg.includes('token is expired') ||
+            msg.includes('session_not_found') || msg.includes('session expired') ||
+            msg.includes('invalid refresh token'))
             return 'Your session has expired. Please sign in again.';
         // Generic fallback — don't expose raw internal messages
         return 'Something went wrong. Please try again or contact support if the problem persists.';
