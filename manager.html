@@ -282,6 +282,9 @@
             </div>
             <button onclick="toggleMgrHighContrast()" title="Toggle high contrast" aria-label="Toggle high contrast mode" class="text-sm text-slate-400 hover:text-white hover:bg-white/10 px-2 py-2 rounded-lg transition-all flex items-center gap-1 mr-1"><span class="material-symbols-outlined text-sm">contrast</span></button>
             <button id="mgrThemeBtn" onclick="toggleMgrTheme()" title="Toggle light/dark mode" aria-label="Toggle light/dark mode" class="text-sm text-slate-400 hover:text-white hover:bg-white/10 px-2 py-2 rounded-lg transition-all flex items-center gap-1 mr-1"><span id="mgrThemeIcon" class="material-symbols-outlined text-sm">light_mode</span></button>
+            <button onclick="browseVault()" title="Browse the Vault as a user" class="text-sm font-bold text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 px-3 py-2 rounded-lg transition-all flex items-center gap-2 border border-blue-500/20 mr-1">
+                <span class="material-symbols-outlined text-sm">folder_open</span><span class="hidden sm:inline">Browse Vault</span>
+            </button>
             <button onclick="signOut()" class="text-sm font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-2 rounded-lg transition-all flex items-center gap-2">
                 <span class="material-symbols-outlined text-sm">logout</span><span class="hidden sm:inline">Logout</span>
             </button>
@@ -3429,6 +3432,13 @@ create policy "Admins can read audit log"
     async function signOut() {
         await _supabase.auth.signOut();
         window.location.href = 'login.html';
+    }
+
+    function browseVault() {
+        // Mark as admin browsing so index.html shows the Manager Portal link in the dropdown
+        sessionStorage.setItem('fv_admin_browse_mode', '1');
+        sessionStorage.removeItem('fvFilesCache');
+        window.location.href = 'index.html';
     }
 
     // ─── OFFLINE HANDLING ───────────────────────────────────────

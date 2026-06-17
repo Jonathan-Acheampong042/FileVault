@@ -592,6 +592,11 @@
         #sidebarAvatar { width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:white;flex-shrink:0;text-transform:uppercase; }
         #sidebarUserName { font-size:12px;font-weight:700;color:#cbd5e1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
         #sidebarUserEmail { font-size:10px;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+
+        /* ── Desktop sidebar margin guarantee (fallback in case Tailwind CDN hasn't compiled lg:ml-64) ── */
+        @media (min-width: 1024px) {
+            .lg\:ml-64 { margin-left: 16rem !important; }
+        }
     </style>
 </head>
 <body class="overflow-x-hidden">
@@ -1461,6 +1466,17 @@ window.isFolderSubscribed = function(folder) {
             if (dd && !chip.contains(e.target)) dd.classList.remove('open');
         }
 
+        // ── Auth state fallback: if getSession() missed the session on redirect,
+        // onAuthStateChange will catch it and populate the UI as soon as Supabase confirms.
+        _supabase.auth.onAuthStateChange(function(event, session) {
+            if (session && session.user && !_currentUserEmail) {
+                _currentUserEmail = session.user.email || null;
+                _currentUserId = session.user.id || null;
+                window._currentUserId = _currentUserId;
+                populateProfileUI(session.user, false);
+            }
+        });
+
         async function signOutUser() {
             document.getElementById('profileDropdown') && document.getElementById('profileDropdown').classList.remove('open');
             await _supabase.auth.signOut();
@@ -1536,7 +1552,11 @@ window.isFolderSubscribed = function(folder) {
                 }
 
                 const { data: dbData, error: dbError } = await _supabase.from('files_list').select('*').order('created_at', { ascending: false });
-                if (dbError) throw dbError;
+                if (dbError) {
+                    showToast('Could not load files: ' + dbError.message, 'error');
+                    renderAll([]);
+                    return;
+                }
 
                 // Filter out files that are scheduled for a future release date
                 const now = new Date();
