@@ -525,6 +525,7 @@
                         <span class="auth-input-icon material-symbols-outlined">lock_open</span>
                         <input type="password" id="confirmPwd" class="auth-input" placeholder="Confirm new password" autocomplete="new-password" onkeydown="if(event.key==='Enter')setNewPassword()"/>
                     </div>
+                    <div id="resetCaptchaContainer"></div>
                     <button class="btn-primary" id="resetBtn" onclick="setNewPassword()" style="background:linear-gradient(135deg,#10b981,#059669)">
                         <span id="resetBtnText">Update Password</span>
                     </button>
@@ -685,6 +686,14 @@
 
     _supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === 'PASSWORD_RECOVERY') { _inRecoveryFlow = true; showReset(); return; }
+        if (event === 'SIGNED_OUT') {
+            // Reset all gate flags so a subsequent sign-in attempt goes through cleanly.
+            _redirecting    = false;
+            _mfaPending     = false;
+            _mfaFactorId    = null;
+            _mfaChallengeId = null;
+            _mfaTargetMode  = null;
+        }
         if (event === 'SIGNED_IN' && session) {
             if (_inRecoveryFlow && !_recoveryCompleted) return; // don't auto-route while reset is pending
             await routeUser(session.user);
@@ -834,6 +843,9 @@
 
     function _goToManager() {
         sessionStorage.removeItem('fv_admin_browse_mode');
+        // Persist remember-me so manager.html creates its Supabase client on
+        // the same storage bucket (localStorage vs sessionStorage) the session was written to.
+        if (_remembered) localStorage.setItem('fv_remember_me', '1');
         window.location.href = 'manager.html';
     }
 
@@ -841,6 +853,12 @@
         // Set a flag so index.html and profile.html know this is an admin browsing
         sessionStorage.setItem('fv_admin_browse_mode', '1');
         sessionStorage.setItem('fv_just_signed_in', '1');
+        // Persist the remember-me preference so index.html creates its Supabase
+        // client pointing to the same storage bucket the session was written to.
+        // Without this, index.html reads fv_remember_me as false, creates a client
+        // backed by sessionStorage, finds no tokens there, and treats the user as
+        // signed out — even though the session is sitting in localStorage.
+        if (_remembered) localStorage.setItem('fv_remember_me', '1');
         // Confirm session is persisted before navigating (same race-condition guard as student flow)
         let attempts = 0;
         const confirmAndRedirect = async () => {
@@ -1305,6 +1323,8 @@
         document.getElementById('resetSection').style.display = '';
         document.getElementById('mainTitle').textContent    = 'Set New Password';
         document.getElementById('mainSubtitle').textContent = 'Choose a strong new password below';
+        // Repaint the captcha now that the section is visible
+        setTimeout(() => _ensureCaptchaVisible('reset'), 50);
     }
 
     async function setNewPassword() {
@@ -1320,9 +1340,13 @@
         }
         if (newPwd !== confirmPwd) { setMsg('resetMsg','Passwords do not match. Please re-enter them.', 'error'); return; }
 
+        const captchaToken = _getToken('reset', 'resetMsg');
+        if (!captchaToken) { return; }
+
         setBtnLoading('resetBtn','resetBtnText','Updating…');
-        const { error } = await _supabase.auth.updateUser({ password: newPwd });
+        const { error } = await _supabase.auth.updateUser({ password: newPwd, options: { captchaToken } });
         clearBtnLoading('resetBtn','resetBtnText','Update Password');
+        try { hcaptcha.reset(_wid.reset); } catch(e) {}
 
         if (error) { setMsg('resetMsg', friendlyError(error), 'error'); return; }
         _recoveryCompleted = true;
@@ -1427,6 +1451,7 @@
         _wid.magiclink = hcaptcha.render('mlCaptchaContainer',      common);
         _wid.otp       = hcaptcha.render('otpCaptchaContainer',     common);
         _wid.forgot    = hcaptcha.render('forgotCaptchaContainer',  common);
+        _wid.reset     = hcaptcha.render('resetCaptchaContainer',   common);
     }
 
     // Ensure a captcha widget is fully visible after its panel becomes active.
