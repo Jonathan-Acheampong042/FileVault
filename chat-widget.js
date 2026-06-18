@@ -31,6 +31,45 @@ function detectPage() {
 
 const CURRENT_PAGE = detectPage();
 
+// ─── FILE DATA PROVIDER REGISTRY ─────────────────────────────
+// index.html registers itself via window.fvRegisterFileProvider(fn) instead
+// of the widget reading window.allFiles / window.currentFolder directly.
+// This breaks the tight name-coupling: if index.html ever renames those
+// variables, only the call to fvRegisterFileProvider needs updating, not
+// every place inside chat-widget.js that used to read the global.
+//
+// Usage in index.html (call once the file list is ready, or whenever it changes):
+//   window.fvRegisterFileProvider(() => ({
+//       files:  allFiles,          // the full array
+//       folder: currentFolder,     // active folder string or null
+//   }));
+//
+// The widget falls back to reading window.allFiles / window.currentFolder
+// directly so existing pages that haven't adopted the new API keep working.
+let _fvFileProvider = null;
+window.fvRegisterFileProvider = function(fn) {
+    if (typeof fn === 'function') _fvFileProvider = fn;
+};
+
+function _getFileData() {
+    if (_fvFileProvider) {
+        try {
+            const result = _fvFileProvider();
+            return {
+                files:  Array.isArray(result && result.files)  ? result.files  : [],
+                folder: (result && typeof result.folder === 'string') ? result.folder : null,
+            };
+        } catch(e) {}
+    }
+    // Legacy fallback: read globals directly (backwards-compatible)
+    return {
+        files:  (typeof window.allFiles    !== 'undefined' && Array.isArray(window.allFiles))
+                    ? window.allFiles : [],
+        folder: (typeof window.currentFolder !== 'undefined' && window.currentFolder)
+                    ? window.currentFolder : null,
+    };
+}
+
 // ─── SYSTEM PROMPTS ──────────────────────────────────────────
 
 const SYSTEM_PROMPT_USER = `You are the FileVault AI assistant helping a regular user on the USER PAGE (index.html).
@@ -473,6 +512,12 @@ function clearHistory() {
 
 const OFFLINE_QUEUE_KEY = 'fvChatOfflineQueue_' + detectPage();
 
+// Messages queued while offline are discarded after this many milliseconds.
+// A 3-day-old queued message arriving out of nowhere would be confusing and
+// out of context; 24 hours is long enough to survive a full night offline but
+// short enough to avoid stale replays.
+const OFFLINE_QUEUE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 function _queueOfflineMessage(text) {
     try {
         const q = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
@@ -482,10 +527,22 @@ function _queueOfflineMessage(text) {
     _watchForReconnect();
 }
 
+// Returns the oldest non-expired message and removes it from the queue.
+// Silently discards (without returning) any messages older than OFFLINE_QUEUE_MAX_AGE_MS
+// so stale replays never surface to the user.
 function _dequeueOfflineMessage() {
     try {
-        const q = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+        const q    = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
         if (!q.length) return null;
+        const now  = Date.now();
+        // Drop stale entries from the front before returning the next live one
+        while (q.length && (now - (q[0].ts || 0)) > OFFLINE_QUEUE_MAX_AGE_MS) {
+            q.shift(); // expired — silently discard
+        }
+        if (!q.length) {
+            localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q));
+            return null;
+        }
         const item = q.shift();
         localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q));
         return item ? item.text : null;
@@ -494,7 +551,10 @@ function _dequeueOfflineMessage() {
 
 function _pendingOfflineCount() {
     try {
-        return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]').length;
+        const now = Date.now();
+        return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]')
+            .filter(item => (now - (item.ts || 0)) <= OFFLINE_QUEUE_MAX_AGE_MS)
+            .length;
     } catch(e) { return 0; }
 }
 
@@ -782,15 +842,17 @@ async function _showNeverDownloadedFiles() {
     const bubble = appendBubble('assistant', '📊 Loading unused file analytics…');
     const msgs = document.getElementById('chatMessages');
 
-    // Pull file list from the manager page's in-memory allFiles array.
+    // Pull file list via the provider registry (or fall back to the legacy global).
     // There is no server-side /api/files proxy — this feature requires the
-    // manager page to have already loaded its file list into window.allFiles.
+    // manager page to have already loaded its file list and either called
+    // fvRegisterFileProvider() or set window.allFiles.
     let files = [];
 
-    if (typeof window.allFiles !== 'undefined' && Array.isArray(window.allFiles)) {
-        files = window.allFiles;
+    const { files: providerFiles } = _getFileData();
+    if (providerFiles.length) {
+        files = providerFiles;
     } else {
-        // allFiles is not in scope — the panel on manager.html is the reliable
+        // No files available — the panel on manager.html is the reliable
         // entry point (mgrNeverDownloadedSection). Prompt the manager to use it
         // or to wait for the library to finish loading.
         if (bubble) bubble.innerHTML = '⚠️ <strong>File list not loaded yet.</strong><br>'
@@ -2090,16 +2152,17 @@ function openQuiz() {
         showToast('Quiz is available on the main FileVault page.', 'info', 2500);
         return;
     }
-    const files = typeof allFiles !== 'undefined' ? allFiles : [];
+    const { files, folder: activeFolder } = _getFileData();
 
-    // allFiles may still be loading asynchronously when the user opens the quiz.
-    // Detect this by checking whether the variable exists but is empty AND the page
-    // appears to have finished loading. We show an in-modal loading state and poll
-    // briefly rather than presenting a silently empty experience.
+    // files may still be loading asynchronously when the user opens the quiz.
+    // Detect this by checking whether the list is empty AND the page appears to
+    // have finished loading. We show an in-modal loading state and poll briefly
+    // rather than presenting a silently empty experience.
     if (!files.length) {
         const pageFullyLoaded = document.readyState === 'complete';
-        if (!pageFullyLoaded || typeof allFiles === 'undefined') {
-            // Page or allFiles not ready yet — show a waiting state and retry
+        const providerMissing = !_fvFileProvider && typeof window.allFiles === 'undefined';
+        if (!pageFullyLoaded || providerMissing) {
+            // Page or file data not ready yet — show a waiting state and retry
             _showQuizModal();
             const titleEl    = document.getElementById('fvQuizTitle');
             const progressEl = document.getElementById('fvQuizProgress');
@@ -2120,8 +2183,8 @@ function openQuiz() {
             var _quizRetries = 0;
             var _quizPoll = setInterval(function() {
                 _quizRetries++;
-                const loaded = typeof allFiles !== 'undefined' ? allFiles : [];
-                if (loaded.length) {
+                const { files: polledFiles } = _getFileData();
+                if (polledFiles.length) {
                     clearInterval(_quizPoll);
                     openQuiz(); // retry now that files are ready
                 } else if (_quizRetries >= 10) {
@@ -2131,14 +2194,13 @@ function openQuiz() {
             }, 500);
             return;
         }
-        // Page is loaded and allFiles is genuinely empty
+        // Page is loaded and the file list is genuinely empty
         showToast('No files in the vault yet — quiz needs some content!', 'warning', 3000);
         return;
     }
-    const folder = typeof currentFolder !== 'undefined' ? currentFolder : null;
     // If a folder is active, show the scope picker; otherwise go straight to All.
-    if (folder) {
-        _showQuizScopePicker(folder, files);
+    if (activeFolder) {
+        _showQuizScopePicker(activeFolder, files);
         return;
     }
     _runQuiz(files, null);

@@ -8,6 +8,9 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 
 // ── Startup environment checks ───────────────────────────────────────────────
+if (!process.env.SUPABASE_ANON_KEY) {
+  console.warn('⚠️  WARNING: SUPABASE_ANON_KEY is not set — GET /api/config will return 503.\n');
+}
 if (!process.env.PUSH_SECRET) {
   console.warn('\n⚠️  SECURITY WARNING: PUSH_SECRET is not set.');
   console.warn('   /api/push/notify and /api/cron/expiry-check are UNPROTECTED.');
@@ -434,10 +437,13 @@ Reply with ONLY the description text — no quotes, no preamble, no extra punctu
 });
 
 // ── Expiry Notification Cron ─────────────────────────────────────────────────
-// GET /api/cron/expiry-check  { secret }
-// Checks files_list for files expiring in the next 24 hours and pushes a
-// notification to all subscribers.  Call this from a Render cron job or any
-// external scheduler once per day.
+// GET /api/cron/expiry-check  (secret via ?secret= or X-Cron-Secret header)
+// Runs two warning windows per call so a single daily cron covers both:
+//   • 72-hour window: files expiring between 48 h and 72 h from now  → early heads-up
+//   • 24-hour window: files expiring within the next 24 h             → final warning
+// Each window only sends if there are actually affected files, so quiet days
+// produce no unnecessary pushes.
+// Call once per day from a Render cron job or any external scheduler.
 app.get('/api/cron/expiry-check', async (req, res) => {
     const secret = req.query.secret || req.headers['x-cron-secret'];
     if (process.env.PUSH_SECRET && secret !== process.env.PUSH_SECRET) {
@@ -446,62 +452,97 @@ app.get('/api/cron/expiry-check', async (req, res) => {
     if (!_supa) return res.status(503).json({ error: 'Supabase not configured' });
     if (!process.env.VAPID_PUBLIC_KEY) return res.status(503).json({ error: 'Push not configured' });
 
-    try {
-        const now = new Date();
-        const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-
-        const { data: expiring, error } = await _supa
-            .from('files_list')
-            .select('file_name, folder_name, expires_at')
-            .gt('expires_at', now.toISOString())
-            .lte('expires_at', in24h.toISOString());
-
-        if (error) throw error;
-        if (!expiring || expiring.length === 0) {
-            return res.json({ ok: true, notified: 0, message: 'No files expiring in next 24h' });
-        }
-
-        // Group by folder for a compact notification body
-        const byFolder = {};
-        expiring.forEach(f => {
-            const key = f.folder_name || 'Root';
-            if (!byFolder[key]) byFolder[key] = [];
-            byFolder[key].push(f.file_name);
-        });
-
-        const folderSummaries = Object.entries(byFolder)
-            .map(([folder, files]) => `${files.length} file${files.length > 1 ? 's' : ''} in ${folder}`)
-            .join(', ');
-
-        const payload = JSON.stringify({
-            title: '⏳ Files expiring soon!',
-            body: `${folderSummaries} will be removed from the Vault within 24 hours. Download them now.`,
-            url: '/index.html',
-            icon: '/filevault%20logo.png',
-            badge: '/filevault%20logo.png'
-        });
-
+    // Helper: push a payload to all subscribers, prune dead subs, return counts.
+    async function broadcastPush(payload) {
         const allSubs = await dbGetAllSubs();
         let sent = 0, failed = 0;
-
-        // Parallel sends — mirrors the fix in /api/push/notify
         const results = await Promise.allSettled(
-            allSubs.map(subscription => webpush.sendNotification(subscription, payload))
+            allSubs.map(sub => webpush.sendNotification(sub, payload))
         );
         await Promise.all(results.map(async (result, i) => {
             if (result.status === 'fulfilled') {
                 sent++;
             } else {
                 const code = result.reason?.statusCode;
-                if (code === 410 || code === 404) {
-                    await dbDeleteSub(allSubs[i].endpoint);
-                }
+                if (code === 410 || code === 404) await dbDeleteSub(allSubs[i].endpoint);
                 failed++;
             }
         }));
+        return { total: allSubs.length, sent, failed };
+    }
 
-        console.log(`[Expiry cron] ${expiring.length} files expiring. Push sent=${sent} failed=${failed}`);
-        res.json({ ok: true, filesExpiring: expiring.length, sent, failed });
+    // Helper: group files by folder and produce a readable summary string.
+    function folderSummary(files) {
+        const byFolder = {};
+        files.forEach(f => {
+            const key = f.folder_name || 'Root';
+            if (!byFolder[key]) byFolder[key] = [];
+            byFolder[key].push(f.file_name);
+        });
+        return Object.entries(byFolder)
+            .map(([folder, fs]) => `${fs.length} file${fs.length > 1 ? 's' : ''} in ${folder}`)
+            .join(', ');
+    }
+
+    try {
+        const now    = new Date();
+        const in24h  = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const in48h  = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+        const in72h  = new Date(now.getTime() + 72 * 60 * 60 * 1000);
+
+        const report = { ok: true, windows: [] };
+
+        // ── 72-hour warning (files expiring between 48 h and 72 h out) ────────
+        // We use the 48–72 h band (not 0–72 h) so files already caught by the
+        // 24-hour window aren't double-notified on the same cron run.
+        const { data: expiring72, error: err72 } = await _supa
+            .from('files_list')
+            .select('file_name, folder_name, expires_at')
+            .gt('expires_at', in48h.toISOString())
+            .lte('expires_at', in72h.toISOString());
+        if (err72) throw err72;
+
+        if (expiring72 && expiring72.length > 0) {
+            const summary = folderSummary(expiring72);
+            const payload72 = JSON.stringify({
+                title: '📅 Files expiring in 3 days',
+                body: `${summary} will be removed from the Vault in about 72 hours. Download them soon.`,
+                url: '/index.html',
+                icon: '/filevault%20logo.png',
+                badge: '/filevault%20logo.png'
+            });
+            const counts72 = await broadcastPush(payload72);
+            console.log(`[Expiry cron][72h] ${expiring72.length} files. Push sent=${counts72.sent} failed=${counts72.failed}`);
+            report.windows.push({ window: '72h', filesExpiring: expiring72.length, ...counts72 });
+        } else {
+            report.windows.push({ window: '72h', filesExpiring: 0, message: 'No files expiring in 48–72h band' });
+        }
+
+        // ── 24-hour warning (files expiring within the next 24 h) ─────────────
+        const { data: expiring24, error: err24 } = await _supa
+            .from('files_list')
+            .select('file_name, folder_name, expires_at')
+            .gt('expires_at', now.toISOString())
+            .lte('expires_at', in24h.toISOString());
+        if (err24) throw err24;
+
+        if (expiring24 && expiring24.length > 0) {
+            const summary = folderSummary(expiring24);
+            const payload24 = JSON.stringify({
+                title: '⏳ Files expiring soon!',
+                body: `${summary} will be removed from the Vault within 24 hours. Download them now.`,
+                url: '/index.html',
+                icon: '/filevault%20logo.png',
+                badge: '/filevault%20logo.png'
+            });
+            const counts24 = await broadcastPush(payload24);
+            console.log(`[Expiry cron][24h] ${expiring24.length} files. Push sent=${counts24.sent} failed=${counts24.failed}`);
+            report.windows.push({ window: '24h', filesExpiring: expiring24.length, ...counts24 });
+        } else {
+            report.windows.push({ window: '24h', filesExpiring: 0, message: 'No files expiring in next 24h' });
+        }
+
+        res.json(report);
     } catch (err) {
         console.error('[Expiry cron] Error:', err);
         res.status(500).json({ error: err.message });
@@ -798,7 +839,74 @@ app.post('/api/delete-account', deleteAccountRateLimit, async (req, res) => {
     }
 });
 
+// ── Public config endpoint ───────────────────────────────────────────────────
+// GET /api/config
+// Returns the Supabase anon key and URL so frontend files never need them
+// hardcoded. Rotate SUPABASE_ANON_KEY in your env without touching any HTML.
+app.get('/api/config', (req, res) => {
+    const supabaseUrl  = process.env.SUPABASE_URL  || null;
+    const supabaseAnon = process.env.SUPABASE_ANON_KEY || null;
+    if (!supabaseUrl || !supabaseAnon) {
+        return res.status(503).json({ error: 'Server config not ready. Set SUPABASE_URL and SUPABASE_ANON_KEY.' });
+    }
+    res.json({ supabaseUrl, supabaseAnonKey: supabaseAnon });
+});
+
+// ── Health check ─────────────────────────────────────────────────────────────
+// GET /health  — basic liveness (used by Render, load balancers, etc.)
+// GET /api/health — extended diagnostics: checks Supabase + Groq reachability
 app.get('/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
+
+app.get('/api/health', async (req, res) => {
+    const result = {
+        status: 'ok',
+        uptime: process.uptime(),
+        supabase: 'unconfigured',
+        groq: 'unconfigured',
+    };
+
+    // ── Supabase ping (5 s timeout) ──────────────────────────────────────────
+    if (_supa) {
+        try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 5_000);
+            // A lightweight query: fetch zero rows from a known table
+            const { error } = await _supa
+                .from('files_list')
+                .select('id', { count: 'exact', head: true })
+                .abortSignal(controller.signal);
+            clearTimeout(timer);
+            result.supabase = error ? `error: ${error.message}` : 'ok';
+        } catch (err) {
+            result.supabase = err.name === 'AbortError' ? 'timeout' : `error: ${err.message}`;
+        }
+    }
+
+    // ── Groq ping (5 s timeout) ──────────────────────────────────────────────
+    if (groq) {
+        try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 5_000);
+            // Smallest possible Groq call — 1 token, no meaningful output
+            await groq.chat.completions.create(
+                {
+                    model: 'llama-3.1-8b-instant',
+                    max_tokens: 1,
+                    messages: [{ role: 'user', content: 'ping' }],
+                },
+                { signal: controller.signal }
+            );
+            clearTimeout(timer);
+            result.groq = 'ok';
+        } catch (err) {
+            result.groq = err.name === 'AbortError' ? 'timeout' : `error: ${err.message}`;
+        }
+    }
+
+    // Report degraded rather than 500 so uptime monitors still see a response
+    if (result.supabase !== 'ok' || result.groq !== 'ok') result.status = 'degraded';
+    res.status(result.status === 'ok' ? 200 : 207).json(result);
+});
 
 // ── Global error handler ─────────────────────────────────────────────────────
 // Catches any error passed to next(err) or thrown synchronously in a route.

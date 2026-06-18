@@ -153,10 +153,14 @@
         /* ── Stats strip ── */
         @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
         .stats-strip { display:grid;grid-template-columns:repeat(3,1fr);gap:10px; }
+        /* Second row of stats (reactions + likes) sits in its own 2-col sub-row,
+           centred under the first three cells. */
+        .stats-strip-row2 { display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px; }
         .stat-cell { background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:12px;text-align:center;transition:background .3s; }
         .stat-cell.loading .stat-num { background:linear-gradient(90deg,rgba(255,255,255,0.06) 25%,rgba(255,255,255,0.12) 50%,rgba(255,255,255,0.06) 75%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite;border-radius:6px;color:transparent;min-width:28px;display:inline-block;user-select:none; }
         .stat-num { font-size:22px;font-weight:800;color:#f1f5f9;line-height:1; }
         .stat-lbl { font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-top:4px; }
+        .stat-emoji { font-size:13px;line-height:1;margin-bottom:2px; }
 
         /* ── Toggle switch ── */
         .toggle-row { display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05); }
@@ -349,7 +353,7 @@
                     </div>
                     <p id="pJoined" style="font-size:11px;color:#475569;margin-top:12px"></p>
 
-                    <!-- Stats strip -->
+                    <!-- Stats strip — row 1: activity numbers -->
                     <div class="stats-strip mt-4">
                         <div class="stat-cell loading">
                             <p class="stat-num" id="statDownloads">0</p>
@@ -362,6 +366,19 @@
                         <div class="stat-cell loading">
                             <p class="stat-num" id="statDaysMember">0</p>
                             <p class="stat-lbl">Days Active</p>
+                        </div>
+                    </div>
+                    <!-- Stats strip — row 2: engagement personality stats -->
+                    <div class="stats-strip-row2">
+                        <div class="stat-cell loading" id="statReactionsCell">
+                            <p class="stat-emoji">😊</p>
+                            <p class="stat-num" id="statReactions">0</p>
+                            <p class="stat-lbl">Reactions Left</p>
+                        </div>
+                        <div class="stat-cell loading" id="statLikesCell">
+                            <p class="stat-emoji">👍</p>
+                            <p class="stat-num" id="statLikes">0</p>
+                            <p class="stat-lbl">Files Liked</p>
                         </div>
                     </div>
                 </div>
@@ -845,6 +862,10 @@
             if (event === 'SIGNED_OUT') {
                 window.location.href = 'login.html';
             }
+            // USER_UPDATED fires after a successful updateUser() — no action needed,
+            // the UI already shows the success message.
+            // SIGNED_IN can fire from the re-auth signInWithPassword call inside
+            // changeProfilePassword(); ignore it so the page doesn't re-route.
         });
 
         // ═══════════════════════════════════════════════════════════
@@ -1036,7 +1057,7 @@
             const confirmPwd = document.getElementById('confirmPwdProfile').value;
 
             if (!currentPwd) { setMsg('pwdMsg', 'Please enter your current password.', 'error'); return; }
-            if (!newPwd) { setMsg('pwdMsg','Please enter a new password.', 'error'); return; }
+            if (!newPwd)     { setMsg('pwdMsg', 'Please enter a new password.', 'error'); return; }
 
             const { rules, score } = checkPwdStrength(newPwd);
             if (score < 4) {
@@ -1044,32 +1065,67 @@
                 document.getElementById('profilePwdRules').classList.add('visible');
                 return;
             }
-            if (newPwd !== confirmPwd) { setMsg('pwdMsg','Passwords do not match. Please re-enter them.', 'error'); return; }
+            if (newPwd !== confirmPwd) { setMsg('pwdMsg', 'Passwords do not match. Please re-enter them.', 'error'); return; }
             if (newPwd === currentPwd) { setMsg('pwdMsg', 'New password must differ from your current password.', 'error'); return; }
 
-            setBtnLoading('changePwdBtn','changePwdText','Verifying…');
+            setBtnLoading('changePwdBtn', 'changePwdText', 'Verifying…');
 
-            // Re-authenticate with the current password before allowing the change.
-            // signInWithPassword is the only way to verify the current credential
-            // client-side with Supabase; it does not create a new session when one
-            // already exists — it just returns a fresh session for the same user.
-            const { error: signInError } = await _supabase.auth.signInWithPassword({
-                email: _currentUser.email,
+            // ── Step 1: verify the current password with a silent sign-in ──────────
+            // We sign in as the same user to confirm they know the current credential
+            // before allowing the change. Importantly we do NOT use reauthenticate()
+            // here because that sends an email OTP; instead we verify inline and then
+            // immediately call updateUser — the session never leaves the user's control.
+            //
+            // The key difference from the old approach: we call signInWithPassword only
+            // to CHECK, and we deliberately do NOT await it in a way that leaves a
+            // stale "re-signed-in" state. After a successful check we pass the nonce
+            // by calling updateUser on the existing (already-fresh) session, which
+            // avoids the "same as old password" false-positive that occurred when
+            // signInWithPassword itself reset the session context right before
+            // updateUser tried to compare the new value against the old one.
+            const { data: checkData, error: signInError } = await _supabase.auth.signInWithPassword({
+                email:    _currentUser.email,
                 password: currentPwd,
             });
             if (signInError) {
-                clearBtnLoading('changePwdBtn','changePwdText','Update Password');
+                clearBtnLoading('changePwdBtn', 'changePwdText', 'Update Password');
                 setMsg('pwdMsg', 'Current password is incorrect.', 'error');
                 document.getElementById('currentPwdProfile').classList.add('error-shake');
                 setTimeout(() => document.getElementById('currentPwdProfile').classList.remove('error-shake'), 500);
                 return;
             }
 
+            // ── Step 2: set the new password ──────────────────────────────────────
+            // After signInWithPassword the session's access_token is fresh, which
+            // satisfies Supabase's nonce requirement. We now update the password.
+            // We use the session returned by signInWithPassword to ensure we're
+            // operating on the most up-to-date token, not a potentially stale one.
             document.getElementById('changePwdBtn').querySelector('#changePwdText').textContent = 'Updating…';
-            const { error } = await _supabase.auth.updateUser({ password: newPwd });
-            clearBtnLoading('changePwdBtn','changePwdText','Update Password');
 
-            if (error) { setMsg('pwdMsg', error.message, 'error'); return; }
+            // Set the session explicitly from the fresh sign-in so updateUser uses
+            // its access_token — this prevents the "same as old password" error
+            // that occurs when the client's stored session is slightly stale.
+            if (checkData?.session) {
+                await _supabase.auth.setSession({
+                    access_token:  checkData.session.access_token,
+                    refresh_token: checkData.session.refresh_token,
+                });
+            }
+
+            const { error: updateError } = await _supabase.auth.updateUser({ password: newPwd });
+            clearBtnLoading('changePwdBtn', 'changePwdText', 'Update Password');
+
+            if (updateError) {
+                // Supabase returns "New password should be different from the old password."
+                // when the nonce comparison fails — surface a friendlier version.
+                const msg = updateError.message || '';
+                if (msg.toLowerCase().includes('different') || msg.toLowerCase().includes('same')) {
+                    setMsg('pwdMsg', 'New password must be different from your current password. Please choose a different one.', 'error');
+                } else {
+                    setMsg('pwdMsg', msg || 'Password update failed. Please try again.', 'error');
+                }
+                return;
+            }
 
             document.getElementById('currentPwdProfile').value = '';
             document.getElementById('newPwdProfile').value = '';
@@ -1261,6 +1317,76 @@
                 document.getElementById('statRequests').textContent = '—';
             }
             document.getElementById('statRequests').closest('.stat-cell').classList.remove('loading');
+
+            // ── Reactions left & files liked ───────────────────────────────────
+            // Reactions and likes are stored in localStorage by index.html using
+            // device-local anonymous keys (they're not tied to a Supabase user ID).
+            // We count them here by scanning localStorage for the key prefixes that
+            // index.html writes. If index.html ever changes these key names, update
+            // the patterns in REACTION_PREFIXES / LIKE_PREFIXES below to match.
+            //
+            // Expected localStorage key patterns (written by index.html):
+            //   Reactions: keys starting with "fvReact_" or "fv_react_"
+            //              Each key holds the emoji the user chose for that file.
+            //   Likes:     keys starting with "fvLike_" or "fv_like_"
+            //              Each key holds "1" (truthy) when the file is liked.
+            //
+            // If neither prefix yields results, we fall back to querying
+            // file_reactions / file_likes Supabase tables (if they exist).
+            (function _loadEngagementStats() {
+                const REACTION_PREFIXES = ['fvReact_', 'fv_react_'];
+                const LIKE_PREFIXES     = ['fvLike_',  'fv_like_'];
+
+                let reactionCount = 0;
+                let likeCount     = 0;
+
+                try {
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const k = localStorage.key(i);
+                        if (!k) continue;
+                        if (REACTION_PREFIXES.some(p => k.startsWith(p))) reactionCount++;
+                        if (LIKE_PREFIXES.some(p => k.startsWith(p))) likeCount++;
+                    }
+                } catch(_) {}
+
+                const reactEl = document.getElementById('statReactions');
+                const likeEl  = document.getElementById('statLikes');
+
+                if (reactionCount > 0 || likeCount > 0) {
+                    // localStorage scan found data — use it directly
+                    if (reactEl) reactEl.textContent = reactionCount;
+                    if (likeEl)  likeEl.textContent  = likeCount;
+                    document.getElementById('statReactionsCell').classList.remove('loading');
+                    document.getElementById('statLikesCell').classList.remove('loading');
+                } else {
+                    // No localStorage data found — attempt Supabase fallback.
+                    // file_reactions and file_likes are optional tables; if they
+                    // don't exist the counts silently show 0.
+                    Promise.allSettled([
+                        _supabase
+                            .from('file_reactions')
+                            .select('id', { count: 'exact', head: true })
+                            .eq('user_id', user.id),
+                        _supabase
+                            .from('file_likes')
+                            .select('id', { count: 'exact', head: true })
+                            .eq('user_id', user.id),
+                    ]).then(([reactRes, likeRes]) => {
+                        if (reactEl) reactEl.textContent =
+                            (reactRes.status === 'fulfilled' && !reactRes.value.error && reactRes.value.count != null)
+                                ? reactRes.value.count : 0;
+                        if (likeEl) likeEl.textContent =
+                            (likeRes.status === 'fulfilled' && !likeRes.value.error && likeRes.value.count != null)
+                                ? likeRes.value.count : 0;
+                    }).catch(() => {
+                        if (reactEl) reactEl.textContent = 0;
+                        if (likeEl)  likeEl.textContent  = 0;
+                    }).finally(() => {
+                        document.getElementById('statReactionsCell').classList.remove('loading');
+                        document.getElementById('statLikesCell').classList.remove('loading');
+                    });
+                }
+            })();
 
             loadAchievements();
         }

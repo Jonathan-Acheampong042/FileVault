@@ -601,6 +601,7 @@
     </div>
 
     <script>
+    (async function () {
     // ═══════════════════════════════════════════════════════════════
     // CONFIG
     // ═══════════════════════════════════════════════════════════════
@@ -620,18 +621,36 @@
     // Fix: always store the session in localStorage. "Remember me" now only
     // controls whether we write fv_remember_me so the checkbox stays ticked on
     // the next visit; it no longer controls the storage engine.
-    const _supabase = supabase.createClient(
-        'https://lvhecpvwpzmstciewziv.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI',
-        {
-            auth: {
-                storage: window.localStorage,   // always localStorage — see comment above
-                persistSession: true,
-                autoRefreshToken: true,
-                detectSessionInUrl: true,
+    // ── Supabase client (credentials fetched from server, never hardcoded) ──────
+    // GET /api/config returns { supabaseUrl, supabaseAnonKey } so rotating the
+    // anon key only requires an env-var change on the server, not a redeploy here.
+    const _API_BASE = window.location.hostname === 'localhost'
+        ? 'http://localhost:3000'
+        : 'https://project-one-187u.onrender.com';
+
+    let _supabase;
+    try {
+        const _cfgRes = await fetch(`${_API_BASE}/api/config`);
+        if (!_cfgRes.ok) throw new Error(`Config fetch failed: ${_cfgRes.status}`);
+        const _cfg = await _cfgRes.json();
+        _supabase = supabase.createClient(
+            _cfg.supabaseUrl,
+            _cfg.supabaseAnonKey,
+            {
+                auth: {
+                    storage: window.localStorage,   // always localStorage — see comment above
+                    persistSession: true,
+                    autoRefreshToken: true,
+                    detectSessionInUrl: true,
+                }
             }
-        }
-    );
+        );
+    } catch (_cfgErr) {
+        console.error('[login] Could not load Supabase config:', _cfgErr);
+        // Surface a user-facing error rather than a cryptic JS crash further down
+        document.body.innerHTML = '<p style="color:#f87171;padding:2rem;font-family:sans-serif">⚠️ Could not connect to FileVault. Please try again in a moment.</p>';
+        throw _cfgErr; // halt script execution
+    }
 
     // Keep the checkbox visually in sync with the saved preference on page load
     document.addEventListener('DOMContentLoaded', () => {
@@ -1372,16 +1391,57 @@
         clearBtnLoading('resetBtn','resetBtnText','Update Password');
 
         if (error) {
-            setMsg('resetMsg', friendlyError(error), 'error');
+            const msg = error.message || '';
+            if (msg.toLowerCase().includes('different') || msg.toLowerCase().includes('same')) {
+                setMsg('resetMsg', 'Your new password must be different from your previous password. Please choose a different one.', 'error');
+            } else {
+                setMsg('resetMsg', friendlyError(error), 'error');
+            }
             // The recovery session is still active at this point so the user can
             // retry immediately — but make sure they aren't left silently signed
             // in under it if they wander off without finishing. See the pagehide
             // safety net below for the navigate-away case.
             return;
         }
+
+        // ── Success: mark completed BEFORE navigating so pagehide doesn't
+        // sign out the fresh session that updateUser just established. ──────────
         _recoveryCompleted = true;
-        setMsg('resetMsg','✅ Password updated! You\'re now signed in — redirecting you to your vault…', 'success');
-        setTimeout(() => { sessionStorage.removeItem('fvFilesCache'); window.location.href = 'index.html'; }, 2000);
+        // Remove the recovery hash from the URL immediately so that if the
+        // redirect is slow, a page refresh doesn't re-enter recovery mode.
+        history.replaceState(null, '', window.location.pathname);
+
+        setMsg('resetMsg','✅ Password updated! Signing you in — redirecting to your vault…', 'success');
+
+        // Sign out of the recovery-specific session, then sign back in with the
+        // new password so the user lands on index.html with a clean, normal session
+        // rather than a recovery-scoped one. This is what prevents "incorrect
+        // password" on next login — the recovery token is fully consumed and
+        // replaced with a regular session.
+        setTimeout(async () => {
+            // Get the user's email before we sign out of the recovery session
+            const { data: { user } } = await _supabase.auth.getUser();
+            const email = user?.email;
+
+            // Sign out of the recovery session so it can't linger
+            await _supabase.auth.signOut({ scope: 'local' });
+
+            if (email) {
+                // Sign back in with the new password to create a fresh normal session
+                const { error: signInErr } = await _supabase.auth.signInWithPassword({
+                    email,
+                    password: newPwd,
+                });
+                if (signInErr) {
+                    // Unlikely — but if sign-in fails, send them to login to do it manually
+                    window.location.href = 'login.html';
+                    return;
+                }
+            }
+
+            sessionStorage.removeItem('fvFilesCache');
+            window.location.href = 'index.html';
+        }, 1800);
     }
 
     // Cancel an in-progress password reset: sign out of the temporary
@@ -1657,6 +1717,7 @@
     // Keyboard shortcuts
     window.addEventListener('offline',  () => showToast('You are offline — check your connection.', 'error'));
     window.addEventListener('online',   () => showToast('Back online!', 'success'));
+    })(); // end async IIFE
     </script>
 </body>
 </html>

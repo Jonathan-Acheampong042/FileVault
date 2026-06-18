@@ -23,4 +23,20 @@
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
+
+  <!-- Student-facing request form — discoverable, medium priority -->
+  <url>
+    <loc>https://filevault.works/upload-request.html</loc>
+    <lastmod>2026-06-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- User profile page — authenticated only, low search value -->
+  <url>
+    <loc>https://filevault.works/profile.html</loc>
+    <lastmod>2026-06-18</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
 </urlset>

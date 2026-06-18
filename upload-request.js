@@ -1,17 +1,26 @@
-(function () {
-// Everything in this file is scoped inside this IIFE so none of it leaks onto
+(async function () {
+// Everything in this file is scoped inside this async IIFE so none of it leaks onto
 // window — this file can never collide with chat-widget.js or any other script
 // you load on a page later, regardless of variable/function naming overlap.
 'use strict';
 
-        const _supabase = supabase.createClient(
-            'https://lvhecpvwpzmstciewziv.supabase.co',
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI'
-        );
-
         const _PUSH_API = window.location.hostname === 'localhost'
             ? 'http://localhost:3000'
             : 'https://project-one-187u.onrender.com';
+
+        // ── Supabase client (credentials fetched from server, never hardcoded) ──
+        let _supabase;
+        try {
+            const _cfgRes = await fetch(`${_PUSH_API}/api/config`);
+            if (!_cfgRes.ok) throw new Error(`Config fetch failed: ${_cfgRes.status}`);
+            const _cfg = await _cfgRes.json();
+            _supabase = supabase.createClient(_cfg.supabaseUrl, _cfg.supabaseAnonKey);
+        } catch (_cfgErr) {
+            console.error('[upload-request] Could not load Supabase config:', _cfgErr);
+            const gate = document.getElementById('authGate');
+            if (gate) gate.innerHTML = '<p style="color:#f87171;padding:1rem">⚠️ Could not connect to FileVault. Please refresh and try again.</p>';
+            return; // halt — nothing else in this file will work without Supabase
+        }
 
         // ── Auth gate: only logged-in users may submit a request ──────
         // Non-account visitors see a "Create an account" wall instead of the form.

@@ -1007,11 +1007,23 @@ create policy "Admins can read audit log"
     </main>
 
     <script>
-    // ─── SUPABASE ───────────────────────────────────────────────
-    const _supabase = supabase.createClient(
-        'https://lvhecpvwpzmstciewziv.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI'
-    );
+    (async function () {
+    // ─── SUPABASE (credentials fetched from server, never hardcoded) ────────────
+    const _API_BASE = window.location.hostname === 'localhost'
+        ? 'http://localhost:3000'
+        : 'https://project-one-187u.onrender.com';
+
+    let _supabase;
+    try {
+        const _cfgRes = await fetch(`${_API_BASE}/api/config`);
+        if (!_cfgRes.ok) throw new Error(`Config fetch failed: ${_cfgRes.status}`);
+        const _cfg = await _cfgRes.json();
+        _supabase = supabase.createClient(_cfg.supabaseUrl, _cfg.supabaseAnonKey);
+    } catch (_cfgErr) {
+        console.error('[manager] Could not load Supabase config:', _cfgErr);
+        document.body.innerHTML = '<p style="color:#f87171;padding:2rem;font-family:sans-serif">⚠️ Could not connect to FileVault. Please try again in a moment.</p>';
+        throw _cfgErr;
+    }
     const ADMIN_EMAIL_ALLOWLIST = ['admin@nharnharblay21@gmail.com'];
     let allFiles = [];
     let availableFolders = [];
@@ -2567,8 +2579,11 @@ create policy "Admins can read audit log"
     // XHR-based upload so we get real progress events
     function uploadWithProgress(path, file) {
         return new Promise(async (resolve) => {
-            const SUPABASE_URL = 'https://lvhecpvwpzmstciewziv.supabase.co';
-            const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI';
+            // Pull URL and anon key from the already-initialised _supabase client
+            // so they're never hardcoded here. The client stores them internally;
+            // we read them back via the public getters Supabase JS exposes.
+            const SUPABASE_URL = _supabase.storageUrl.replace('/storage/v1', '');
+            const ANON_KEY = _supabase.supabaseKey;
 
             // Always prefer the live session token; fall back to anon key
             let authToken = ANON_KEY;
@@ -4598,6 +4613,7 @@ create policy "Admins can read audit log"
             console.warn('Dashboard stats failed:', err.message);
         }
     }
+    })(); // end async IIFE
     </script>
     <!-- Analytics sections — inside wrapper so they inherit overflow and layout correctly -->
     <div style="max-width:896px;margin:0 auto;padding:0 16px 8px">

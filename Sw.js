@@ -1,19 +1,32 @@
 // FileVault Service Worker — v2
 // HTML pages always fetched fresh; static assets cached for speed
 
-// Cache version is derived automatically from the list of precached URLs.
-// Changing PRECACHE_URLS (add, remove, or rename any entry) will produce a
-// new hash → new cache name → old cache is evicted on activate.
-// You no longer need to remember to bump a version string by hand.
+// ── How cache invalidation works ────────────────────────────────────────────
 //
-// IMPORTANT — what this hash does NOT cover:
-// The hash is computed from the URL strings in PRECACHE_URLS, not from the
-// actual file contents on disk. Updating a precached file (e.g. screen.png)
-// without also touching this list will NOT invalidate the cache name, so
-// users could continue receiving the old copy from cache.
+// TWO-PART cache name:  filevault-<urlHash>-v<ASSET_VERSION>
+//
+// Part 1 — URL hash (automatic):
+//   Computed from the list of URLs in PRECACHE_URLS below. Adding, removing,
+//   or renaming any entry produces a new hash → new cache name → old cache
+//   evicted on activate. You don't need to touch anything by hand for this.
+//
+// Part 2 — ASSET_VERSION (manual):
+//   Bump this number whenever you update a precached FILE's CONTENTS without
+//   changing its URL (e.g. redesigning screen.png, updating the logo).
+//   The URL hash alone won't change in that case because the list of URLs
+//   stays the same — only ASSET_VERSION forces a new cache name.
+//
+//   Examples:
+//     Updated filevault%20logo.png on disk? Bump ASSET_VERSION.
+//     Replaced screen.png with a new screenshot? Bump ASSET_VERSION.
+//     Added a brand-new file to PRECACHE_URLS? URL hash handles it automatically.
+//     Removed a file from PRECACHE_URLS? URL hash handles it automatically.
+//
 // chat-widget.js is intentionally excluded from PRECACHE_URLS and is served
 // network-first (see fetch handler below), so its on-disk changes are always
-// picked up on the next online request regardless of the hash.
+// picked up on the next online request regardless of either value.
+const ASSET_VERSION = 1; // ← bump this when precached file contents change
+
 const PRECACHE_URLS = [
     '/index.html',            // offline fallback page — must be cached on install
     '/filevault%20logo.png',
@@ -30,7 +43,7 @@ const _cacheHash = (function(urls) {
     return (h >>> 0).toString(16).padStart(8, '0');
 })(PRECACHE_URLS);
 
-const CACHE_NAME = 'filevault-' + _cacheHash;
+const CACHE_NAME = 'filevault-' + _cacheHash + '-v' + ASSET_VERSION;
 
 // ── Install: pre-cache static assets only ──
 self.addEventListener('install', event => {
