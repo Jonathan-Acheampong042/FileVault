@@ -13,14 +13,34 @@
             ? 'http://localhost:3000'
             : 'https://project-one-187u.onrender.com';
 
-        // ── Capture the logged-in user's email so the row can be matched
-        // back to them via realtime when the request is approved ──
+        // ── Auth gate: only logged-in users may submit a request ──────
+        // Non-account visitors see a "Create an account" wall instead of the form.
         var _requesterEmail = null;
+        var _isAuthenticated = false;
+
         (async function() {
             try {
                 const { data: { session } } = await _supabase.auth.getSession();
-                if (session && session.user) _requesterEmail = session.user.email || null;
+                if (session && session.user) {
+                    _requesterEmail = session.user.email || null;
+                    _isAuthenticated = true;
+                }
             } catch(e) {}
+
+            const gate = document.getElementById('authGate');
+            const form = document.getElementById('requestForm');
+            const pushRow = document.querySelector('.form-group[style*="display:flex"]') ||
+                            document.getElementById('req_push_optin')?.closest('.form-group');
+
+            if (!_isAuthenticated) {
+                // Show the gate, hide the form and the push opt-in row
+                if (gate) gate.style.display = 'block';
+                if (form) form.style.display = 'none';
+            } else {
+                // Authenticated — gate stays hidden, form is visible (default)
+                if (gate) gate.style.display = 'none';
+                if (form) form.style.display = '';
+            }
         })();
 
         // ── Capture push subscription so manager can ping you on approval ──
@@ -315,6 +335,13 @@
 
         document.getElementById('requestForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+
+            // Safety net: block submission if the user somehow isn't authenticated
+            if (!_isAuthenticated) {
+                showToast('Please create an account or sign in to submit a request.', 'error');
+                return;
+            }
+
             const filename = document.getElementById('req_filename').value.trim();
             const reason = document.getElementById('req_reason').value.trim();
 

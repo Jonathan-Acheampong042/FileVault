@@ -43,6 +43,7 @@
     <title>FileVault | Sign In</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://js.hcaptcha.com/1/api.js?onload=hcaptchaReady&render=explicit" async defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     <link rel="icon" href="filevault%20logo.png">
@@ -241,7 +242,6 @@
                                 <span id="sEye" class="material-symbols-outlined" style="font-size:18px">visibility</span>
                             </button>
                         </div>
-                        <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
 
                         <div class="flex items-center justify-between">
                             <label class="flex items-center gap-2 cursor-pointer select-none" title="Keeps you signed in across browser restarts for up to 30 days">
@@ -250,7 +250,7 @@
                             </label>
                             <button onclick="openForgotPassword()" style="background:none;border:none;cursor:pointer;color:#60a5fa;font-size:13px;font-weight:600;font-family:inherit">Forgot password?</button>
                         </div>
-                        <div class="h-captcha" data-sitekey="f7dcb47a-d48c-48fe-b802-401c1bc48492"></div>
+                        <div id="signinCaptchaContainer"></div>
 
                         <button class="btn-primary" id="sSignInBtn" onclick="studentSignIn()">
                             <span id="sSignInText">Sign In</span>
@@ -324,6 +324,7 @@
                         <button class="btn-primary" id="sSignUpBtn" onclick="studentSignUp()">
                             <span id="sSignUpText">Create Account</span>
                         </button>
+                        <div id="signupCaptchaContainer"></div>
                     </div>
                     <p id="sSignUpMsg" class="mt-3 text-center text-sm min-h-5" aria-live="polite" aria-atomic="true"></p>
                 </div>
@@ -422,6 +423,7 @@
                             <span class="auth-input-icon material-symbols-outlined">mail</span>
                             <input type="email" id="mlEmail" class="auth-input" placeholder="Your email address" autocomplete="email" onkeydown="if(event.key==='Enter')sendMagicLink()"/>
                         </div>
+                        <div id="mlCaptchaContainer"></div>
                         <button class="btn-primary" id="mlBtn" onclick="sendMagicLink()">
                             <span id="mlBtnText">Send Magic Link</span>
                         </button>
@@ -447,6 +449,7 @@
                                 <span class="auth-input-icon material-symbols-outlined">mail</span>
                                 <input type="email" id="otpEmail" class="auth-input" placeholder="Your email address" autocomplete="email" onkeydown="if(event.key==='Enter')sendOTP()"/>
                             </div>
+                            <div id="otpCaptchaContainer"></div>
                             <button class="btn-primary" id="otpSendBtn" onclick="sendOTP()">
                                 <span id="otpSendText">Send Code</span>
                             </button>
@@ -546,6 +549,7 @@
                         <span class="auth-input-icon material-symbols-outlined">mail</span>
                         <input type="email" id="forgotEmail" class="auth-input" placeholder="Your email address" autocomplete="email" onkeydown="if(event.key==='Enter')sendPasswordReset()"/>
                     </div>
+                    <div id="forgotCaptchaContainer"></div>
                     <button class="btn-primary" id="forgotBtn" onclick="sendPasswordReset()">
                         <span id="forgotBtnText">Send Reset Link</span>
                     </button>
@@ -879,27 +883,27 @@
         if (!isValidEmail(email)){ showSignInAlert('Please enter a valid email address (e.g. name@university.edu).', 'error'); document.getElementById('sEmail').classList.add('input-error'); shake('sSignInBtn'); return; }
         if (!pwd)                { showSignInAlert('Please enter your password.', 'error'); document.getElementById('sPassword').classList.add('input-error'); shake('sSignInBtn'); return; }
 
-        // Clear any previous error state on the inputs
         document.getElementById('sEmail').classList.remove('input-error');
         document.getElementById('sPassword').classList.remove('input-error');
         clearSignInAlert();
 
-        // Persist the remember-me preference so it's applied on the next page load
-        // (the storage adapter was chosen at client-init time based on the previous value;
-        //  if the user changed the checkbox this session the new preference takes effect
-        //  on the NEXT visit, which is the standard browser pattern).
-        // Get the hCaptcha token before calling Supabase
-const captchaToken = hcaptcha.getResponse();
-if (!captchaToken) {
-    showSignInAlert('Please complete the CAPTCHA.', 'error');
-    return;
-}
+        // Get the visible captcha token
+        const captchaToken = _getToken('signin', null);
+        if (!captchaToken) {
+            showSignInAlert('Please complete the CAPTCHA.', 'error');
+            shake('sSignInBtn');
+            return;
+        }
 
-const { data, error } = await _supabase.auth.signInWithPassword({
-    email,
-    password: pwd,
-    options: { captchaToken }   // ← add this
-});
+        setBtnLoading('sSignInBtn','sSignInText','Signing in…');
+        const { data, error } = await _supabase.auth.signInWithPassword({
+            email,
+            password: pwd,
+            options: { captchaToken }
+        });
+        clearBtnLoading('sSignInBtn','sSignInText','Sign In');
+        // Reset the visible captcha so it can be used again on failure
+        try { hcaptcha.reset(_wid.signin); } catch(e) {}
 
         if (error) {
             if (error.message && error.message.toLowerCase().includes('email not confirmed')) {
@@ -907,7 +911,6 @@ const { data, error } = await _supabase.auth.signInWithPassword({
                 showSignInAlert(resendLink, 'error');
             } else if (error.message && (error.message.toLowerCase().includes('invalid login') || error.message.toLowerCase().includes('invalid credentials'))) {
                 showSignInAlert('Incorrect email or password. Please check your details and try again.', 'error');
-                // Highlight the password field to point to where the likely mistake is
                 document.getElementById('sPassword').classList.add('input-error');
                 document.getElementById('sPassword').value = '';
                 document.getElementById('sPassword').focus();
@@ -919,10 +922,7 @@ const { data, error } = await _supabase.auth.signInWithPassword({
         }
         clearSignInAlert();
 
-        // ── Two-factor: if this account has TOTP MFA enrolled, Supabase
-        // will require an aal2 session before issuing a full session ──
         if (await checkMfaRequired('student')) return;
-
         await routeUser(data.user);
     }
 
@@ -954,17 +954,19 @@ const { data, error } = await _supabase.auth.signInWithPassword({
         }
 
         setBtnLoading('sSignUpBtn','sSignUpText','Creating account…');
-        const { error } = await _supabase.auth.signUp({
-            email, password: pwd,
-            options: { data: { display_name: name } }
-        });
+
+        const captchaToken = _getToken('signup', 'sSignUpMsg');
+        if (!captchaToken) { clearBtnLoading('sSignUpBtn','sSignUpText','Create Account'); return; }
+
+        const signUpOpts = { data: { display_name: name } };
+        if (captchaToken) signUpOpts.captchaToken = captchaToken;
+
+        const { error } = await _supabase.auth.signUp({ email, password: pwd, options: signUpOpts });
         clearBtnLoading('sSignUpBtn','sSignUpText','Create Account');
 
         if (error) { setMsg('sSignUpMsg', friendlyError(error), 'error'); return; }
 
-        // Success — show the persistent confirmation panel
         _signUpEmail = email;
-        // Persist so returning users see the banner if they reload before confirming
         try { sessionStorage.setItem('fv_pending_confirm_email', email); } catch(e) {}
         _showConfirmPending(email);
     }
@@ -1041,15 +1043,16 @@ const { data, error } = await _supabase.auth.signInWithPassword({
     async function sendMagicLink() {
         const email = (document.getElementById('mlEmail').value || '').trim();
         if (!email) { setMsg('mlMsg','Please enter your email address.', 'error'); return; }
+        if (!isValidEmail(email)) { setMsg('mlMsg','Please enter a valid email address.', 'error'); return; }
 
         setBtnLoading('mlBtn','mlBtnText','Sending…');
-        const { error } = await _supabase.auth.signInWithOtp({
-            email,
-            options: {
-                emailRedirectTo: window.location.origin + '/login.html',
-                shouldCreateUser: true
-            }
-        });
+
+        const captchaToken = _getToken('magiclink', 'mlMsg');
+        if (!captchaToken) { clearBtnLoading('mlBtn','mlBtnText','Send Magic Link'); return; }
+
+        const opts = { emailRedirectTo: window.location.origin + '/login.html', shouldCreateUser: true };
+        if (captchaToken) opts.captchaToken = captchaToken;
+        const { error } = await _supabase.auth.signInWithOtp({ email, options: opts });
         clearBtnLoading('mlBtn','mlBtnText','Send Magic Link');
 
         if (error) { setMsg('mlMsg', friendlyError(error), 'error'); return; }
@@ -1062,21 +1065,24 @@ const { data, error } = await _supabase.auth.signInWithPassword({
     async function sendOTP() {
         const email = (document.getElementById('otpEmail').value || '').trim();
         if (!email) { setMsg('otpSendMsg','Please enter your email address.', 'error'); return; }
+        if (!isValidEmail(email)) { setMsg('otpSendMsg','Please enter a valid email address.', 'error'); return; }
         _otpEmail = email;
 
         setBtnLoading('otpSendBtn','otpSendText','Sending code…');
-        const { error } = await _supabase.auth.signInWithOtp({
-            email,
-            options: { shouldCreateUser: true }
-        });
+
+        const captchaToken = _getToken('otp', 'otpSendMsg');
+        if (!captchaToken) { clearBtnLoading('otpSendBtn','otpSendText','Send Code'); return; }
+
+        const opts = { shouldCreateUser: true };
+        if (captchaToken) opts.captchaToken = captchaToken;
+        const { error } = await _supabase.auth.signInWithOtp({ email: _otpEmail, options: opts });
         clearBtnLoading('otpSendBtn','otpSendText','Send Code');
 
         if (error) { setMsg('otpSendMsg', friendlyError(error), 'error'); return; }
 
-        // Move to step 2
         document.getElementById('otpStep1').style.display = 'none';
         document.getElementById('otpStep2').style.display = '';
-        document.getElementById('otpEmailDisplay').textContent = email;
+        document.getElementById('otpEmailDisplay').textContent = _otpEmail;
         document.getElementById('otp0').focus();
         setMsg('otpSendMsg','', 'info');
     }
@@ -1259,9 +1265,13 @@ const { data, error } = await _supabase.auth.signInWithPassword({
         if (!isValidEmail(email)) { setMsg('forgotMsg','Please enter a valid email address (e.g. name@university.edu).', 'error'); return; }
 
         setBtnLoading('forgotBtn','forgotBtnText','Sending…');
-        const { error } = await _supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: 'https://filevault.works/login.html'
-        });
+
+        const captchaToken = _getToken('forgot', 'forgotMsg');
+        if (!captchaToken) { clearBtnLoading('forgotBtn','forgotBtnText','Send Reset Link'); return; }
+
+        const opts = { redirectTo: 'https://filevault.works/login.html' };
+        if (captchaToken) opts.captchaToken = captchaToken;
+        const { error } = await _supabase.auth.resetPasswordForEmail(email, opts);
         clearBtnLoading('forgotBtn','forgotBtnText','Send Reset Link');
 
         if (error) { setMsg('forgotMsg', friendlyError(error), 'error'); return; }
@@ -1378,6 +1388,37 @@ const { data, error } = await _supabase.auth.signInWithPassword({
         );
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // HCAPTCHA — explicit render, all widgets visible
+    // hcaptchaReady() is called by the API script's onload= param.
+    // ═══════════════════════════════════════════════════════════════
+    const HCAPTCHA_SITEKEY = 'f7dcb47a-d48c-48fe-b802-401c1bc48492';
+
+    // Stores numeric widget IDs assigned by hCaptcha after explicit render
+    const _wid = {};
+
+    function hcaptchaReady() {
+        const common = { sitekey: HCAPTCHA_SITEKEY, theme: 'dark' };
+
+        _wid.signin    = hcaptcha.render('signinCaptchaContainer',  common);
+        _wid.signup    = hcaptcha.render('signupCaptchaContainer',  common);
+        _wid.magiclink = hcaptcha.render('mlCaptchaContainer',      common);
+        _wid.otp       = hcaptcha.render('otpCaptchaContainer',     common);
+        _wid.forgot    = hcaptcha.render('forgotCaptchaContainer',  common);
+    }
+
+    // Read the completed token from a visible widget, reset it, and return it.
+    // Returns null (and shows an error via errMsgId) if the user hasn't ticked yet.
+    function _getToken(widKey, errMsgId) {
+        const token = hcaptcha.getResponse(_wid[widKey]);
+        if (!token) {
+            if (errMsgId) setMsg(errMsgId, 'Please complete the CAPTCHA.', 'error');
+            return null;
+        }
+        try { hcaptcha.reset(_wid[widKey]); } catch(e) {}
+        return token;
+    }
+
     // ── Friendly error messages ── 
     // Maps raw Supabase/internal error strings to user-facing copy.
     function friendlyError(err) {
@@ -1402,18 +1443,15 @@ const { data, error } = await _supabase.auth.signInWithPassword({
             return 'Too many attempts. Please wait a moment before trying again.';
         if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch'))
             return 'Network error. Please check your connection and try again.';
-        // OTP / magic-link expiry — only match the phrasing Supabase actually
-        // uses for THOSE flows. We deliberately do NOT match bare "token" or
-        // "expired" here, because session/JWT errors (unrelated to a code or
-        // link) also contain those words and were being mislabeled as an
-        // expired code/link, which is confusing on the password sign-in form.
-        if (msg.includes('otp') || msg.includes('email link') || msg.includes('one-time password'))
-            return 'The code or link has expired. Please request a new one.';
-        if (msg.includes('jwt') || msg.includes('missing sub') || msg.includes('invalid claim') ||
-            msg.includes('refresh token') || msg.includes('token is expired') ||
-            msg.includes('session_not_found') || msg.includes('session expired') ||
-            msg.includes('invalid refresh token'))
-            return 'Your session has expired. Please sign in again.';
+        // OTP / magic-link / reset-password errors
+        if (msg.includes('otp') || msg.includes('email link') || msg.includes('one-time password') ||
+            msg.includes('invalid_otp') || msg.includes('token has expired') ||
+            msg.includes('token not found') || msg.includes('invalid token') ||
+            msg.includes('magic link') || msg.includes('link is invalid') ||
+            msg.includes('link has expired') || msg.includes('invalid_grant'))
+            return 'The code or link has expired or is invalid. Please request a new one.';
+        if (msg.includes('captcha') || msg.includes('hcaptcha') || msg.includes('unexpected_failure'))
+            return 'Verification failed. Please try again.';
         // Generic fallback — don't expose raw internal messages
         return 'Something went wrong. Please try again or contact support if the problem persists.';
     }

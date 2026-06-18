@@ -76,6 +76,15 @@
         .field-note { font-size: 11px; color: #475569; margin-top: 4px; }
         /* Honeypot — visually hidden from real users, bots fill it */
         .hp-field { position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}
+        /* Auth gate */
+        #authGate { display:none; padding: 8px 0; text-align: center; }
+        #authGate .gate-icon { font-size: 48px; color: #3b82f6; display: block; margin-bottom: 14px; }
+        #authGate h2 { color: white; font-weight: 800; font-size: 18px; margin: 0 0 10px; }
+        #authGate p { color: #64748b; font-size: 13px; line-height: 1.6; margin: 0 0 22px; }
+        #authGate .gate-btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 28px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: none; border-radius: 14px; color: white; font-weight: 800; font-size: 14px; cursor: pointer; font-family: inherit; text-decoration: none; transition: opacity .2s, transform .15s; }
+        #authGate .gate-btn:hover { opacity: .92; transform: translateY(-1px); }
+        #authGate .gate-signin { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; color: #64748b; font-size: 13px; font-weight: 600; text-decoration: none; transition: color .2s; }
+        #authGate .gate-signin:hover { color: #93c5fd; }
     </style>
 </head>
 <body>
@@ -99,6 +108,22 @@
                         <h1 style="color:white;font-weight:800;font-size:20px;margin:0;line-height:1.2">Request a File</h1>
                         <p style="color:#64748b;font-size:12px;margin:2px 0 0">Tell us what material you need — we'll upload it.</p>
                     </div>
+                </div>
+
+                <!-- Auth gate — shown to logged-out visitors instead of the form -->
+                <div id="authGate">
+                    <span class="material-symbols-outlined gate-icon" aria-hidden="true">lock</span>
+                    <h2>Account Required</h2>
+                    <p>You need an account to request a file.<br>It's free and only takes a minute.</p>
+                    <a href="login.html?next=upload-request.html#signup" class="gate-btn">
+                        <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">person_add</span>
+                        Create an Account
+                    </a>
+                    <br>
+                    <a href="login.html?next=upload-request.html" class="gate-signin">
+                        <span class="material-symbols-outlined" style="font-size:15px" aria-hidden="true">login</span>
+                        Already have an account? Sign in
+                    </a>
                 </div>
 
                 <form id="requestForm">
