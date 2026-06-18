@@ -1841,8 +1841,11 @@ function quizAboutFile(file) {
         sessionStorage.setItem('fvChatOpen', '1');
     }
 
-    // Run the quiz scoped to just this one file object
-    _runQuiz([file], null);
+    // Run the quiz scoped to just this one file object, but ask the AI to
+    // test general subject knowledge rather than narrow file-only trivia
+    // (a single file name/description rarely has enough material on its
+    // own for 5 good questions) — see the isFileScoped branch in _runQuiz.
+    _runQuiz([file], null, true);
 }
 
 // ─── QUIZ / SELF-TEST FEATURE ─────────────────────────────────
@@ -2045,7 +2048,7 @@ function _showQuizScopePicker(folder, files) {
     if (actions) actions.innerHTML = `<button onclick="closeQuiz()" style="padding:10px 18px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#94a3b8;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Cancel</button>`;
 }
 
-function _runQuiz(files, folder) {
+function _runQuiz(files, folder, isFileScoped) {
     // Build context from visible files
     const visible = folder ? files.filter(f => f.folder === folder) : files;
     // Sanitize each user-controlled field before it enters the LLM prompt.
@@ -2071,7 +2074,39 @@ function _runQuiz(files, folder) {
     _showQuizModal();
     _setQuizLoading(true);
 
-    const prompt = `You are a helpful academic quiz generator for university students.
+    // "Quiz me on this file" only has a single file name/description to go on —
+    // far too little material for 5 good questions if we stay narrowly scoped to
+    // just that one item. Instead, use the file as a hint to infer the broader
+    // subject/course, and quiz general knowledge of that subject — the kind of
+    // questions a student studying it should actually know for an exam, not
+    // trivia that could only be answered by re-reading the file name itself.
+    const prompt = isFileScoped ? `You are a helpful academic quiz generator for university students.
+
+A student is studying this file in FileVault:
+${sample}
+
+Use this only as a hint to infer the subject, course, or topic area it belongs to — do NOT limit the quiz to facts that could only come from the file name or description. Instead, generate a 5-question multiple-choice quiz testing general knowledge of that broader subject area, similar to the kind of exam-style questions a student studying this topic should be able to answer.
+
+RULES:
+- Base questions on the general subject/topic implied by the file (e.g. if it's "UGBS 301 Lecture 5 - Marketing Mix", ask broader marketing-mix concept questions, not questions about lecture 5 specifically).
+- Mix in foundational/general knowledge questions about the subject, not just narrow specifics.
+- 4 answer options per question labeled A, B, C, D.
+- Mark the correct answer clearly.
+- Provide a short explanation (1–2 sentences) for each answer.
+- Respond ONLY with valid JSON, no markdown, no preamble.
+
+JSON FORMAT:
+{
+  "title": "Short quiz title",
+  "questions": [
+    {
+      "q": "Question text?",
+      "options": {"A": "...", "B": "...", "C": "...", "D": "..."},
+      "answer": "B",
+      "explanation": "Short explanation."
+    }
+  ]
+}` : `You are a helpful academic quiz generator for university students.
 
 Based on the following list of study materials available in FileVault, generate a 5-question multiple-choice quiz to help students test themselves.
 

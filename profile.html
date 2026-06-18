@@ -194,6 +194,33 @@
         .btn-danger-sm { padding:7px 14px;border:1px solid rgba(239,68,68,0.3);border-radius:10px;background:rgba(239,68,68,0.08);color:#fca5a5;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;transition:all .2s;white-space:nowrap;flex-shrink:0; }
         .btn-danger-sm:hover { background:rgba(239,68,68,0.18);border-color:rgba(239,68,68,0.5); }
 
+        /* ── Textarea (bio) ── */
+        .auth-textarea { width:100%; padding:12px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; color:white; font-size:14px; font-family:inherit; outline:none; resize:vertical; min-height:78px; transition:border-color .2s, background .2s; }
+        .auth-textarea:focus { border-color:rgba(59,130,246,0.55); background:rgba(255,255,255,0.08); }
+        .auth-textarea::placeholder { color:rgba(255,255,255,0.3); }
+        .char-counter { font-size:10px; color:#475569; text-align:right; margin-top:4px; }
+        .field-row-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        @media (max-width:420px) { .field-row-2 { grid-template-columns:1fr; } }
+
+        /* ── Notifications inbox ── */
+        .section-title-flex { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+        .unread-pill { background:rgba(59,130,246,0.18); color:#93c5fd; border:1px solid rgba(59,130,246,0.3); font-size:10px; font-weight:800; padding:2px 8px; border-radius:99px; margin-left:6px; }
+        .notif-item { display:flex; align-items:flex-start; gap:10px; padding:11px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:12px; cursor:pointer; transition:background .18s,border-color .18s; position:relative; }
+        .notif-item:hover { background:rgba(59,130,246,0.07); border-color:rgba(59,130,246,0.18); }
+        .notif-item.unread { border-color:rgba(59,130,246,0.3); background:rgba(59,130,246,0.06); }
+        .notif-icon-dot { width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+        .notif-body { flex:1; min-width:0; }
+        .notif-title { font-size:12px; font-weight:700; color:#e2e8f0; margin:0; }
+        .notif-text { font-size:11px; color:#64748b; margin:2px 0 0; line-height:1.4; }
+        .notif-time { font-size:10px; color:#475569; margin:4px 0 0; }
+        .notif-dot { width:7px;height:7px;border-radius:50%;background:#60a5fa;flex-shrink:0;margin-top:4px; }
+        .btn-text-link { background:none;border:none;cursor:pointer;color:#60a5fa;font-size:11px;font-weight:700;font-family:inherit;padding:0; }
+        .btn-text-link:hover { color:#93c5fd; }
+
+        /* ── Delete account modal ── */
+        .delete-confirm-input { width:100%; padding:11px 14px; background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.3); border-radius:12px; color:white; font-size:14px; font-family:inherit; outline:none; text-align:center; letter-spacing:0.05em; font-weight:700; }
+        .delete-confirm-input:focus { border-color:rgba(239,68,68,0.55); }
+
         /* ── Session info ── */
         .session-row { display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px; }
         .session-row:last-child { border-bottom:none; }
@@ -402,6 +429,52 @@
                     <p id="nameMsg" class="mt-2 text-center text-sm min-h-5"></p>
                 </div>
 
+                <!-- Student info -->
+                <div class="section-card">
+                    <div class="section-title"><span class="material-symbols-outlined">school</span> Student Info</div>
+                    <p style="font-size:12px;color:#64748b;margin-bottom:12px">Help the manager identify your requests faster by sharing a bit about yourself. This is optional.</p>
+
+                    <p class="field-label">Bio</p>
+                    <textarea id="bioInput" class="auth-textarea" placeholder="A short note about yourself…" maxlength="200" oninput="updateBioCounter()"></textarea>
+                    <p class="char-counter"><span id="bioCounter">0</span>/200</p>
+
+                    <div class="field-row-2 mt-3">
+                        <div>
+                            <p class="field-label">Course / Program</p>
+                            <div class="relative">
+                                <span class="auth-input-icon material-symbols-outlined">menu_book</span>
+                                <input type="text" id="courseInput" class="auth-input" placeholder="e.g. BSc Computer Science" maxlength="60"/>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="field-label">Year of Study</p>
+                            <div class="relative">
+                                <span class="auth-input-icon material-symbols-outlined">calendar_today</span>
+                                <select id="yearInput" class="auth-input" style="padding-left:46px;appearance:none">
+                                    <option value="">Select…</option>
+                                    <option value="Year 1">Year 1</option>
+                                    <option value="Year 2">Year 2</option>
+                                    <option value="Year 3">Year 3</option>
+                                    <option value="Year 4">Year 4</option>
+                                    <option value="Year 5+">Year 5+</option>
+                                    <option value="Graduate">Graduate</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="field-label mt-3">Student ID / Number</p>
+                    <div class="relative">
+                        <span class="auth-input-icon material-symbols-outlined">badge</span>
+                        <input type="text" id="studentIdInput" class="auth-input" placeholder="e.g. UG/2023/0451" maxlength="40"/>
+                    </div>
+
+                    <button class="btn-primary mt-3" id="saveStudentInfoBtn" onclick="saveStudentInfo()">
+                        <span id="saveStudentInfoText">Save Student Info</span>
+                    </button>
+                    <p id="studentInfoMsg" class="mt-2 text-center text-sm min-h-5"></p>
+                </div>
+
                 <!-- Change password -->
                 <div class="section-card">
                     <div class="section-title"><span class="material-symbols-outlined">lock_reset</span> Change Password</div>
@@ -562,6 +635,21 @@
                     <p id="notifMsg" class="mt-2 text-center text-sm min-h-5" style="font-size:11px;color:#64748b"></p>
                 </div>
 
+                <!-- Notifications inbox -->
+                <div class="section-card" id="notifInboxSection">
+                    <div class="section-title-flex">
+                        <div class="section-title" style="margin-bottom:0"><span class="material-symbols-outlined">mark_email_unread</span> Notifications<span class="unread-pill" id="notifUnreadPill" style="display:none">0 new</span></div>
+                        <button class="btn-text-link" id="markAllReadBtn" onclick="markAllNotificationsRead()" style="display:none">Mark all read</button>
+                    </div>
+                    <div id="notifInboxList">
+                        <div class="empty-state">
+                            <div class="empty-state-icon"><span class="material-symbols-outlined">notifications</span></div>
+                            <p class="empty-state-title">No notifications yet</p>
+                            <p class="empty-state-sub">Approvals, expiry reminders, and announcements will show up here.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- File request history -->
                 <div class="section-card" id="requestHistorySection">
                     <div class="section-title"><span class="material-symbols-outlined">history</span> My File Requests</div>
@@ -618,6 +706,15 @@
                     </div>
                 </div>
 
+                <!-- Export my data -->
+                <div class="section-card">
+                    <div class="section-title"><span class="material-symbols-outlined">file_download</span> Export My Data</div>
+                    <p style="font-size:12px;color:#64748b;margin-bottom:12px;line-height:1.5">Download a copy of your FileVault data — profile details, file requests, download history, notifications, and saved preferences — as a JSON file.</p>
+                    <button class="btn-secondary" id="exportDataBtn" onclick="exportMyData()">
+                        <span id="exportDataText"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">download_for_offline</span> Download My Data</span>
+                    </button>
+                </div>
+
                 <!-- Danger zone -->
                 <div class="section-card" style="border-color:rgba(239,68,68,0.15)">
                     <div class="section-title" style="color:#fca5a5"><span class="material-symbols-outlined" style="color:#f87171">warning</span> Data & Privacy</div>
@@ -641,6 +738,35 @@
                             <p class="danger-item-sub">Clears notification settings, view preferences, and cached data</p>
                         </div>
                         <button class="btn-danger-sm" onclick="resetAllPrefs()">Reset</button>
+                    </div>
+                    <div class="danger-item">
+                        <div>
+                            <p class="danger-item-label" style="color:#f87171">Delete account</p>
+                            <p class="danger-item-sub">Permanently deletes your account, files history, and personal data. Cannot be undone.</p>
+                        </div>
+                        <button class="btn-danger-sm" onclick="openDeleteAccountModal()">Delete</button>
+                    </div>
+                </div>
+
+                <!-- Delete account modal -->
+                <div class="mfa-modal-overlay" id="deleteAccountModal">
+                    <div class="glass-card mfa-modal-box" style="max-width:380px">
+                        <div style="text-align:center;margin-bottom:18px">
+                            <div style="width:52px;height:52px;border-radius:16px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.28);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                                <span class="material-symbols-outlined" style="font-size:26px;color:#f87171">no_accounts</span>
+                            </div>
+                            <h3 style="color:white;font-weight:700;font-size:16px;margin-bottom:4px">Delete Your Account</h3>
+                            <p style="color:#64748b;font-size:13px;line-height:1.5">This permanently deletes your account, profile, request history, and saved preferences. This action cannot be undone.</p>
+                        </div>
+                        <p style="font-size:11px;color:#94a3b8;margin-bottom:8px;text-align:center">Type <strong style="color:#fca5a5">DELETE</strong> to confirm</p>
+                        <input type="text" id="deleteConfirmInput" class="delete-confirm-input" placeholder="DELETE" autocomplete="off" oninput="document.getElementById('confirmDeleteBtn').disabled = this.value.trim().toUpperCase() !== 'DELETE'"/>
+                        <button class="btn-danger-sm" id="confirmDeleteBtn" disabled onclick="confirmDeleteAccount()" style="width:100%;justify-content:center;margin-top:14px;padding:12px;font-size:13px">
+                            <span id="confirmDeleteText">Permanently Delete My Account</span>
+                        </button>
+                        <p id="deleteAccountMsg" class="mt-2 text-center text-sm min-h-5" style="color:#f87171"></p>
+                        <button type="button" onclick="closeDeleteAccountModal()" style="margin-top:4px;background:none;border:none;cursor:pointer;color:#64748b;font-size:12px;width:100%;text-align:center;font-family:inherit">
+                            Cancel
+                        </button>
                     </div>
                 </div>
 
@@ -694,6 +820,7 @@
             loadProfileStats(_currentUser);
             loadNotifPrefs();
             loadRequestHistory(_currentUser);
+            loadNotifications(_currentUser);
             loadRecentDownloads();
             loadPinnedFiles();
             loadSessionInfo(_currentUser);
@@ -753,6 +880,13 @@
             document.getElementById('pName').textContent  = displayName;
             document.getElementById('pEmail').textContent = email;
             document.getElementById('displayNameInput').value = displayName;
+
+            // Student info fields
+            document.getElementById('bioInput').value = meta.bio || '';
+            updateBioCounter();
+            document.getElementById('courseInput').value = meta.course || '';
+            document.getElementById('yearInput').value = meta.year_of_study || '';
+            document.getElementById('studentIdInput').value = meta.student_id || '';
 
             const vb = document.getElementById('pVerifiedBadge');
             vb.className = 'pd-badge ' + (verified ? 'verified' : 'unverified');
@@ -821,6 +955,33 @@
             setMsg('nameMsg', '✅ Display name updated.', 'success');
             showToast('Display name updated', 'success');
             loadAchievements(); // re-evaluate badges (Profile Pro)
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // STUDENT INFO — bio, course, year, student ID
+        // ═══════════════════════════════════════════════════════════
+        function updateBioCounter() {
+            const val = document.getElementById('bioInput').value || '';
+            document.getElementById('bioCounter').textContent = val.length;
+        }
+
+        async function saveStudentInfo() {
+            const bio       = (document.getElementById('bioInput').value || '').trim().slice(0, 200);
+            const course    = (document.getElementById('courseInput').value || '').trim().slice(0, 60);
+            const year      = document.getElementById('yearInput').value || '';
+            const studentId = (document.getElementById('studentIdInput').value || '').trim().slice(0, 40);
+
+            setBtnLoading('saveStudentInfoBtn','saveStudentInfoText','Saving…');
+            const { data, error } = await _supabase.auth.updateUser({
+                data: { bio, course, year_of_study: year, student_id: studentId }
+            });
+            clearBtnLoading('saveStudentInfoBtn','saveStudentInfoText','Save Student Info');
+
+            if (error) { setMsg('studentInfoMsg', error.message, 'error'); return; }
+            if (data && data.user) _currentUser = data.user;
+            setMsg('studentInfoMsg', '✅ Student info saved.', 'success');
+            showToast('Student info saved', 'success');
+            setTimeout(() => setMsg('studentInfoMsg', '', 'info'), 3000);
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -1249,6 +1410,101 @@
         }
 
         // ═══════════════════════════════════════════════════════════
+        // NOTIFICATIONS INBOX
+        // Expects a Supabase table: notifications
+        //   id uuid, user_id uuid, type text, title text, body text,
+        //   created_at timestamptz, read boolean default false
+        // ═══════════════════════════════════════════════════════════
+        const NOTIF_ICON_MAP = {
+            request_approved: { bg:'rgba(16,185,129,0.15)', icon:'check_circle',      color:'#34d399' },
+            file_expiring:    { bg:'rgba(245,158,11,0.15)', icon:'schedule',          color:'#fbbf24' },
+            announcement:     { bg:'rgba(59,130,246,0.15)', icon:'campaign',          color:'#60a5fa' },
+            new_file:         { bg:'rgba(139,92,246,0.15)', icon:'note_add',          color:'#a78bfa' },
+            request_dismissed:{ bg:'rgba(100,116,139,0.15)',icon:'cancel',            color:'#94a3b8' },
+        };
+
+        function notifTimeAgo(iso) {
+            const diff = Date.now() - new Date(iso).getTime();
+            const mins = Math.floor(diff / 60000);
+            if (mins < 1) return 'Just now';
+            if (mins < 60) return mins + 'm ago';
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return hrs + 'h ago';
+            const days = Math.floor(hrs / 24);
+            if (days < 7) return days + 'd ago';
+            return new Date(iso).toLocaleDateString(undefined, { month:'short', day:'numeric' });
+        }
+
+        async function loadNotifications(user) {
+            const list = document.getElementById('notifInboxList');
+            const pill = document.getElementById('notifUnreadPill');
+            const markAllBtn = document.getElementById('markAllReadBtn');
+            try {
+                const { data, error } = await _supabase
+                    .from('notifications')
+                    .select('id, type, title, body, created_at, read')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false })
+                    .limit(15);
+
+                if (error) throw error;
+
+                const unreadCount = (data || []).filter(n => !n.read).length;
+                if (unreadCount > 0) {
+                    pill.textContent = unreadCount + ' new';
+                    pill.style.display = 'inline-flex';
+                    markAllBtn.style.display = '';
+                } else {
+                    pill.style.display = 'none';
+                    markAllBtn.style.display = 'none';
+                }
+
+                if (!data || data.length === 0) {
+                    list.innerHTML = `<div class="empty-state">
+                        <div class="empty-state-icon"><span class="material-symbols-outlined">notifications</span></div>
+                        <p class="empty-state-title">No notifications yet</p>
+                        <p class="empty-state-sub">Approvals, expiry reminders, and announcements will show up here.</p>
+                    </div>`;
+                    return;
+                }
+
+                list.innerHTML = data.map(n => {
+                    const meta = NOTIF_ICON_MAP[n.type] || { bg:'rgba(100,116,139,0.15)', icon:'notifications', color:'#94a3b8' };
+                    const unread = !n.read;
+                    return `<div class="notif-item ${unread ? 'unread' : ''}" onclick="markNotificationRead('${n.id}')" style="margin-bottom:8px">
+                        <div class="notif-icon-dot" style="background:${meta.bg}">
+                            <span class="material-symbols-outlined" style="font-size:16px;color:${meta.color}">${meta.icon}</span>
+                        </div>
+                        <div class="notif-body">
+                            <p class="notif-title">${(n.title || 'Notification').replace(/</g,'&lt;')}</p>
+                            ${n.body ? `<p class="notif-text">${n.body.replace(/</g,'&lt;')}</p>` : ''}
+                            <p class="notif-time">${notifTimeAgo(n.created_at)}</p>
+                        </div>
+                        ${unread ? '<div class="notif-dot" title="Unread"></div>' : ''}
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                // table probably doesn't exist yet — hide the section silently
+                document.getElementById('notifInboxSection').style.display = 'none';
+            }
+        }
+
+        async function markNotificationRead(id) {
+            try {
+                await _supabase.from('notifications').update({ read: true }).eq('id', id);
+                loadNotifications(_currentUser);
+            } catch (_) {}
+        }
+
+        async function markAllNotificationsRead() {
+            try {
+                await _supabase.from('notifications').update({ read: true }).eq('user_id', _currentUser.id).eq('read', false);
+                loadNotifications(_currentUser);
+                showToast('All notifications marked as read', 'info');
+            } catch (_) {}
+        }
+
+        // ═══════════════════════════════════════════════════════════
         // EMAIL VERIFICATION
         // ═══════════════════════════════════════════════════════════
         async function resendVerification() {
@@ -1438,6 +1694,118 @@
             loadNotifPrefs(); // refresh toggles to defaults
             loadThemePrefs(); // refresh appearance toggles to defaults
             showToast('All preferences reset to defaults', 'info');
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // EXPORT MY DATA (GDPR-style download)
+        // ═══════════════════════════════════════════════════════════
+        async function exportMyData() {
+            setBtnLoading('exportDataBtn','exportDataText','Preparing export…');
+            try {
+                const user = _currentUser;
+                const meta = user.user_metadata || {};
+
+                const [requestsRes, downloadsRes, notifsRes] = await Promise.allSettled([
+                    _supabase.from('upload_requests').select('filename, folder, status, created_at, manager_note').eq('requester_email', user.email),
+                    _supabase.from('user_downloads').select('file_name, file_folder, downloaded_at').eq('user_id', user.id),
+                    _supabase.from('notifications').select('type, title, body, created_at, read').eq('user_id', user.id),
+                ]);
+
+                let pinned = {};
+                try { pinned = JSON.parse(localStorage.getItem('fvPinned') || '{}'); } catch(_) {}
+                let notifPrefs = {};
+                try { notifPrefs = JSON.parse(localStorage.getItem('fvNotifPrefs') || '{}'); } catch(_) {}
+                let themePrefs = {};
+                try { themePrefs = JSON.parse(localStorage.getItem(THEME_KEY) || '{}'); } catch(_) {}
+
+                const exportObj = {
+                    exported_at: new Date().toISOString(),
+                    profile: {
+                        email: user.email,
+                        display_name: meta.display_name || meta.full_name || meta.name || null,
+                        bio: meta.bio || null,
+                        course: meta.course || null,
+                        year_of_study: meta.year_of_study || null,
+                        student_id: meta.student_id || null,
+                        email_verified: !!user.email_confirmed_at,
+                        account_created_at: user.created_at || null,
+                        last_sign_in_at: user.last_sign_in_at || null,
+                    },
+                    file_requests: requestsRes.status === 'fulfilled' ? (requestsRes.value.data || []) : [],
+                    download_history: downloadsRes.status === 'fulfilled' ? (downloadsRes.value.data || []) : [],
+                    notifications: notifsRes.status === 'fulfilled' ? (notifsRes.value.data || []) : [],
+                    pinned_files: Object.values(pinned),
+                    preferences: { notifications: notifPrefs, appearance: themePrefs },
+                };
+
+                const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+                const url  = URL.createObjectURL(blob);
+                const a    = document.createElement('a');
+                a.href = url;
+                a.download = `filevault-data-export-${new Date().toISOString().slice(0,10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showToast('Your data export has started downloading', 'success');
+            } catch (err) {
+                showToast('Could not export data: ' + err.message, 'error');
+            } finally {
+                clearBtnLoading('exportDataBtn','exportDataText','');
+                document.getElementById('exportDataText').innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">download_for_offline</span> Download My Data';
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // DELETE ACCOUNT
+        // Requires a backend endpoint (e.g. POST /api/delete-account on the
+        // Render server) that verifies the user's access token and calls
+        // supabase.auth.admin.deleteUser() with the service-role key, since
+        // the anon key used in the browser cannot delete auth users directly.
+        // ═══════════════════════════════════════════════════════════
+        function openDeleteAccountModal() {
+            document.getElementById('deleteConfirmInput').value = '';
+            document.getElementById('confirmDeleteBtn').disabled = true;
+            document.getElementById('deleteAccountMsg').textContent = '';
+            document.getElementById('deleteAccountModal').style.display = 'flex';
+        }
+
+        function closeDeleteAccountModal() {
+            document.getElementById('deleteAccountModal').style.display = 'none';
+        }
+
+        async function confirmDeleteAccount() {
+            const typed = (document.getElementById('deleteConfirmInput').value || '').trim().toUpperCase();
+            if (typed !== 'DELETE') return;
+
+            setBtnLoading('confirmDeleteBtn','confirmDeleteText','Deleting…');
+            try {
+                const { data: { session } } = await _supabase.auth.getSession();
+                if (!session) throw new Error('Your session has expired. Please sign in again.');
+
+                const res = await fetch(`${PUSH_API}/api/delete-account`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`,
+                    },
+                });
+
+                if (!res.ok) {
+                    const body = await res.json().catch(() => ({}));
+                    throw new Error(body.error || `Server returned ${res.status}`);
+                }
+
+                showToast('Your account has been deleted', 'info');
+                localStorage.clear();
+                await _supabase.auth.signOut();
+                setTimeout(() => { window.location.href = 'login.html'; }, 900);
+            } catch (err) {
+                clearBtnLoading('confirmDeleteBtn','confirmDeleteText','Permanently Delete My Account');
+                document.getElementById('confirmDeleteBtn').disabled = false;
+                document.getElementById('deleteAccountMsg').textContent = err.message;
+            }
         }
 
         // ═══════════════════════════════════════════════════════════

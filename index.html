@@ -152,6 +152,28 @@
         #fileGrid .file-card { min-width:0; }
         #fileGrid .file-card p.truncate { white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; display:block; }
 
+        /* ── Grid view: action icon row was squeezing the file name/meta column ──
+           In grid mode, cards are narrower than in list mode. The 5 action icons
+           (react, preview, copy link, WhatsApp, download) plus the file icon and
+           checkbox left too little room for the flex-1 details column, so the
+           name/meta would shrink to near-zero width and visually crumble or
+           vanish. Fix: give the details column a guaranteed minimum width, and
+           let the action-icon row wrap onto its own line below it instead of
+           competing for the same line. Compact/dense view is excluded below
+           since it intentionally keeps everything on one tight row. */
+        #fileGrid.grid .file-card,
+        #fileGrid.grid .swipe-inner { flex-wrap: wrap; }
+        #fileGrid.grid .file-card > .flex-1,
+        #fileGrid.grid .swipe-inner > .flex-1 { min-width: 150px !important; }
+        #fileGrid.grid .file-card > .flex.gap-0\.5,
+        #fileGrid.grid .swipe-inner > .flex.gap-0\.5 {
+            flex: 1 0 100%;
+            justify-content: flex-end;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+
         /* ── File card entrance animation ── */
         @keyframes cardIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
         .file-card-animate { animation:cardIn 0.35s ease-out both; }
@@ -546,6 +568,16 @@
         #fileGrid.compact-view .material-symbols-outlined.text-xl { font-size:15px !important; }
         /* Remove bottom border/padding in list view cards */
         #fileGrid.compact-view .border-t.border-white\/5 { border:none !important; padding:0 !important; margin:0 !important; }
+        /* Compact view stays a single dense row — undo the grid-view action-icon wrap above */
+        #fileGrid.compact-view.grid .file-card,
+        #fileGrid.compact-view.grid .swipe-inner { flex-wrap: nowrap !important; }
+        #fileGrid.compact-view.grid .file-card > .flex.gap-0\.5,
+        #fileGrid.compact-view.grid .swipe-inner > .flex.gap-0\.5 {
+            flex: 0 0 auto !important;
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            border-top: none !important;
+        }
         /* ── Preview Zoom controls ── */
         #previewZoomBar { display:none;align-items:center;gap:6px;padding:6px 14px;border-top:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.15);flex-shrink:0; }
         #previewZoomBar.visible { display:flex; }
@@ -4843,7 +4875,7 @@ window.isFolderSubscribed = function(folder) {
         </div>
     </div>
 
-  <script src="chat-widget.js?v=7"></script>
+  <script src="chat-widget.js?v=8"></script>
    <script>
    // ══════════════════════════════════════════════════════════════════
    // FEATURE 9: AI "Related Files" suggestions in preview

@@ -672,6 +672,64 @@ app.patch('/api/file-requests/:id', async (req, res) => {
     res.json({ ok: true, request: data });
 });
 
+// ── Delete Account ───────────────────────────────────────────────────────────
+// POST /api/delete-account
+// Called from profile.html's Danger Zone. The browser only ever holds the
+// anon key, which cannot delete an auth user — that requires the
+// service-role key, which only lives here on the server. This endpoint:
+//   1. Verifies the caller's own Supabase access token (so a user can only
+//      ever delete their OWN account, never anyone else's).
+//   2. Best-effort cleans up rows tied to that user in other tables.
+//   3. Calls supabase.auth.admin.deleteUser() to actually remove the account.
+//
+// Requires SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (already used elsewhere
+// in this file) — no extra setup needed.
+const deleteAccountRateLimit = rateLimiter({ windowMs: 60_000, max: 5, message: 'Too many delete attempts. Try again shortly.' });
+
+app.post('/api/delete-account', deleteAccountRateLimit, async (req, res) => {
+    if (!_supa) return res.status(503).json({ error: 'Supabase not configured' });
+
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token' });
+
+    // Validate the token against Supabase Auth — this is what guarantees a
+    // user can only delete the account the token actually belongs to.
+    const { data: userData, error: userErr } = await _supa.auth.getUser(token);
+    if (userErr || !userData?.user) {
+        return res.status(401).json({ error: 'Invalid or expired session. Please sign in again.' });
+    }
+    const user = userData.user;
+
+    try {
+        // Best-effort cleanup of rows/files tied to this user first. None of
+        // these need to succeed for the account deletion itself to proceed —
+        // a stray leftover row in a side table is harmless once the auth user
+        // (and therefore the user's ability to sign in) is gone.
+        await Promise.allSettled([
+            _supa.from('user_downloads').delete().eq('user_id', user.id),
+            _supa.from('upload_requests').delete().eq('requester_email', user.email),
+            _supa.from('notifications').delete().eq('user_id', user.id),
+            _supa.storage.from('avatars').remove([
+                `${user.id}/avatar.jpg`, `${user.id}/avatar.jpeg`,
+                `${user.id}/avatar.png`, `${user.id}/avatar.gif`, `${user.id}/avatar.webp`
+            ]),
+        ]);
+
+        const { error: delErr } = await _supa.auth.admin.deleteUser(user.id);
+        if (delErr) {
+            console.error('[delete-account] auth.admin.deleteUser failed:', delErr);
+            return res.status(500).json({ error: delErr.message });
+        }
+
+        console.log(`[delete-account] Deleted user ${user.id} (${user.email})`);
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('[delete-account] Error:', err);
+        res.status(500).json({ error: 'Failed to delete account: ' + err.message });
+    }
+});
+
 app.get('/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 
 // ── Global error handler ─────────────────────────────────────────────────────
