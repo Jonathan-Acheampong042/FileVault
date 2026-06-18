@@ -663,7 +663,7 @@
             </div>
         </nav>
         <div class="px-4 mt-auto pt-8 border-t border-white/5">
-            <a class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 text-sm hover:text-primary" href="upload-request.html">
+            <a id="sidebarRequestLink" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 text-sm hover:text-primary" href="upload-request.html">
                 <span class="material-symbols-outlined">upload_file</span> Request a File
             </a>
             <!-- Signed-out state -->
@@ -1334,6 +1334,24 @@ window.isFolderSubscribed = function(folder) {
         var _currentUserEmail = null;
         var _currentUserId = null;
 
+        // The AI chat widget (chat-widget.js) initializes independently of this
+        // page's checkAuth(), so we can't bake "is this an admin browsing as
+        // themselves" into the widget's initial HTML — whichever finishes first
+        // wins and the check would be unreliable. Instead, once checkAuth()
+        // confirms admin-browse mode, this hides the admin-irrelevant "My
+        // request" footer link by id, waiting for the widget to exist if it
+        // hasn't rendered yet.
+        function _hideAdminExclusiveChatLinks() {
+            const btn = document.getElementById('chatMyRequestBtn');
+            if (btn) { btn.style.display = 'none'; return; }
+            const observer = new MutationObserver(function(_mutations, obs) {
+                const b = document.getElementById('chatMyRequestBtn');
+                if (b) { b.style.display = 'none'; obs.disconnect(); }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+            setTimeout(() => observer.disconnect(), 10000); // give up after 10s
+        }
+
         async function checkAuth() {
             const { data: { session } } = await _supabase.auth.getSession();
             if (session) {
@@ -1356,6 +1374,8 @@ window.isFolderSubscribed = function(folder) {
                 }
 
                 const adminBrowseMode = !!sessionStorage.getItem('fv_admin_browse_mode');
+                window._isAdminBrowsing = isAdmin && adminBrowseMode;
+                if (window._isAdminBrowsing) _hideAdminExclusiveChatLinks();
 
                 // Only redirect to manager if arriving fresh from login AND not in browse mode
                 if (isAdmin && sessionStorage.getItem('fv_just_signed_in') && !adminBrowseMode) {
@@ -1458,6 +1478,14 @@ window.isFolderSubscribed = function(folder) {
                     pdItems.appendChild(mgrLink);
                 }
             }
+
+            // ── "Request a File" doesn't make sense for an admin browsing their own
+            //    vault — they fulfill requests, they don't submit them to themselves.
+            //    Hide the CTA wherever it appears (sidebar + mobile bottom nav). ──
+            const sidebarRequestLink = document.getElementById('sidebarRequestLink');
+            if (sidebarRequestLink) sidebarRequestLink.style.display = isAdminBrowsing ? 'none' : '';
+            const mobileRequestTab = document.getElementById('mobileRequestTab');
+            if (mobileRequestTab) mobileRequestTab.style.display = isAdminBrowsing ? 'none' : '';
 
             // ── Sidebar ──
             const sBlock = document.getElementById('sidebarUserBlock');
@@ -4823,7 +4851,7 @@ window.isFolderSubscribed = function(folder) {
             <span class="material-symbols-outlined text-xl" aria-hidden="true">search</span>
             <span class="text-[9px] font-bold uppercase">Search</span>
         </button>
-        <a href="upload-request.html" class="flex flex-col items-center gap-0.5 px-3 py-1 text-slate-400" aria-label="Request a file">
+        <a id="mobileRequestTab" href="upload-request.html" class="flex flex-col items-center gap-0.5 px-3 py-1 text-slate-400" aria-label="Request a file">
             <span class="material-symbols-outlined text-xl" aria-hidden="true">upload_file</span>
             <span class="text-[9px] font-bold uppercase">Request</span>
         </a>
@@ -4875,7 +4903,7 @@ window.isFolderSubscribed = function(folder) {
         </div>
     </div>
 
-  <script src="chat-widget.js?v=8"></script>
+  <script src="chat-widget.js?v=9"></script>
    <script>
    // ══════════════════════════════════════════════════════════════════
    // FEATURE 9: AI "Related Files" suggestions in preview

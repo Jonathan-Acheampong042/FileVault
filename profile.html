@@ -430,7 +430,7 @@
                 </div>
 
                 <!-- Student info -->
-                <div class="section-card">
+                <div class="section-card" id="studentInfoSection">
                     <div class="section-title"><span class="material-symbols-outlined">school</span> Student Info</div>
                     <p style="font-size:12px;color:#64748b;margin-bottom:12px">Help the manager identify your requests faster by sharing a bit about yourself. This is optional.</p>
 
@@ -926,6 +926,23 @@
                         </a>`;
                     identityCard.appendChild(banner);
                 }
+            }
+
+            // ── Sections that only make sense for a student account, not an
+            //    admin browsing their own vault: gamification badges, course/
+            //    bio/student-ID fields, the file-request history (admins fulfill
+            //    requests, they don't submit them), and the notifications inbox
+            //    (built around request-approved / file-expiring events). Only
+            //    force these to hide — never force them back to visible here,
+            //    since loadRequestHistory()/loadNotifications() already hide
+            //    themselves independently when their backing table doesn't
+            //    exist, and re-running this on every populateProfile() call
+            //    (e.g. after saving the display name) would undo that. ──
+            if (isAdminBrowsing) {
+                ['achievementsSection', 'studentInfoSection', 'requestHistorySection', 'notifInboxSection'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = 'none';
+                });
             }
 
             if (user.created_at) {

@@ -500,12 +500,15 @@
                         <span class="material-symbols-outlined" style="font-size:28px;color:#34d399">lock_reset</span>
                     </div>
                     <h3 style="color:white;font-weight:700;font-size:18px;margin-bottom:6px">Set a New Password</h3>
-                    <p style="color:#64748b;font-size:13px;line-height:1.5">Your identity has been verified.<br>Choose a strong new password below.</p>
+                    <p style="color:#64748b;font-size:13px;line-height:1.5">Your identity has been verified.<br>Choose a strong new password below — you'll be signed in automatically once it's set.</p>
                 </div>
                 <div class="space-y-3">
                     <div class="relative">
                         <span class="auth-input-icon material-symbols-outlined">lock</span>
-                        <input type="password" id="newPwd" class="auth-input" placeholder="New password" autocomplete="new-password" oninput="updateResetStrength(this.value)"/>
+                        <input type="password" id="newPwd" class="auth-input" placeholder="New password" autocomplete="new-password" oninput="updateResetStrength(this.value);checkResetPwdMatch()" style="padding-right:46px"/>
+                        <button type="button" onclick="togglePwd('newPwd','newPwdEye')" class="absolute right-4 top-1/2 -translate-y-1/2" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.35);line-height:0">
+                            <span id="newPwdEye" class="material-symbols-outlined" style="font-size:18px">visibility</span>
+                        </button>
                     </div>
                     <!-- Reset strength meter -->
                     <div class="pwd-rules" id="resetPwdRules">
@@ -523,9 +526,12 @@
                     </div>
                     <div class="relative">
                         <span class="auth-input-icon material-symbols-outlined">lock_open</span>
-                        <input type="password" id="confirmPwd" class="auth-input" placeholder="Confirm new password" autocomplete="new-password" onkeydown="if(event.key==='Enter')setNewPassword()"/>
+                        <input type="password" id="confirmPwd" class="auth-input" placeholder="Confirm new password" autocomplete="new-password" oninput="checkResetPwdMatch()" onkeydown="if(event.key==='Enter')setNewPassword()" style="padding-right:46px"/>
+                        <button type="button" onclick="togglePwd('confirmPwd','confirmPwdEye')" class="absolute right-4 top-1/2 -translate-y-1/2" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.35);line-height:0">
+                            <span id="confirmPwdEye" class="material-symbols-outlined" style="font-size:18px">visibility</span>
+                        </button>
                     </div>
-                    <div id="resetCaptchaContainer"></div>
+                    <p id="confirmPwdMatchMsg" style="font-size:11px;margin:-4px 2px 0;min-height:14px"></p>
                     <button class="btn-primary" id="resetBtn" onclick="setNewPassword()" style="background:linear-gradient(135deg,#10b981,#059669)">
                         <span id="resetBtnText">Update Password</span>
                     </button>
@@ -722,7 +728,14 @@
 
     window.addEventListener('pagehide', () => {
         if (_inRecoveryFlow && !_recoveryCompleted && _recoveryFromHash) {
-            _supabase.auth.signOut();
+            // { scope: 'local' } clears the session from localStorage immediately
+            // without waiting on a network round-trip to revoke it server-side.
+            // The default (global) signOut() depends on a fetch() completing,
+            // which browsers routinely abort mid-navigation/pagehide — leaving a
+            // valid recovery session sitting in localStorage even though the
+            // password was never actually changed. That's exactly what let a
+            // failed/abandoned reset still show up as "logged in" on index.html.
+            _supabase.auth.signOut({ scope: 'local' });
         }
     });
 
@@ -1333,8 +1346,6 @@
         document.getElementById('resetSection').style.display = '';
         document.getElementById('mainTitle').textContent    = 'Set New Password';
         document.getElementById('mainSubtitle').textContent = 'Choose a strong new password below';
-        // Repaint the captcha now that the section is visible
-        setTimeout(() => _ensureCaptchaVisible('reset'), 50);
     }
 
     async function setNewPassword() {
@@ -1350,17 +1361,26 @@
         }
         if (newPwd !== confirmPwd) { setMsg('resetMsg','Passwords do not match. Please re-enter them.', 'error'); return; }
 
-        const captchaToken = _getToken('reset', 'resetMsg');
-        if (!captchaToken) { return; }
-
         setBtnLoading('resetBtn','resetBtnText','Updating…');
-        const { error } = await _supabase.auth.updateUser({ password: newPwd, options: { captchaToken } });
+        // NOTE: captcha is intentionally not used here — Supabase's updateUser()
+        // endpoint doesn't support/verify a captchaToken (captcha only applies to
+        // signUp / signInWithPassword / resetPasswordForEmail). The previous code
+        // nested captchaToken inside the attributes object instead of passing it
+        // as updateUser()'s second argument, which never reached Supabase anyway
+        // and was a likely source of the generic "Something went wrong" error.
+        const { error } = await _supabase.auth.updateUser({ password: newPwd });
         clearBtnLoading('resetBtn','resetBtnText','Update Password');
-        try { hcaptcha.reset(_wid.reset); } catch(e) {}
 
-        if (error) { setMsg('resetMsg', friendlyError(error), 'error'); return; }
+        if (error) {
+            setMsg('resetMsg', friendlyError(error), 'error');
+            // The recovery session is still active at this point so the user can
+            // retry immediately — but make sure they aren't left silently signed
+            // in under it if they wander off without finishing. See the pagehide
+            // safety net below for the navigate-away case.
+            return;
+        }
         _recoveryCompleted = true;
-        setMsg('resetMsg','✅ Password updated successfully! Redirecting you to the app…', 'success');
+        setMsg('resetMsg','✅ Password updated! You\'re now signed in — redirecting you to your vault…', 'success');
         setTimeout(() => { sessionStorage.removeItem('fvFilesCache'); window.location.href = 'index.html'; }, 2000);
     }
 
@@ -1444,6 +1464,24 @@
         );
     }
 
+    // Live "do these two match?" indicator for the new/confirm password pair.
+    // Runs on input from either field so editing the first password after
+    // typing the second re-validates the match too.
+    function checkResetPwdMatch() {
+        const newPwd     = document.getElementById('newPwd').value;
+        const confirmPwd = document.getElementById('confirmPwd').value;
+        const el = document.getElementById('confirmPwdMatchMsg');
+        if (!el) return;
+        if (!confirmPwd) { el.textContent = ''; return; }
+        if (newPwd === confirmPwd) {
+            el.textContent = '✓ Passwords match';
+            el.style.color = '#34d399';
+        } else {
+            el.textContent = '✗ Passwords do not match';
+            el.style.color = '#f87171';
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // HCAPTCHA — explicit render, all widgets visible
     // hcaptchaReady() is called by the API script's onload= param.
@@ -1461,7 +1499,9 @@
         _wid.magiclink = hcaptcha.render('mlCaptchaContainer',      common);
         _wid.otp       = hcaptcha.render('otpCaptchaContainer',     common);
         _wid.forgot    = hcaptcha.render('forgotCaptchaContainer',  common);
-        _wid.reset     = hcaptcha.render('resetCaptchaContainer',   common);
+        // Note: the "Set New Password" step has no captcha widget — Supabase's
+        // updateUser() doesn't verify captcha tokens, unlike resetPasswordForEmail
+        // (the "forgot password" email-request step, above) which does.
     }
 
     // Ensure a captcha widget is fully visible after its panel becomes active.
@@ -1505,6 +1545,10 @@
             return 'An account with this email already exists. Try signing in instead.';
         if (msg.includes('password') && msg.includes('weak'))
             return 'Password is too weak. Please choose a stronger password.';
+        if (msg.includes('different from the old password') || msg.includes('should be different from the old'))
+            return 'Your new password must be different from your current password. Please choose a different one.';
+        if (msg.includes('auth session missing') || msg.includes('session missing') || msg.includes('session not found'))
+            return 'Your session has expired. Please request a new password reset link and try again.';
         if (msg.includes('rate limit') || msg.includes('too many requests') || msg.includes('email rate limit'))
             return 'Too many attempts. Please wait a moment before trying again.';
         if (msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch'))
