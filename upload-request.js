@@ -4,53 +4,31 @@
 // you load on a page later, regardless of variable/function naming overlap.
 'use strict';
 
-        const _PUSH_API = window.location.hostname === 'localhost'
-            ? 'http://localhost:3000'
-            : 'https://project-one-187u.onrender.com';
+        // _PUSH_API is set by the HTML inline script and exposed on window
+        const _PUSH_API = window._fvPushApi || (
+            window.location.hostname === 'localhost'
+                ? 'http://localhost:3000'
+                : 'https://project-one-187u.onrender.com'
+        );
 
-        // ── Supabase client (credentials fetched from server, never hardcoded) ──
-        let _supabase;
-        try {
-            const _cfgRes = await fetch(`${_PUSH_API}/api/config`);
-            if (!_cfgRes.ok) throw new Error(`Config fetch failed: ${_cfgRes.status}`);
-            const _cfg = await _cfgRes.json();
-            _supabase = supabase.createClient(_cfg.supabaseUrl, _cfg.supabaseAnonKey);
-        } catch (_cfgErr) {
-            console.error('[upload-request] Could not load Supabase config:', _cfgErr);
-            const gate = document.getElementById('authGate');
-            if (gate) gate.innerHTML = '<p style="color:#f87171;padding:1rem">⚠️ Could not connect to FileVault. Please refresh and try again.</p>';
-            return; // halt — nothing else in this file will work without Supabase
-        }
+        // ── Reuse the Supabase client + session from the inline auth gate ──
+        // The HTML's inline script (window._fvReady) already:
+        //   1. Fetched /api/config with retry logic
+        //   2. Created the Supabase client (window._fvSupabase)
+        //   3. Called getSession() and stored the result (window._fvSession)
+        //   4. Showed the form or the auth gate accordingly
+        // We just wait for that promise and pick up the results.
+        const _fvResult = await window._fvReady;
+        if (!_fvResult.ok) return; // connection failed — gate is already shown
 
-        // ── Auth gate: only logged-in users may submit a request ──────
-        // Non-account visitors see a "Create an account" wall instead of the form.
-        var _requesterEmail = null;
-        var _isAuthenticated = false;
+        const _supabase = window._fvSupabase;
+        const _session  = window._fvSession;
 
-        (async function() {
-            try {
-                const { data: { session } } = await _supabase.auth.getSession();
-                if (session && session.user) {
-                    _requesterEmail = session.user.email || null;
-                    _isAuthenticated = true;
-                }
-            } catch(e) {}
+        var _requesterEmail  = (_session && _session.user) ? (_session.user.email || null) : null;
+        var _isAuthenticated = !!(_session && _session.user);
 
-            const gate = document.getElementById('authGate');
-            const form = document.getElementById('requestForm');
-            const pushRow = document.querySelector('.form-group[style*="display:flex"]') ||
-                            document.getElementById('req_push_optin')?.closest('.form-group');
-
-            if (!_isAuthenticated) {
-                // Show the gate, hide the form and the push opt-in row
-                if (gate) gate.style.display = 'block';
-                if (form) form.style.display = 'none';
-            } else {
-                // Authenticated — gate stays hidden, form is visible (default)
-                if (gate) gate.style.display = 'none';
-                if (form) form.style.display = '';
-            }
-        })();
+        // If not authenticated the HTML gate is already visible — nothing more to do here
+        if (!_isAuthenticated) return;
 
         // ── Capture push subscription so manager can ping you on approval ──
         var _reqPushEndpoint = null;

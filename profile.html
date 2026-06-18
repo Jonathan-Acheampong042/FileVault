@@ -795,7 +795,46 @@
     </div>
 
     <script>
-        const _supabase = supabase.createClient('https://lvhecpvwpzmstciewziv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI');
+        const _API_BASE = window.location.hostname === 'localhost'
+            ? 'http://localhost:3000'
+            : 'https://project-one-187u.onrender.com';
+
+        // Retry helper — Render free tier can take ~15s to wake from sleep
+        async function fetchConfigWithRetry(url, maxAttempts = 5, baseDelay = 2000) {
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                try {
+                    const res = await fetch(url);
+                    if (res.ok) return res;
+                    throw new Error(`HTTP ${res.status}`);
+                } catch (e) {
+                    if (attempt === maxAttempts) throw e;
+                    const delay = baseDelay * attempt;
+                    console.warn(`[profile] Config fetch attempt ${attempt} failed, retrying in ${delay}ms…`);
+                    await new Promise(r => setTimeout(r, delay));
+                }
+            }
+        }
+
+        let _supabase;
+        try {
+            const _cfgRes = await fetchConfigWithRetry(`${_API_BASE}/api/config`);
+            const _cfg = await _cfgRes.json();
+            _supabase = supabase.createClient(
+                _cfg.supabaseUrl,
+                _cfg.supabaseAnonKey,
+                { auth: { storage: window.localStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
+            );
+        } catch (_cfgErr) {
+            console.error('[profile] Could not load Supabase config:', _cfgErr);
+            const errDiv = document.createElement('div');
+            errDiv.style.cssText = 'position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0f172a;font-family:sans-serif;gap:12px;z-index:9999';
+            errDiv.innerHTML = '<p style="color:#f87171;font-size:15px;font-weight:700">⚠️ Could not connect to FileVault</p>' +
+                '<p style="color:#64748b;font-size:13px;max-width:320px;text-align:center">The server may be waking up. Please wait a moment and refresh the page.</p>' +
+                '<button onclick="window.location.reload()" style="margin-top:8px;padding:10px 24px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border:none;border-radius:12px;color:white;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit">Retry</button>';
+            document.body.innerHTML = '';
+            document.body.appendChild(errDiv);
+            throw _cfgErr;
+        }
         const ADMIN_EMAILS = ['admin@nharnharblay21@gmail.com'];
         const PUSH_API = window.location.hostname === 'localhost'
             ? 'http://localhost:3000'
