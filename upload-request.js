@@ -1,34 +1,47 @@
-(async function () {
-// Everything in this file is scoped inside this async IIFE so none of it leaks onto
+(function () {
+// Everything in this file is scoped inside this IIFE so none of it leaks onto
 // window — this file can never collide with chat-widget.js or any other script
 // you load on a page later, regardless of variable/function naming overlap.
 'use strict';
 
-        // _PUSH_API is set by the HTML inline script and exposed on window
-        const _PUSH_API = window._fvPushApi || (
-            window.location.hostname === 'localhost'
-                ? 'http://localhost:3000'
-                : 'https://project-one-187u.onrender.com'
+        const _supabase = supabase.createClient(
+            'https://lvhecpvwpzmstciewziv.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI'
         );
 
-        // ── Reuse the Supabase client + session from the inline auth gate ──
-        // The HTML's inline script (window._fvReady) already:
-        //   1. Fetched /api/config with retry logic
-        //   2. Created the Supabase client (window._fvSupabase)
-        //   3. Called getSession() and stored the result (window._fvSession)
-        //   4. Showed the form or the auth gate accordingly
-        // We just wait for that promise and pick up the results.
-        const _fvResult = await window._fvReady;
-        if (!_fvResult.ok) return; // connection failed — gate is already shown
+        const _PUSH_API = window.location.hostname === 'localhost'
+            ? 'http://localhost:3000'
+            : 'https://project-one-187u.onrender.com';
 
-        const _supabase = window._fvSupabase;
-        const _session  = window._fvSession;
+        // ── Auth gate: only logged-in users may submit a request ──────
+        // Non-account visitors see a "Create an account" wall instead of the form.
+        var _requesterEmail = null;
+        var _isAuthenticated = false;
 
-        var _requesterEmail  = (_session && _session.user) ? (_session.user.email || null) : null;
-        var _isAuthenticated = !!(_session && _session.user);
+        (async function() {
+            try {
+                const { data: { session } } = await _supabase.auth.getSession();
+                if (session && session.user) {
+                    _requesterEmail = session.user.email || null;
+                    _isAuthenticated = true;
+                }
+            } catch(e) {}
 
-        // If not authenticated the HTML gate is already visible — nothing more to do here
-        if (!_isAuthenticated) return;
+            const gate = document.getElementById('authGate');
+            const form = document.getElementById('requestForm');
+            const pushRow = document.querySelector('.form-group[style*="display:flex"]') ||
+                            document.getElementById('req_push_optin')?.closest('.form-group');
+
+            if (!_isAuthenticated) {
+                // Show the gate, hide the form and the push opt-in row
+                if (gate) gate.style.display = 'block';
+                if (form) form.style.display = 'none';
+            } else {
+                // Authenticated — gate stays hidden, form is visible (default)
+                if (gate) gate.style.display = 'none';
+                if (form) form.style.display = '';
+            }
+        })();
 
         // ── Capture push subscription so manager can ping you on approval ──
         var _reqPushEndpoint = null;

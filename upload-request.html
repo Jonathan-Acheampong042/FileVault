@@ -78,8 +78,6 @@
         .hp-field { position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}
         /* Auth gate */
         #authGate { display:none; padding: 8px 0; text-align: center; }
-        #requestForm { display:none; } /* Hidden until auth check passes */
-        #authLoading { display:flex; flex-direction:column; align-items:center; gap:10px; padding:32px 0; color:#64748b; font-size:13px; }
         #authGate .gate-icon { font-size: 48px; color: #3b82f6; display: block; margin-bottom: 14px; }
         #authGate h2 { color: white; font-weight: 800; font-size: 18px; margin: 0 0 10px; }
         #authGate p { color: #64748b; font-size: 13px; line-height: 1.6; margin: 0 0 22px; }
@@ -113,24 +111,18 @@
                 </div>
 
                 <!-- Auth gate — shown to logged-out visitors instead of the form -->
-                <!-- Loading state while auth is checked -->
-                <div id="authLoading">
-                    <div style="width:28px;height:28px;border:3px solid rgba(99,102,241,0.2);border-top-color:#6366f1;border-radius:50%;animation:spin .8s linear infinite"></div>
-                    <span>Checking your account…</span>
-                </div>
-
                 <div id="authGate">
                     <span class="material-symbols-outlined gate-icon" aria-hidden="true">lock</span>
-                    <h2>Log In to Upload a Request</h2>
-                    <p>You need to be signed in to submit a file request.<br>It's free and only takes a minute to create an account.</p>
-                    <a href="login.html?next=upload-request.html" class="gate-btn">
-                        <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">login</span>
-                        Sign In to Continue
+                    <h2>Account Required</h2>
+                    <p>You need an account to request a file.<br>It's free and only takes a minute.</p>
+                    <a href="login.html?next=upload-request.html#signup" class="gate-btn">
+                        <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">person_add</span>
+                        Create an Account
                     </a>
                     <br>
-                    <a href="login.html?next=upload-request.html#signup" class="gate-signin">
-                        <span class="material-symbols-outlined" style="font-size:15px" aria-hidden="true">person_add</span>
-                        Don't have an account? Create one
+                    <a href="login.html?next=upload-request.html" class="gate-signin">
+                        <span class="material-symbols-outlined" style="font-size:15px" aria-hidden="true">login</span>
+                        Already have an account? Sign in
                     </a>
                 </div>
 
@@ -268,64 +260,6 @@
         <span id="toastMsg"></span>
     </div>
 
-    <script>
-    // ── Inline auth gate — runs before upload-request.js loads ──
-    // Initialises Supabase once with retry, checks auth, then exposes the
-    // client + session on window so upload-request.js reuses them directly.
-    window._fvReady = (async function initAuthGate() {
-        const _API_BASE = window.location.hostname === "localhost"
-            ? "http://localhost:3000"
-            : "https://project-one-187u.onrender.com";
-
-        const authLoading = document.getElementById("authLoading");
-        const authGate    = document.getElementById("authGate");
-        const requestForm = document.getElementById("requestForm");
-
-        function showGate() {
-            if (authLoading) authLoading.style.display = "none";
-            if (authGate)    authGate.style.display    = "block";
-            if (requestForm) requestForm.style.display = "none";
-        }
-        function showForm() {
-            if (authLoading) authLoading.style.display = "none";
-            if (authGate)    authGate.style.display    = "none";
-            if (requestForm) requestForm.style.display = "block";
-        }
-
-        try {
-            // Retry helper — Render free tier can take ~15s to wake from sleep
-            // Cap at 3 attempts (max ~12s wait) so the gate appears quickly on failure
-            async function fetchWithRetry(url, maxAttempts = 3, baseDelay = 2000) {
-                for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-                    try {
-                        const res = await fetch(url);
-                        if (res.ok) return res;
-                        throw new Error("HTTP " + res.status);
-                    } catch (e) {
-                        if (attempt === maxAttempts) throw e;
-                        await new Promise(r => setTimeout(r, baseDelay * attempt));
-                    }
-                }
-            }
-            const cfgRes = await fetchWithRetry(_API_BASE + "/api/config");
-            const cfg    = await cfgRes.json();
-            // Expose client + API base globally so upload-request.js reuses them
-            window._fvSupabase = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
-                auth: { storage: window.localStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-            });
-            window._fvPushApi = _API_BASE;
-            const { data: { session } } = await window._fvSupabase.auth.getSession();
-            // Expose session so upload-request.js skips its own getSession call
-            window._fvSession = session || null;
-            if (session) { showForm(); } else { showGate(); }
-            return { ok: true, session };
-        } catch (err) {
-            console.error("[upload-request] Auth gate error:", err);
-            showGate(); // safer than exposing the form on failure
-            return { ok: false, err };
-        }
-    })();
-    </script>
     <script src="upload-request.js"></script>
     <style>
         @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
