@@ -321,10 +321,10 @@
                                 <li id="req-special">At least one special character (!@#$%^&*)</li>
                             </ul>
                         </div>
+                        <div id="signupCaptchaContainer"></div>
                         <button class="btn-primary" id="sSignUpBtn" onclick="studentSignUp()">
                             <span id="sSignUpText">Create Account</span>
                         </button>
-                        <div id="signupCaptchaContainer"></div>
                     </div>
                     <p id="sSignUpMsg" class="mt-3 text-center text-sm min-h-5" aria-live="polite" aria-atomic="true"></p>
                 </div>
@@ -648,9 +648,14 @@
     // INIT — check existing session + handle URL tokens
     // ═══════════════════════════════════════════════════════════════
     (async () => {
-        // Handle password recovery token in URL hash
-        if (window.location.hash.includes('type=recovery') || window.location.hash.includes('#access_token')) {
+        // Handle password recovery token in URL hash.
+        // Only treat as a recovery flow when the URL explicitly says type=recovery.
+        // A bare #access_token without type=recovery is a normal login callback
+        // (OAuth, magic link) and must NOT set _inRecoveryFlow — doing so would
+        // cause the pagehide handler to sign the user out when they navigate away.
+        if (window.location.hash.includes('type=recovery')) {
             _inRecoveryFlow = true;
+            _recoveryFromHash = true;
             showReset();
             return;
         }
@@ -686,12 +691,22 @@
         }
     });
 
-    // Safety net: if the user navigates away or closes the tab while a
-    // password-recovery session is active but the password was never
-    // actually changed, sign that session out so they aren't left
-    // silently authenticated without having reset anything.
+    // ── Recovery-flow safety net ──────────────────────────────────
+    // If the user navigates away or closes the tab while a password-recovery
+    // session is active but the password was never actually changed, sign that
+    // session out so they aren't left silently authenticated.
+    // IMPORTANT: only sign out when _inRecoveryFlow was set by a genuine
+    // type=recovery token — NOT by a normal access_token from admin/social
+    // login, which also puts a hash in the URL.
+    let _recoveryFromHash = false;  // true only when URL explicitly contains type=recovery
+
+    (function _checkRecoveryHash() {
+        const hash = window.location.hash;
+        if (hash.includes('type=recovery')) _recoveryFromHash = true;
+    })();
+
     window.addEventListener('pagehide', () => {
-        if (_inRecoveryFlow && !_recoveryCompleted) {
+        if (_inRecoveryFlow && !_recoveryCompleted && _recoveryFromHash) {
             _supabase.auth.signOut();
         }
     });
@@ -864,6 +879,11 @@
             document.getElementById('otpStep1').style.display = '';
             document.getElementById('otpStep2').style.display = 'none';
         }
+        // Force captcha repaint now that the panel is visible.
+        // hCaptcha iframes rendered while a panel is hidden can appear blank;
+        // resetting the widget triggers a fresh paint without losing the sitekey.
+        const captchaMap = { signin: 'signin', signup: 'signup', magiclink: 'magiclink', otp: 'otp' };
+        if (captchaMap[tab]) setTimeout(() => _ensureCaptchaVisible(captchaMap[tab]), 50);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -879,9 +899,9 @@
         const pwd      = document.getElementById('sPassword').value;
         const remember = document.getElementById('sRemember')?.checked ?? false;
 
-        if (!email)              { showSignInAlert('Please enter your email address.', 'error'); document.getElementById('sEmail').classList.add('input-error'); shake('sSignInBtn'); return; }
-        if (!isValidEmail(email)){ showSignInAlert('Please enter a valid email address (e.g. name@university.edu).', 'error'); document.getElementById('sEmail').classList.add('input-error'); shake('sSignInBtn'); return; }
-        if (!pwd)                { showSignInAlert('Please enter your password.', 'error'); document.getElementById('sPassword').classList.add('input-error'); shake('sSignInBtn'); return; }
+        if (!email)              { showSignInAlert('Please enter your email address.', 'error'); document.getElementById('sEmail').classList.add('input-error'); shake('sSignInBtn'); try { hcaptcha.reset(_wid.signin); } catch(e) {} return; }
+        if (!isValidEmail(email)){ showSignInAlert('Please enter a valid email address (e.g. name@university.edu).', 'error'); document.getElementById('sEmail').classList.add('input-error'); shake('sSignInBtn'); try { hcaptcha.reset(_wid.signin); } catch(e) {} return; }
+        if (!pwd)                { showSignInAlert('Please enter your password.', 'error'); document.getElementById('sPassword').classList.add('input-error'); shake('sSignInBtn'); try { hcaptcha.reset(_wid.signin); } catch(e) {} return; }
 
         document.getElementById('sEmail').classList.remove('input-error');
         document.getElementById('sPassword').classList.remove('input-error');
@@ -964,7 +984,7 @@
         const { error } = await _supabase.auth.signUp({ email, password: pwd, options: signUpOpts });
         clearBtnLoading('sSignUpBtn','sSignUpText','Create Account');
 
-        if (error) { setMsg('sSignUpMsg', friendlyError(error), 'error'); return; }
+        if (error) { setMsg('sSignUpMsg', friendlyError(error), 'error'); try { hcaptcha.reset(_wid.signup); } catch(e) {} return; }
 
         _signUpEmail = email;
         try { sessionStorage.setItem('fv_pending_confirm_email', email); } catch(e) {}
@@ -1055,7 +1075,7 @@
         const { error } = await _supabase.auth.signInWithOtp({ email, options: opts });
         clearBtnLoading('mlBtn','mlBtnText','Send Magic Link');
 
-        if (error) { setMsg('mlMsg', friendlyError(error), 'error'); return; }
+        if (error) { setMsg('mlMsg', friendlyError(error), 'error'); try { hcaptcha.reset(_wid.magiclink); } catch(e) {} return; }
         setMsg('mlMsg', '✉️ Magic link sent! Check your inbox and spam folder. The link expires in 1 hour.', 'success');
     }
 
@@ -1078,7 +1098,7 @@
         const { error } = await _supabase.auth.signInWithOtp({ email: _otpEmail, options: opts });
         clearBtnLoading('otpSendBtn','otpSendText','Send Code');
 
-        if (error) { setMsg('otpSendMsg', friendlyError(error), 'error'); return; }
+        if (error) { setMsg('otpSendMsg', friendlyError(error), 'error'); try { hcaptcha.reset(_wid.otp); } catch(e) {} return; }
 
         document.getElementById('otpStep1').style.display = 'none';
         document.getElementById('otpStep2').style.display = '';
@@ -1254,6 +1274,8 @@
         document.getElementById('forgotSection').style.display = '';
         document.getElementById('mainTitle').textContent = 'Reset Password';
         document.getElementById('mainSubtitle').textContent = 'We\'ll send a reset link to your email';
+        // Force captcha repaint now that the section is visible
+        setTimeout(() => _ensureCaptchaVisible('forgot'), 50);
     }
     function closeForgotPassword() {
         document.getElementById('forgotSection').style.display = 'none';
@@ -1274,7 +1296,7 @@
         const { error } = await _supabase.auth.resetPasswordForEmail(email, opts);
         clearBtnLoading('forgotBtn','forgotBtnText','Send Reset Link');
 
-        if (error) { setMsg('forgotMsg', friendlyError(error), 'error'); return; }
+        if (error) { setMsg('forgotMsg', friendlyError(error), 'error'); try { hcaptcha.reset(_wid.forgot); } catch(e) {} return; }
         setMsg('forgotMsg', '✅ Reset link sent! Check your inbox. The link expires in 1 hour.', 'success');
     }
 
@@ -1398,13 +1420,22 @@
     const _wid = {};
 
     function hcaptchaReady() {
-        const common = { sitekey: HCAPTCHA_SITEKEY, theme: 'dark' };
+        const common = { sitekey: HCAPTCHA_SITEKEY, theme: 'dark', size: 'normal' };
 
         _wid.signin    = hcaptcha.render('signinCaptchaContainer',  common);
         _wid.signup    = hcaptcha.render('signupCaptchaContainer',  common);
         _wid.magiclink = hcaptcha.render('mlCaptchaContainer',      common);
         _wid.otp       = hcaptcha.render('otpCaptchaContainer',     common);
         _wid.forgot    = hcaptcha.render('forgotCaptchaContainer',  common);
+    }
+
+    // Ensure a captcha widget is fully visible after its panel becomes active.
+    // hCaptcha iframes can fail to paint when rendered inside a hidden element;
+    // calling reset() forces a repaint so the checkbox always shows.
+    function _ensureCaptchaVisible(widKey) {
+        try {
+            if (_wid[widKey] !== undefined) hcaptcha.reset(_wid[widKey]);
+        } catch(e) {}
     }
 
     // Read the completed token from a visible widget, reset it, and return it.
