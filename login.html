@@ -601,6 +601,25 @@
     </div>
 
     <script>
+    // ── hCaptcha global callback — must be on window SYNCHRONOUSLY ──────────────
+    // The hCaptcha script (loaded async/defer with onload=hcaptchaReady) will call
+    // window.hcaptchaReady as soon as it finishes loading. The main async IIFE below
+    // awaits a network fetch before it returns, so any function defined inside it
+    // is NOT available on window until that fetch resolves — too late.
+    // Solution: define window.hcaptchaReady here, synchronously, before the IIFE.
+    // ─────────────────────────────────────────────────────────────────────────────
+    const HCAPTCHA_SITEKEY = 'f7dcb47a-d48c-48fe-b802-401c1bc48492';
+    const _wid = {};  // shared widget-ID store (also referenced inside the IIFE)
+
+    window.hcaptchaReady = function () {
+        const common = { sitekey: HCAPTCHA_SITEKEY, theme: 'dark', size: 'normal' };
+        try { _wid.signin    = hcaptcha.render('signinCaptchaContainer',  common); } catch(e) {}
+        try { _wid.signup    = hcaptcha.render('signupCaptchaContainer',  common); } catch(e) {}
+        try { _wid.magiclink = hcaptcha.render('mlCaptchaContainer',      common); } catch(e) {}
+        try { _wid.otp       = hcaptcha.render('otpCaptchaContainer',     common); } catch(e) {}
+        try { _wid.forgot    = hcaptcha.render('forgotCaptchaContainer',  common); } catch(e) {}
+    };
+
     (async function () {
     // ═══════════════════════════════════════════════════════════════
     // CONFIG
@@ -1564,26 +1583,9 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // HCAPTCHA — explicit render, all widgets visible
-    // hcaptchaReady() is called by the API script's onload= param.
+    // HCAPTCHA — helpers (window.hcaptchaReady + _wid are defined
+    // synchronously above the IIFE so hCaptcha's onload= always finds them)
     // ═══════════════════════════════════════════════════════════════
-    const HCAPTCHA_SITEKEY = 'f7dcb47a-d48c-48fe-b802-401c1bc48492';
-
-    // Stores numeric widget IDs assigned by hCaptcha after explicit render
-    const _wid = {};
-
-    function hcaptchaReady() {
-        const common = { sitekey: HCAPTCHA_SITEKEY, theme: 'dark', size: 'normal' };
-
-        _wid.signin    = hcaptcha.render('signinCaptchaContainer',  common);
-        _wid.signup    = hcaptcha.render('signupCaptchaContainer',  common);
-        _wid.magiclink = hcaptcha.render('mlCaptchaContainer',      common);
-        _wid.otp       = hcaptcha.render('otpCaptchaContainer',     common);
-        _wid.forgot    = hcaptcha.render('forgotCaptchaContainer',  common);
-        // Note: the "Set New Password" step has no captcha widget — Supabase's
-        // updateUser() doesn't verify captcha tokens, unlike resetPasswordForEmail
-        // (the "forgot password" email-request step, above) which does.
-    }
 
     // Ensure a captcha widget is fully visible after its panel becomes active.
     // hCaptcha iframes can fail to paint when rendered inside a hidden element;
@@ -1597,13 +1599,19 @@
     // Read the completed token from a visible widget, reset it, and return it.
     // Returns null (and shows an error via errMsgId) if the user hasn't ticked yet.
     function _getToken(widKey, errMsgId) {
-        const token = hcaptcha.getResponse(_wid[widKey]);
-        if (!token) {
-            if (errMsgId) setMsg(errMsgId, 'Please complete the CAPTCHA.', 'error');
+        try {
+            const token = hcaptcha.getResponse(_wid[widKey]);
+            if (!token) {
+                if (errMsgId) setMsg(errMsgId, 'Please complete the CAPTCHA.', 'error');
+                return null;
+            }
+            try { hcaptcha.reset(_wid[widKey]); } catch(e) {}
+            return token;
+        } catch(e) {
+            // hCaptcha not yet loaded or widget not yet rendered
+            if (errMsgId) setMsg(errMsgId, 'CAPTCHA not ready — please wait a moment and try again.', 'error');
             return null;
         }
-        try { hcaptcha.reset(_wid[widKey]); } catch(e) {}
-        return token;
     }
 
     // ── Friendly error messages ── 
