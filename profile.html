@@ -76,6 +76,8 @@
         .auth-input:focus { border-color:rgba(59,130,246,0.55); background:rgba(255,255,255,0.08); }
         .auth-input::placeholder { color:rgba(255,255,255,0.3); }
         .auth-input:disabled { opacity:.6; cursor:not-allowed; }
+        select.auth-input { color-scheme: dark; }
+        select.auth-input option { background:#0f172a; color:#e2e8f0; }
         .auth-input-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:rgba(255,255,255,0.35); font-size:18px; pointer-events:none; }
         input:-webkit-autofill,input:-webkit-autofill:hover,input:-webkit-autofill:focus { -webkit-box-shadow:0 0 0 1000px rgba(255,255,255,0.05) inset !important; -webkit-text-fill-color:#fff !important; transition:background-color 5000s ease-in-out 0s !important; }
 
@@ -450,7 +452,7 @@
                             <p class="field-label">Year of Study</p>
                             <div class="relative">
                                 <span class="auth-input-icon material-symbols-outlined">calendar_today</span>
-                                <select id="yearInput" class="auth-input" style="padding-left:46px;appearance:none">
+                                <select id="yearInput" class="auth-input" style="padding-left:46px;appearance:none;color-scheme:dark;background-color:rgba(255,255,255,0.05)">
                                     <option value="">Select…</option>
                                     <option value="Year 1">Year 1</option>
                                     <option value="Year 2">Year 2</option>
@@ -748,31 +750,31 @@
                     </div>
                 </div>
 
-                <!-- Delete account modal -->
-                <div class="mfa-modal-overlay" id="deleteAccountModal">
-                    <div class="glass-card mfa-modal-box" style="max-width:380px">
-                        <div style="text-align:center;margin-bottom:18px">
-                            <div style="width:52px;height:52px;border-radius:16px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.28);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
-                                <span class="material-symbols-outlined" style="font-size:26px;color:#f87171">no_accounts</span>
-                            </div>
-                            <h3 style="color:white;font-weight:700;font-size:16px;margin-bottom:4px">Delete Your Account</h3>
-                            <p style="color:#64748b;font-size:13px;line-height:1.5">This permanently deletes your account, profile, request history, and saved preferences. This action cannot be undone.</p>
-                        </div>
-                        <p style="font-size:11px;color:#94a3b8;margin-bottom:8px;text-align:center">Type <strong style="color:#fca5a5">DELETE</strong> to confirm</p>
-                        <input type="text" id="deleteConfirmInput" class="delete-confirm-input" placeholder="DELETE" autocomplete="off" oninput="document.getElementById('confirmDeleteBtn').disabled = this.value.trim().toUpperCase() !== 'DELETE'"/>
-                        <button class="btn-danger-sm" id="confirmDeleteBtn" disabled onclick="confirmDeleteAccount()" style="width:100%;justify-content:center;margin-top:14px;padding:12px;font-size:13px">
-                            <span id="confirmDeleteText">Permanently Delete My Account</span>
-                        </button>
-                        <p id="deleteAccountMsg" class="mt-2 text-center text-sm min-h-5" style="color:#f87171"></p>
-                        <button type="button" onclick="closeDeleteAccountModal()" style="margin-top:4px;background:none;border:none;cursor:pointer;color:#64748b;font-size:12px;width:100%;text-align:center;font-family:inherit">
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-
                 <p style="text-align:center;font-size:11px;color:#334155;margin-top:8px">FileVault Account Settings</p>
             </div>
         </main>
+    </div>
+
+    <!-- Delete account modal — kept outside page flow so position:fixed always centers it correctly -->
+    <div class="mfa-modal-overlay" id="deleteAccountModal">
+        <div class="glass-card mfa-modal-box" style="max-width:380px">
+            <div style="text-align:center;margin-bottom:18px">
+                <div style="width:52px;height:52px;border-radius:16px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.28);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                    <span class="material-symbols-outlined" style="font-size:26px;color:#f87171">no_accounts</span>
+                </div>
+                <h3 style="color:white;font-weight:700;font-size:16px;margin-bottom:4px">Delete Your Account</h3>
+                <p style="color:#64748b;font-size:13px;line-height:1.5">This permanently deletes your account, profile, request history, and saved preferences. This action cannot be undone.</p>
+            </div>
+            <p style="font-size:11px;color:#94a3b8;margin-bottom:8px;text-align:center">Type <strong style="color:#fca5a5">DELETE</strong> to confirm</p>
+            <input type="text" id="deleteConfirmInput" class="delete-confirm-input" placeholder="DELETE" autocomplete="off" oninput="document.getElementById('confirmDeleteBtn').disabled = this.value.trim().toUpperCase() !== 'DELETE'"/>
+            <button class="btn-danger-sm" id="confirmDeleteBtn" disabled onclick="confirmDeleteAccount()" style="width:100%;justify-content:center;margin-top:14px;padding:12px;font-size:13px">
+                <span id="confirmDeleteText">Permanently Delete My Account</span>
+            </button>
+            <p id="deleteAccountMsg" class="mt-2 text-center text-sm min-h-5" style="color:#f87171"></p>
+            <button type="button" onclick="closeDeleteAccountModal()" style="margin-top:4px;background:none;border:none;cursor:pointer;color:#64748b;font-size:12px;width:100%;text-align:center;font-family:inherit">
+                Cancel
+            </button>
+        </div>
     </div>
 
     <script>
@@ -989,9 +991,33 @@
             const studentId = (document.getElementById('studentIdInput').value || '').trim().slice(0, 40);
 
             setBtnLoading('saveStudentInfoBtn','saveStudentInfoText','Saving…');
+
+            // 1. Save to auth user_metadata (for profile page use)
             const { data, error } = await _supabase.auth.updateUser({
                 data: { bio, course, year_of_study: year, student_id: studentId }
             });
+
+            // 2. Mirror to user_profiles table (so managers can read it)
+            //    Run once in Supabase SQL editor to add these columns if missing:
+            //    alter table user_profiles add column if not exists bio text;
+            //    alter table user_profiles add column if not exists course text;
+            //    alter table user_profiles add column if not exists year_of_study text;
+            //    alter table user_profiles add column if not exists student_id text;
+            //    alter table user_profiles add column if not exists display_name text;
+            //    alter table user_profiles add column if not exists email text;
+            if (_currentUser) {
+                const meta = (_currentUser.user_metadata) || {};
+                const displayName = meta.display_name || meta.full_name || meta.name || '';
+                try {
+                    await _supabase.from('user_profiles').upsert({
+                        id: _currentUser.id,
+                        email: _currentUser.email,
+                        display_name: displayName,
+                        bio, course, year_of_study: year, student_id: studentId
+                    }, { onConflict: 'id' });
+                } catch(_) { /* columns may not exist yet — fail silently */ }
+            }
+
             clearBtnLoading('saveStudentInfoBtn','saveStudentInfoText','Save Student Info');
 
             if (error) { setMsg('studentInfoMsg', error.message, 'error'); return; }
@@ -1890,8 +1916,20 @@
         // ═══════════════════════════════════════════════════════════
         // Track previously unlocked badges to detect new unlocks
         let _prevUnlockedBadges = null;
+        let _achievementsLoading = false; // debounce concurrent calls
 
         async function loadAchievements() {
+            // Debounce: if already running, skip to avoid race conditions
+            if (_achievementsLoading) return;
+            _achievementsLoading = true;
+            try {
+                await _loadAchievementsInner();
+            } finally {
+                _achievementsLoading = false;
+            }
+        }
+
+        async function _loadAchievementsInner() {
             const downloads = parseInt(document.getElementById('statDownloads').textContent, 10) || 0;
             const requests  = parseInt(document.getElementById('statRequests').textContent,  10) || 0;
             const days      = parseInt(document.getElementById('statDaysMember').textContent, 10) || 0;
@@ -1937,15 +1975,21 @@
                 }
             }
 
-            // Toast for newly unlocked (only badges not previously in unlockedAt before this call)
-            if (_prevUnlockedBadges !== null) {
-                badges.forEach(b => {
-                    if (b.unlocked && !_prevUnlockedBadges.has(b.name)) {
-                        showToast('🏅 Achievement unlocked: ' + b.name, 'success');
-                    }
-                });
+            // On the very first call, seed _prevUnlockedBadges from DB (existing + just-persisted)
+            // so we only toast for badges that are NEW this session, not ones already in the DB.
+            const currentlyUnlockedNames = new Set(badges.filter(b => b.unlocked).map(b => b.name));
+            if (_prevUnlockedBadges === null) {
+                // Seed from DB: anything already in unlockedAt is pre-existing — don't toast for those
+                _prevUnlockedBadges = new Set(Object.keys(unlockedAt));
             }
-            _prevUnlockedBadges = new Set(badges.filter(b => b.unlocked).map(b => b.name));
+
+            // Toast only for badges that are newly unlocked THIS call vs last call
+            badges.forEach(b => {
+                if (b.unlocked && !_prevUnlockedBadges.has(b.name)) {
+                    showToast('🏅 Achievement unlocked: ' + b.name, 'success');
+                }
+            });
+            _prevUnlockedBadges = currentlyUnlockedNames;
 
             document.getElementById('badgeGrid').innerHTML = badges.map(b => {
                 const ts = unlockedAt[b.name]

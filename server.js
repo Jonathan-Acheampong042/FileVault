@@ -59,7 +59,7 @@ app.use(cors({
     if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
     callback(new Error(`CORS: origin ${origin} not allowed`));
   },
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
   credentials: true,
 }));
 app.use(express.json());
@@ -81,8 +81,10 @@ const _supa = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
 // Required table (run once in Supabase SQL editor):
 //
 //   create table if not exists push_subscriptions (
-//     endpoint text primary key,
+//     endpoint   text primary key,
 //     subscription jsonb not null,
+//     user_id    text,                        -- Fix 8: Supabase auth UID or null for anon
+//     role       text not null default 'student', -- Fix 7: 'student' | 'manager'
 //     created_at timestamptz default now()
 //   );
 //   alter table push_subscriptions enable row level security;
@@ -90,9 +92,22 @@ const _supa = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
 //   create policy "Service role only" on push_subscriptions
 //     using (false) with check (false);
 //
+// Migration — run once if the table already exists:
+//   alter table push_subscriptions add column if not exists user_id text;
+//   alter table push_subscriptions add column if not exists role text not null default 'student';
+//
 async function dbGetAllSubs() {
     if (!_supa) return [];
     const { data } = await _supa.from('push_subscriptions').select('subscription');
+    return (data || []).map(r => r.subscription);
+}
+// Fix 7: fetch only manager subscriptions for targeted manager notifications.
+async function dbGetManagerSubs() {
+    if (!_supa) return [];
+    const { data } = await _supa
+        .from('push_subscriptions')
+        .select('subscription')
+        .eq('role', 'manager');
     return (data || []).map(r => r.subscription);
 }
 async function dbGetSubByEndpoint(endpoint) {
@@ -126,7 +141,7 @@ app.get('/api/push/vapid-public-key', (req, res) => {
 });
 
 app.post('/api/push/subscribe', async (req, res) => {
-    const { subscription, userId } = req.body;
+    const { subscription, userId, role } = req.body; // Fix 8: accept userId + role
     if (!subscription || !subscription.endpoint) {
         return res.status(400).json({ error: 'Invalid subscription' });
     }
@@ -136,10 +151,20 @@ app.post('/api/push/subscribe', async (req, res) => {
         return res.status(503).json({ error: 'Push storage not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.' });
     }
 
+    // Fix 8: persist userId so we can target specific users later.
+    // Fix 7: persist role ('manager' | 'student') so notify-manager only hits managers.
+    // Callers that don't send a role default to 'student' — safe and backwards-compatible.
+    const resolvedRole = role === 'manager' ? 'manager' : 'student';
+
     const { error } = await _supa
         .from('push_subscriptions')
         .upsert(
-            { endpoint: subscription.endpoint, subscription },
+            {
+                endpoint: subscription.endpoint,
+                subscription,
+                user_id: userId || null,   // Fix 8: store for targeted sends
+                role: resolvedRole,        // Fix 7: store for manager-only broadcast
+            },
             { onConflict: 'endpoint' }
         );
 
@@ -198,7 +223,9 @@ app.get('/api/push/cleanup', async (req, res) => {
     res.json({ ok: true, total: allSubs.length, pruned, kept });
 });
 
-// Notify all subscribers about a new file request — called by upload-request.html.
+// Notify manager subscribers about a new file request — called by upload-request.html.
+// Fix 7: uses dbGetManagerSubs() so only subs with role='manager' receive this.
+// Students with push enabled no longer get "New File Request" spam.
 // This endpoint is intentionally unprotected (no secret) because it is called from
 // student-facing pages that don't have the push secret.
 // Rate-limited to 10 req/min to prevent abuse.
@@ -214,21 +241,22 @@ app.post('/api/push/notify-manager', pushRateLimit, async (req, res) => {
         icon: '/filevault%20logo.png',
         badge: '/filevault%20logo.png'
     });
-    const allSubs = await dbGetAllSubs();
+    // Fix 7: only deliver to subscriptions registered with role='manager'
+    const managerSubs = await dbGetManagerSubs();
     let sent = 0, failed = 0;
     const results = await Promise.allSettled(
-        allSubs.map(subscription => webpush.sendNotification(subscription, payload))
+        managerSubs.map(subscription => webpush.sendNotification(subscription, payload))
     );
     await Promise.all(results.map(async (result, i) => {
         if (result.status === 'fulfilled') {
             sent++;
         } else {
             const code = result.reason?.statusCode;
-            if (code === 410 || code === 404) await dbDeleteSub(allSubs[i].endpoint);
+            if (code === 410 || code === 404) await dbDeleteSub(managerSubs[i].endpoint);
             failed++;
         }
     }));
-    res.json({ ok: true, sent, failed, total: allSubs.length });
+    res.json({ ok: true, sent, failed, total: managerSubs.length });
 });
 
 // Notify all subscribers — called by manager on new file upload or announcement
@@ -548,7 +576,8 @@ app.get('/api/announcements', async (req, res) => {
     if (!_supa) return res.status(503).json({ error: 'Supabase not configured' });
     const { data, error } = await _supa
         .from('announcements')
-        .select('id, message, expires_at, created_at')
+        .select('id, message, event_date, expires_at, status, created_at')
+        .neq('status', 'draft')                                           // Fix 5: hide drafts from students
         .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
         .order('created_at', { ascending: false })
         .limit(1)
@@ -558,12 +587,16 @@ app.get('/api/announcements', async (req, res) => {
 });
 
 app.post('/api/announcements', async (req, res) => {
-    const { message, expires_at, created_by, secret } = req.body;
+    const { message, expires_at, event_date, status, created_by, secret } = req.body; // Fix 5
     if (process.env.PUSH_SECRET && secret !== process.env.PUSH_SECRET)
         return res.status(401).json({ error: 'Unauthorized' });
     if (!_supa) return res.status(503).json({ error: 'Supabase not configured' });
     if (!message || !message.trim())
         return res.status(400).json({ error: 'message is required' });
+
+    // Fix 5: validate and accept status (draft | published)
+    const allowedStatuses = ['draft', 'published'];
+    const resolvedStatus = allowedStatuses.includes(status) ? status : 'published';
 
     // Validate expiry date if provided
     let expiresAt = null;
@@ -574,14 +607,26 @@ app.post('/api/announcements', async (req, res) => {
         expiresAt = expiresAt.toISOString();
     }
 
+    // Fix 5: validate and accept event_date
+    let eventDate = null;
+    if (event_date) {
+        eventDate = new Date(event_date);
+        if (isNaN(eventDate.getTime())) {
+            return res.status(400).json({ error: 'event_date must be a valid date' });
+        }
+        eventDate = eventDate.toISOString();
+    }
+
     const { data, error } = await _supa.from('announcements').insert({
         message: message.trim().slice(0, 500),
+        status: resolvedStatus,            // Fix 5: persist draft/published
+        event_date: eventDate,             // Fix 5: persist event countdown date
         expires_at: expiresAt,
         created_by: created_by || null
-    }).select('id, message, expires_at, created_at').single();
+    }).select('id, message, event_date, expires_at, status, created_at').single();
 
     if (error) return res.status(500).json({ error: error.message });
-    console.log(`[announcements] Created id=${data.id} expires=${expiresAt || 'never'}`);
+    console.log(`[announcements] Created id=${data.id} status=${resolvedStatus} expires=${expiresAt || 'never'}`);
     res.json({ ok: true, announcement: data });
 });
 
@@ -624,9 +669,32 @@ app.get('/api/cron/announcement-cleanup', async (req, res) => {
 // Existing columns used: id, filename, description, reason, folder, status,
 //   requester_email, subscriber_endpoint, subscriber_keys, created_at.
 
-// GET /api/file-requests
-// Manager listing: pass secret in X-Manager-Secret header.
+// GET /api/file-requests?token=<id>
+// Public student lookup — no secret required.
+// Returns only safe fields; never exposes requester_email, subscriber keys, etc.
 app.get('/api/file-requests', async (req, res) => {
+    // ── Student branch: token query param present ─────────────────────────────
+    if (req.query.token) {
+        if (!_supa) return res.status(503).json({ error: 'Supabase not configured' });
+        const id = req.query.token.trim();
+        // Validate it looks like a UUID to avoid sending arbitrary strings to Supabase
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+            return res.status(400).json({ error: 'Invalid token format' });
+        }
+        const { data, error } = await _supa
+            .from('upload_requests')
+            .select('id, status, manager_note, description, folder, created_at, updated_at')
+            .eq('id', id)
+            .maybeSingle();
+        if (error) return res.status(500).json({ error: error.message });
+        if (!data) return res.status(404).json({ error: 'Request not found' });
+        return res.json({ request: data });
+    }
+
+    // ── Manager branch: full listing, requires X-Manager-Secret ──────────────
+    // GET /api/file-requests (no token param)
+    // Manager listing: pass secret in X-Manager-Secret header.
+
     if (!_supa) return res.status(503).json({ error: 'Supabase not configured' });
 
     // Prefer header; fall back to query param with a deprecation warning

@@ -242,6 +242,9 @@
 
         const STATUS_CONFIG = {
             pending:   { dot: '#f59e0b', label: 'Pending review' },
+            fulfilled: { dot: '#22c55e', label: 'Approved — file uploaded to Vault!' },
+            declined:  { dot: '#64748b', label: 'Dismissed by manager' },
+            // Legacy aliases — kept so any rows written before the enum fix still display correctly
             approved:  { dot: '#22c55e', label: 'Approved — file uploaded to Vault!' },
             dismissed: { dot: '#64748b', label: 'Dismissed by manager' }
         };
@@ -429,6 +432,9 @@
                         stored.unshift(reqId);
                         localStorage.setItem('fv_request_ids', JSON.stringify(stored.slice(0, 10)));
                     } catch(e) {}
+                    // Also write the key that chat-widget.js reads for the "Check Request Status"
+                    // modal pre-fill — keeps both the upload-request page and the chat widget in sync
+                    try { localStorage.setItem('fvFileRequestToken', reqId); } catch(e) {}
                     try { sessionStorage.setItem('fv_last_request_id', reqId); } catch(e) {}
                     // Put it in the URL hash so a bookmark or copy of the URL preserves it
                     history.replaceState(null, '', '#req=' + reqId);
