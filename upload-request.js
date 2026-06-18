@@ -1,47 +1,59 @@
-(function () {
-// Everything in this file is scoped inside this IIFE so none of it leaks onto
+(async function () {
+// Everything in this file is scoped inside this async IIFE so none of it leaks onto
 // window — this file can never collide with chat-widget.js or any other script
 // you load on a page later, regardless of variable/function naming overlap.
 'use strict';
 
-        const _supabase = supabase.createClient(
-            'https://lvhecpvwpzmstciewziv.supabase.co',
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI'
+        // ── Wait for the inline auth gate (in upload-request.html) to finish ──
+        // window._fvReady is the Promise returned by the inline <script> block.
+        // It resolves once Supabase is initialised, the session is checked, and
+        // the correct UI state (gate vs form) is already showing.  We then simply
+        // reuse the client and session it exposed on window rather than creating
+        // our own — avoids a double getSession() round-trip and keeps credentials
+        // in one place (fetched server-side, never hardcoded here).
+        let _initResult = { ok: false, session: null };
+        try {
+            _initResult = await window._fvReady;
+        } catch(e) {
+            console.warn('[upload-request.js] _fvReady rejected:', e);
+        }
+
+        // Reuse the Supabase client the inline script created
+        const _supabase = window._fvSupabase;
+        const _PUSH_API = window._fvPushApi || (
+            window.location.hostname === 'localhost'
+                ? 'http://localhost:3000'
+                : 'https://project-one-187u.onrender.com'
         );
 
-        const _PUSH_API = window.location.hostname === 'localhost'
-            ? 'http://localhost:3000'
-            : 'https://project-one-187u.onrender.com';
+        // ── Auth state (already applied to the DOM by the inline script) ──────
+        var _requesterEmail = _initResult.session?.user?.email || null;
+        var _isAuthenticated = !!_initResult.session;
 
-        // ── Auth gate: only logged-in users may submit a request ──────
-        // Non-account visitors see a "Create an account" wall instead of the form.
-        var _requesterEmail = null;
-        var _isAuthenticated = false;
-
-        (async function() {
-            try {
-                const { data: { session } } = await _supabase.auth.getSession();
-                if (session && session.user) {
-                    _requesterEmail = session.user.email || null;
+        // Keep auth state live — if the user signs out in another tab, hide the form
+        if (_supabase) {
+            _supabase.auth.onAuthStateChange((event, session) => {
+                if (event === 'SIGNED_IN' && session?.user) {
+                    _requesterEmail  = session.user.email || null;
                     _isAuthenticated = true;
+                    const authLoading = document.getElementById('authLoading');
+                    const authGate    = document.getElementById('authGate');
+                    const requestForm = document.getElementById('requestForm');
+                    if (authLoading) authLoading.style.display = 'none';
+                    if (authGate)    authGate.style.display    = 'none';
+                    if (requestForm) requestForm.style.display = 'block';
+                } else if (event === 'SIGNED_OUT') {
+                    _requesterEmail  = null;
+                    _isAuthenticated = false;
+                    const authLoading = document.getElementById('authLoading');
+                    const authGate    = document.getElementById('authGate');
+                    const requestForm = document.getElementById('requestForm');
+                    if (authLoading) authLoading.style.display = 'none';
+                    if (authGate)    authGate.style.display    = 'block';
+                    if (requestForm) requestForm.style.display = 'none';
                 }
-            } catch(e) {}
-
-            const gate = document.getElementById('authGate');
-            const form = document.getElementById('requestForm');
-            const pushRow = document.querySelector('.form-group[style*="display:flex"]') ||
-                            document.getElementById('req_push_optin')?.closest('.form-group');
-
-            if (!_isAuthenticated) {
-                // Show the gate, hide the form and the push opt-in row
-                if (gate) gate.style.display = 'block';
-                if (form) form.style.display = 'none';
-            } else {
-                // Authenticated — gate stays hidden, form is visible (default)
-                if (gate) gate.style.display = 'none';
-                if (form) form.style.display = '';
-            }
-        })();
+            });
+        }
 
         // ── Capture push subscription so manager can ping you on approval ──
         var _reqPushEndpoint = null;
@@ -284,9 +296,11 @@
 
         // ── On load: check if returning via bookmarked #req= URL ────
         window.addEventListener('load', () => {
-            // Check URL hash for a stored request ID (e.g. from a bookmark)
+            // Check URL hash for a stored request ID (e.g. from a bookmark).
+            // Only restore the success state when the user is authenticated —
+            // logged-out visitors already see the gate, which is correct.
             const hashMatch = window.location.hash.match(/[#&]req=([^&]+)/);
-            if (hashMatch) {
+            if (hashMatch && _isAuthenticated) {
                 const resumeId = hashMatch[1];
                 _activeReqId = resumeId;
                 document.getElementById('requestForm').style.display = 'none';
