@@ -120,6 +120,7 @@
 
             // ── Populate folder autocomplete from existing folders in DB ──
             (async () => {
+                if (!_supabase) return; // guard: supabase unavailable (backend down / not logged in)
                 try {
                     const { data, error } = await _supabase
                         .from('files_list')
@@ -262,7 +263,7 @@
         };
 
         async function pollStatus() {
-            if (!_activeReqId) return;
+            if (!_activeReqId || !_supabase) return;
             const refreshBtn = document.getElementById('refreshStatusBtn');
             const refreshIcon = document.getElementById('refreshIcon');
             if (refreshIcon) { refreshIcon.style.animation = 'spin .7s linear infinite'; }
@@ -356,6 +357,12 @@
             // Safety net: block submission if the user somehow isn't authenticated
             if (!_isAuthenticated) {
                 showToast('Please create an account or sign in to submit a request.', 'error');
+                return;
+            }
+
+            // Guard: supabase client unavailable (backend down on page load)
+            if (!_supabase) {
+                showToast('Connection unavailable. Please refresh the page and try again.', 'error');
                 return;
             }
 
@@ -469,8 +476,8 @@
             }
         });
 
-// ── QR Code generation ──
-(function() {
+// ── QR Code generation — deferred to load so the container is painted ──
+window.addEventListener('load', function() {
     const script = document.createElement('script');
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
     script.onload = function() {
@@ -479,6 +486,7 @@
         if (urlEl) urlEl.textContent = vaultUrl;
         const container = document.getElementById('qrCodeCanvas');
         if (!container) return;
+        container.innerHTML = '';
         try {
             new QRCode(container, {
                 text: vaultUrl,
@@ -498,5 +506,5 @@
         if (cv) cv.innerHTML = '<p style="color:#64748b;font-size:11px;padding:12px">QR unavailable</p>';
     };
     document.head.appendChild(script);
-})();
+});
 })();
