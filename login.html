@@ -605,18 +605,22 @@
     // We read the preference before creating the client so the correct storage
     // is active from the very first token write.
     const _remembered = localStorage.getItem('fv_remember_me') === '1';
+    // ── Always use localStorage for session storage ───────────────
+    // Previously we switched between localStorage and sessionStorage based on
+    // "Remember me". This caused cross-page storage-mismatch bugs: manager.html
+    // and index.html each create their own Supabase client and read fv_remember_me
+    // independently — if the flag was never written (e.g. first login), they
+    // disagreed on which bucket to look in and saw no session.
+    // Fix: always store the session in localStorage. "Remember me" now only
+    // controls whether we write fv_remember_me so the checkbox stays ticked on
+    // the next visit; it no longer controls the storage engine.
     const _supabase = supabase.createClient(
         'https://lvhecpvwpzmstciewziv.supabase.co',
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI',
         {
             auth: {
-                // Use localStorage when remembered, sessionStorage otherwise.
-                // Supabase JS v2 accepts any Storage-compatible object.
-                storage: _remembered ? window.localStorage : window.sessionStorage,
+                storage: window.localStorage,   // always localStorage — see comment above
                 persistSession: true,
-                // autoRefreshToken keeps the session alive while the tab is open.
-                // When storage is localStorage the refresh token persists across
-                // restarts, giving returning users a seamless "still signed in" experience.
                 autoRefreshToken: true,
                 detectSessionInUrl: true,
             }
@@ -636,6 +640,7 @@
     let _otpEmail      = '';
     let _signUpEmail   = '';   // email used for the most recent sign-up; used for resend
     let _redirecting   = false;   // prevents double-fire from onAuthStateChange
+    let _navigating    = false;   // true once window.location.href has been set; blocks all re-entry
     let _inRecoveryFlow = false;  // true while a recovery session is active but not yet completed
     let _recoveryCompleted = false;
 
@@ -689,6 +694,7 @@
         if (event === 'SIGNED_OUT') {
             // Reset all gate flags so a subsequent sign-in attempt goes through cleanly.
             _redirecting    = false;
+            _navigating     = false;
             _mfaPending     = false;
             _mfaFactorId    = null;
             _mfaChallengeId = null;
@@ -722,7 +728,7 @@
 
     // ── Route user based on role ──────────────────────────────────
     async function routeUser(user) {
-        if (!user || _redirecting) return;
+        if (!user || _redirecting || _navigating) return;
 
         // Clear any pending sign-up confirmation state — this user is now confirmed
         try { sessionStorage.removeItem('fv_pending_confirm_email'); } catch(e) {}
@@ -761,6 +767,7 @@
         const confirmAndRedirect = async () => {
             const { data: { session: confirmedSession } } = await _supabase.auth.getSession();
             if (confirmedSession || attempts >= 10) {
+                _navigating = true;
                 sessionStorage.removeItem('fvFilesCache');
                 window.location.href = 'index.html';
             } else {
@@ -843,9 +850,8 @@
 
     function _goToManager() {
         sessionStorage.removeItem('fv_admin_browse_mode');
-        // Persist remember-me so manager.html creates its Supabase client on
-        // the same storage bucket (localStorage vs sessionStorage) the session was written to.
         if (_remembered) localStorage.setItem('fv_remember_me', '1');
+        _navigating = true;
         window.location.href = 'manager.html';
     }
 
@@ -853,17 +859,12 @@
         // Set a flag so index.html and profile.html know this is an admin browsing
         sessionStorage.setItem('fv_admin_browse_mode', '1');
         sessionStorage.setItem('fv_just_signed_in', '1');
-        // Persist the remember-me preference so index.html creates its Supabase
-        // client pointing to the same storage bucket the session was written to.
-        // Without this, index.html reads fv_remember_me as false, creates a client
-        // backed by sessionStorage, finds no tokens there, and treats the user as
-        // signed out — even though the session is sitting in localStorage.
-        if (_remembered) localStorage.setItem('fv_remember_me', '1');
         // Confirm session is persisted before navigating (same race-condition guard as student flow)
         let attempts = 0;
         const confirmAndRedirect = async () => {
             const { data: { session: confirmedSession } } = await _supabase.auth.getSession();
             if (confirmedSession || attempts >= 10) {
+                _navigating = true;
                 sessionStorage.removeItem('fvFilesCache');
                 window.location.href = 'index.html';
             } else {
@@ -916,6 +917,15 @@
         const email    = (document.getElementById('sEmail').value || '').trim();
         const pwd      = document.getElementById('sPassword').value;
         const remember = document.getElementById('sRemember')?.checked ?? false;
+
+        // Persist the remember-me preference NOW so every subsequent page
+        // (manager.html, index.html) reads the same flag and creates its
+        // Supabase client pointed at the correct storage bucket.
+        if (remember) {
+            localStorage.setItem('fv_remember_me', '1');
+        } else {
+            localStorage.removeItem('fv_remember_me');
+        }
 
         if (!email)              { showSignInAlert('Please enter your email address.', 'error'); document.getElementById('sEmail').classList.add('input-error'); shake('sSignInBtn'); try { hcaptcha.reset(_wid.signin); } catch(e) {} return; }
         if (!isValidEmail(email)){ showSignInAlert('Please enter a valid email address (e.g. name@university.edu).', 'error'); document.getElementById('sEmail').classList.add('input-error'); shake('sSignInBtn'); try { hcaptcha.reset(_wid.signin); } catch(e) {} return; }
