@@ -203,29 +203,6 @@
         .folder-sub-btn.subscribed { background:rgba(245,158,11,0.15);border-color:rgba(245,158,11,0.35);color:#fbbf24; }
         .folder-sub-btn .material-symbols-outlined { font-size:14px;display:block; }
 
-        /* ── Mobile folder grid: 2-col card layout ── */
-        @media (max-width: 639px) {
-            #folderGrid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
-            #folderGrid .folder-btn {
-                flex-direction: column !important;
-                align-items: flex-start !important;
-                gap: 6px !important;
-                padding: 12px 10px !important;
-                min-height: 80px;
-                position: relative;
-            }
-            #folderGrid .folder-btn .material-symbols-outlined.text-primary { font-size: 22px !important; }
-            #folderGrid .folder-btn .folder-sub-btn {
-                position: absolute;
-                top: 8px;
-                right: 8px;
-            }
-            #folderGrid .folder-btn .min-w-0.flex-1 { width: 100%; }
-            #folderGrid .folder-btn p.text-sm { font-size: 12px !important; font-weight: 700 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-            #folderGrid .folder-btn p.text-xs,
-            #folderGrid .folder-btn p.folder-meta { font-size: 10px !important; }
-        }
-
         /* ── Description tooltip on hover ── */
         #globalDescTooltip { position:fixed;background:rgba(15,23,42,0.97);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:8px 12px;font-size:11px;color:#cbd5e1;white-space:normal;width:220px;text-align:left;z-index:9990;pointer-events:none;opacity:0;transition:opacity .15s;line-height:1.5;box-shadow:0 8px 32px rgba(0,0,0,.5);max-width:calc(100vw - 24px); }
         #globalDescTooltip.show { opacity:1; }
@@ -561,10 +538,6 @@
         #returningBanner { display:none; }
         #returningBanner.visible { display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:11px 16px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.22);border-radius:14px;animation:fadeIn .4s ease; }
 
-        /* ── Notification reminder banner ── */
-        #notifReminderBanner { display:none;align-items:center;gap:10px;margin-bottom:14px;padding:12px 16px;background:rgba(245,158,11,0.09);border:1px solid rgba(245,158,11,0.28);border-radius:14px;animation:fadeIn .4s ease; }
-        #notifReminderBanner.visible { display:flex; }
-
 
         /* ── Compact / Dense view ── */
         #fileGrid.compact-view { display:flex !important; flex-direction:column; gap:1px !important; }
@@ -806,17 +779,6 @@
                 <span class="material-symbols-outlined shrink-0" style="color:#a78bfa;font-size:20px">waving_hand</span>
                 <span id="returningText" style="flex:1;font-size:13px;font-weight:600;color:rgba(255,255,255,0.8)">Welcome back!</span>
                 <button onclick="document.getElementById('returningBanner').classList.remove('visible')" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.25);font-size:20px;line-height:1">×</button>
-            </div>
-
-            <!-- Notification reminder banner -->
-            <div id="notifReminderBanner">
-                <span class="material-symbols-outlined shrink-0" style="color:#fbbf24;font-size:20px">notifications</span>
-                <div style="flex:1;min-width:0">
-                    <p style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.9);margin:0">Stay in the loop</p>
-                    <p style="font-size:11px;color:#94a3b8;margin:2px 0 0">Turn on notifications to know when new files are added to the Vault.</p>
-                </div>
-                <button onclick="togglePushSubscription();dismissNotifReminder()" style="flex-shrink:0;padding:7px 14px;background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.35);border-radius:10px;color:#fbbf24;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;white-space:nowrap" onmouseover="this.style.background='rgba(245,158,11,0.28)'" onmouseout="this.style.background='rgba(245,158,11,0.18)'">Turn on</button>
-                <button onclick="dismissNotifReminder()" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.25);font-size:20px;line-height:1;flex-shrink:0;padding:0 2px" title="Dismiss">×</button>
             </div>
 
             <!-- 38: Recently downloaded (session only) -->
@@ -3680,39 +3642,6 @@ window.isFolderSubscribed = function(folder) {
             }
         });
 
-        // ── Notification reminder banner ─────────────────────────
-        // Show once per session if: notifications aren't granted yet,
-        // the user hasn't permanently dismissed it, and push is supported.
-        const _NOTIF_DISMISS_KEY = 'fvNotifReminderDismissed';
-
-        function dismissNotifReminder() {
-            var banner = document.getElementById('notifReminderBanner');
-            if (banner) banner.classList.remove('visible');
-            // Remember dismissal so banner doesn't appear again
-            try { localStorage.setItem(_NOTIF_DISMISS_KEY, '1'); } catch(_) {}
-        }
-
-        function maybeShowNotifReminder() {
-            // Don't show if push not supported
-            if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
-            // Don't show if already granted or denied (denied = user consciously refused)
-            if (Notification.permission === 'granted' || Notification.permission === 'denied') return;
-            // Don't show if user already permanently dismissed it
-            try { if (localStorage.getItem(_NOTIF_DISMISS_KEY)) return; } catch(_) {}
-            // Show with a small delay so it's not the first thing they see
-            setTimeout(function() {
-                var banner = document.getElementById('notifReminderBanner');
-                if (banner) banner.classList.add('visible');
-            }, 4000);
-        }
-
-        // Run after page is interactive
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', maybeShowNotifReminder);
-        } else {
-            maybeShowNotifReminder();
-        }
-
         // ══ ACTIVITY TRACKING — avoid disrupting the user with auto-refreshes ══
         var _lastInteractionTime = Date.now();
         ['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel', 'scroll'].forEach(function(evt) {
@@ -4974,7 +4903,7 @@ window.isFolderSubscribed = function(folder) {
         </div>
     </div>
 
-  <script src="chat-widget.js?v=10"></script>
+  <script src="chat-widget.js?v=9"></script>
    <script>
    // ══════════════════════════════════════════════════════════════════
    // FEATURE 9: AI "Related Files" suggestions in preview
