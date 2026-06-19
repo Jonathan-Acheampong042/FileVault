@@ -7,12 +7,14 @@
         const _supabase = supabase.createClient(
             'https://lvhecpvwpzmstciewziv.supabase.co',
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI',
-            // detectSessionInUrl MUST be true here so that any access_token hash
-            // still in the URL (e.g. from an OAuth redirect that lands here via ?next=)
-            // is consumed and a valid session is written to localStorage before
-            // onAuthStateChange fires. Without this, the client sees no session
-            // and the auth gate stays locked even though the user just signed in.
-            { auth: { storage: window.localStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
+            // detectSessionInUrl must be FALSE here.
+            // The inline script in upload-request.html already has detectSessionInUrl:true
+            // and is the ONE place that consumes the OAuth access_token from the URL hash.
+            // If this second client also sets detectSessionInUrl:true, both clients race to
+            // exchange the same PKCE code — the second exchange fails, Supabase fires a
+            // SIGNED_OUT / auth error, and the session is destroyed before the page can
+            // read it → the form stays locked and "Could not connect" errors appear.
+            { auth: { storage: window.localStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } }
         );
 
         const _PUSH_API = window.location.hostname === 'localhost'

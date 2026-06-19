@@ -1322,17 +1322,32 @@
     async function checkMfaRequired(mode) {
         if (_mfaPending) return true; // already handling a challenge from another caller
 
-        const { data: aal, error: aalErr } = await _supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-        if (aalErr || !aal) return false;
-        if (aal.nextLevel !== 'aal2' || aal.nextLevel === aal.currentLevel) return false;
-
+        // ── Step 1: list factors FIRST ────────────────────────────────────────
+        // We do this before the AAL check because Supabase's project-level MFA
+        // enforcement policy controls what getAuthenticatorAssuranceLevel() returns.
+        // If "Require MFA" is OFF in the Supabase dashboard, nextLevel stays 'aal1'
+        // even when the user has a verified TOTP factor — so relying solely on
+        // nextLevel === 'aal2' silently skips MFA on sites where the policy is off.
+        // By checking for a verified factor ourselves, we always challenge it.
         const { data: factors, error: factorsErr } = await _supabase.auth.mfa.listFactors();
         if (factorsErr) {
-            showToast(friendlyError(factorsErr), 'error');
-            return true; // block — something is wrong, don't let sign-in proceed silently
+            // Can't read factors — fail open so a broken MFA setup doesn't lock everyone out.
+            console.warn('[MFA] listFactors error:', factorsErr.message);
+            return false;
         }
         const totp = (factors?.totp || []).find(f => f.status === 'verified');
-        if (!totp) return false; // shouldn't happen if nextLevel === 'aal2', but fail open to be safe
+
+        // ── Step 2: also check AAL levels ────────────────────────────────────
+        const { data: aal } = await _supabase.auth.mfa.getAuthenticatorAssuranceLevel().catch(() => ({ data: null }));
+        const needsUpgrade = aal && aal.currentLevel !== 'aal2';
+
+        // Require MFA challenge if:
+        //   a) the account has a verified TOTP factor AND the session isn't already aal2, OR
+        //   b) Supabase explicitly says nextLevel is aal2 and current isn't (policy-enforced)
+        const shouldChallenge = (totp && needsUpgrade) ||
+                                (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2');
+        if (!shouldChallenge) return false;
+        if (!totp) return false; // no factor to challenge with
 
         const { data: challenge, error: chErr } = await _supabase.auth.mfa.challenge({ factorId: totp.id });
         if (chErr) {
