@@ -601,6 +601,26 @@
     </div>
 
     <script>
+    // ── hCaptcha global callback — must be on window SYNCHRONOUSLY ──────────────
+    // The hCaptcha script (loaded async/defer with onload=hcaptchaReady) will call
+    // window.hcaptchaReady as soon as it finishes loading. The main async IIFE below
+    // awaits a network fetch before it returns, so any function defined inside it
+    // is NOT available on window until that fetch resolves — too late.
+    // Solution: define window.hcaptchaReady here, synchronously, before the IIFE.
+    // ─────────────────────────────────────────────────────────────────────────────
+    const HCAPTCHA_SITEKEY = 'f7dcb47a-d48c-48fe-b802-401c1bc48492';
+    const _wid = {};  // shared widget-ID store (also referenced inside the IIFE)
+
+    window.hcaptchaReady = function () {
+        const common = { sitekey: HCAPTCHA_SITEKEY, theme: 'dark', size: 'normal' };
+        try { _wid.signin    = hcaptcha.render('signinCaptchaContainer',  common); } catch(e) {}
+        try { _wid.signup    = hcaptcha.render('signupCaptchaContainer',  common); } catch(e) {}
+        try { _wid.magiclink = hcaptcha.render('mlCaptchaContainer',      common); } catch(e) {}
+        try { _wid.otp       = hcaptcha.render('otpCaptchaContainer',     common); } catch(e) {}
+        try { _wid.forgot    = hcaptcha.render('forgotCaptchaContainer',  common); } catch(e) {}
+    };
+
+    (async function () {
     // ═══════════════════════════════════════════════════════════════
     // CONFIG
     // ═══════════════════════════════════════════════════════════════
@@ -637,7 +657,41 @@
     document.addEventListener('DOMContentLoaded', () => {
         const cb = document.getElementById('sRemember');
         if (cb) cb.checked = _remembered;
+        // ?tab=signup lets other pages (e.g. upload-request.html's
+        // "Create a Free Account" link) land directly on the sign-up tab.
+        const tabParam = new URLSearchParams(window.location.search).get('tab');
+        if (tabParam === 'signup') switchStudentTab('signup');
     });
+
+    // ═══════════════════════════════════════════════════════════════
+    // POST-LOGIN REDIRECT TARGET (?next=)
+    // ═══════════════════════════════════════════════════════════════
+    // Pages like upload-request.html link here with ?next=upload-request.html
+    // so the user lands back where they started instead of always going to
+    // index.html. We read it once on load and stash it in sessionStorage so
+    // it survives flows that bounce the browser away and back (magic link,
+    // email confirmation, OAuth, password recovery) — those all reload this
+    // page fresh, wiping any plain JS variable.
+    const ALLOWED_NEXT_PAGES = ['index.html', 'manager.html', 'upload-request.html', 'profile.html'];
+    function _sanitizeNext(raw) {
+        if (!raw) return null;
+        // Strip any path/host — only allow a bare known filename, no
+        // protocol-relative or external URLs (open-redirect protection).
+        const name = raw.split('/').pop().split('?')[0].split('#')[0];
+        return ALLOWED_NEXT_PAGES.includes(name) ? name : null;
+    }
+    (function _captureNextParam() {
+        const fromQuery = _sanitizeNext(new URLSearchParams(window.location.search).get('next'));
+        if (fromQuery) {
+            try { sessionStorage.setItem('fv_next_after_login', fromQuery); } catch(e) {}
+        }
+    })();
+    function _getNextPage() {
+        try { return _sanitizeNext(sessionStorage.getItem('fv_next_after_login')); } catch(e) { return null; }
+    }
+    function _clearNextPage() {
+        try { sessionStorage.removeItem('fv_next_after_login'); } catch(e) {}
+    }
 
     // ═══════════════════════════════════════════════════════════════
     // STATE
@@ -782,7 +836,9 @@
             if (confirmedSession || attempts >= 10) {
                 _navigating = true;
                 sessionStorage.removeItem('fvFilesCache');
-                window.location.href = 'index.html';
+                const dest = _getNextPage() || 'index.html';
+                _clearNextPage();
+                window.location.href = dest;
             } else {
                 attempts++;
                 setTimeout(confirmAndRedirect, 150);
@@ -879,7 +935,9 @@
             if (confirmedSession || attempts >= 10) {
                 _navigating = true;
                 sessionStorage.removeItem('fvFilesCache');
-                window.location.href = 'index.html';
+                const dest = _getNextPage() || 'index.html';
+                _clearNextPage();
+                window.location.href = dest;
             } else {
                 attempts++;
                 setTimeout(confirmAndRedirect, 150);
@@ -1372,16 +1430,56 @@
         clearBtnLoading('resetBtn','resetBtnText','Update Password');
 
         if (error) {
-            setMsg('resetMsg', friendlyError(error), 'error');
+            const msg = error.message || '';
+            if (msg.toLowerCase().includes('different') || msg.toLowerCase().includes('same')) {
+                setMsg('resetMsg', 'Your new password must be different from your previous password. Please choose a different one.', 'error');
+            } else {
+                setMsg('resetMsg', friendlyError(error), 'error');
+            }
             // The recovery session is still active at this point so the user can
             // retry immediately — but make sure they aren't left silently signed
             // in under it if they wander off without finishing. See the pagehide
             // safety net below for the navigate-away case.
             return;
         }
+        // ── Success: mark completed BEFORE navigating so pagehide doesn't
+        // sign out the fresh session that updateUser just established. ──────────
         _recoveryCompleted = true;
-        setMsg('resetMsg','✅ Password updated! You\'re now signed in — redirecting you to your vault…', 'success');
-        setTimeout(() => { sessionStorage.removeItem('fvFilesCache'); window.location.href = 'index.html'; }, 2000);
+        // Remove the recovery hash from the URL immediately so that if the
+        // redirect is slow, a page refresh doesn't re-enter recovery mode.
+        history.replaceState(null, '', window.location.pathname);
+
+        setMsg('resetMsg','✅ Password updated! Signing you in — redirecting to your vault…', 'success');
+
+        // Sign out of the recovery-specific session, then sign back in with the
+        // new password so the user lands on index.html with a clean, normal session
+        // rather than a recovery-scoped one. This is what prevents "incorrect
+        // password" on next login — the recovery token is fully consumed and
+        // replaced with a regular session.
+        setTimeout(async () => {
+            // Get the user's email before we sign out of the recovery session
+            const { data: { user } } = await _supabase.auth.getUser();
+            const email = user?.email;
+
+            // Sign out of the recovery session so it can't linger
+            await _supabase.auth.signOut({ scope: 'local' });
+
+            if (email) {
+                // Sign back in with the new password to create a fresh normal session
+                const { error: signInErr } = await _supabase.auth.signInWithPassword({
+                    email,
+                    password: newPwd,
+                });
+                if (signInErr) {
+                    // Unlikely — but if sign-in fails, send them to login to do it manually
+                    window.location.href = 'login.html';
+                    return;
+                }
+            }
+
+            sessionStorage.removeItem('fvFilesCache');
+            window.location.href = 'index.html';
+        }, 1800);
     }
 
     // Cancel an in-progress password reset: sign out of the temporary
@@ -1483,26 +1581,9 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // HCAPTCHA — explicit render, all widgets visible
-    // hcaptchaReady() is called by the API script's onload= param.
+    // HCAPTCHA — helpers (window.hcaptchaReady + _wid are defined
+    // synchronously above the IIFE so hCaptcha's onload= always finds them)
     // ═══════════════════════════════════════════════════════════════
-    const HCAPTCHA_SITEKEY = 'f7dcb47a-d48c-48fe-b802-401c1bc48492';
-
-    // Stores numeric widget IDs assigned by hCaptcha after explicit render
-    const _wid = {};
-
-    function hcaptchaReady() {
-        const common = { sitekey: HCAPTCHA_SITEKEY, theme: 'dark', size: 'normal' };
-
-        _wid.signin    = hcaptcha.render('signinCaptchaContainer',  common);
-        _wid.signup    = hcaptcha.render('signupCaptchaContainer',  common);
-        _wid.magiclink = hcaptcha.render('mlCaptchaContainer',      common);
-        _wid.otp       = hcaptcha.render('otpCaptchaContainer',     common);
-        _wid.forgot    = hcaptcha.render('forgotCaptchaContainer',  common);
-        // Note: the "Set New Password" step has no captcha widget — Supabase's
-        // updateUser() doesn't verify captcha tokens, unlike resetPasswordForEmail
-        // (the "forgot password" email-request step, above) which does.
-    }
 
     // Ensure a captcha widget is fully visible after its panel becomes active.
     // hCaptcha iframes can fail to paint when rendered inside a hidden element;
@@ -1516,13 +1597,19 @@
     // Read the completed token from a visible widget, reset it, and return it.
     // Returns null (and shows an error via errMsgId) if the user hasn't ticked yet.
     function _getToken(widKey, errMsgId) {
-        const token = hcaptcha.getResponse(_wid[widKey]);
-        if (!token) {
-            if (errMsgId) setMsg(errMsgId, 'Please complete the CAPTCHA.', 'error');
+        try {
+            const token = hcaptcha.getResponse(_wid[widKey]);
+            if (!token) {
+                if (errMsgId) setMsg(errMsgId, 'Please complete the CAPTCHA.', 'error');
+                return null;
+            }
+            try { hcaptcha.reset(_wid[widKey]); } catch(e) {}
+            return token;
+        } catch(e) {
+            // hCaptcha not yet loaded or widget not yet rendered
+            if (errMsgId) setMsg(errMsgId, 'CAPTCHA not ready — please wait a moment and try again.', 'error');
             return null;
         }
-        try { hcaptcha.reset(_wid[widKey]); } catch(e) {}
-        return token;
     }
 
     // ── Friendly error messages ── 
@@ -1657,6 +1744,7 @@
     // Keyboard shortcuts
     window.addEventListener('offline',  () => showToast('You are offline — check your connection.', 'error'));
     window.addEventListener('online',   () => showToast('Back online!', 'success'));
+    })(); // end async IIFE
     </script>
 </body>
 </html>

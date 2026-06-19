@@ -28,17 +28,17 @@
   base-uri 'self';
 "/>
     <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
-    <!-- iOS PWA / Safari full-bleed -->
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
     <meta name="apple-mobile-web-app-title" content="FileVault"/>
     <link rel="icon" href="filevault%20logo.png">
     <title>FileVault | Request a File</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
     <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script>tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] } } } };</script>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-    <script src="upload-request-config.js"></script>
     <style>
         * { box-sizing: border-box; }
         :root {
@@ -48,11 +48,7 @@
             --sar: env(safe-area-inset-right, 0px);
         }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0;
-               padding-top: var(--sat);
-               padding-left: var(--sal);
-               padding-right: var(--sar);
-               padding-bottom: var(--sab);
-        }
+               padding-top: var(--sat); padding-left: var(--sal); padding-right: var(--sar); padding-bottom: var(--sab); }
         .bg-fixed-image { position: fixed; inset: 0; background-image: url('screen.png'); background-size: cover; background-position: center; z-index: -2; filter: saturate(0.72) brightness(0.5); }
         .bg-overlay { position: fixed; inset: 0; background: radial-gradient(circle at top left, rgba(59,130,246,0.15), transparent 24%), radial-gradient(circle at bottom right, rgba(139,92,246,0.14), transparent 20%), linear-gradient(180deg, rgba(8,12,27,0.88), rgba(4,7,18,0.96)); z-index: -1; pointer-events: none; }
         .glass-card { background: rgba(30,41,59,0.35); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 8px 32px rgba(0,0,0,0.25); }
@@ -69,24 +65,65 @@
         #toast.error { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.35); display: flex; }
         :focus-visible { outline: 2px solid #3b82f6 !important; outline-offset: 2px !important; border-radius: 8px; }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .card-in { animation: fadeInUp .45s ease-out both; }
         .back-link { display: inline-flex; align-items: center; gap: 6px; color: #64748b; font-size: 13px; font-weight: 600; text-decoration: none; transition: color .2s; margin-bottom: 24px; }
         .back-link:hover { color: #93c5fd; }
         .char-count { font-size: 10px; color: #475569; text-align: right; margin-top: 3px; }
         .field-note { font-size: 11px; color: #475569; margin-top: 4px; }
-        /* Honeypot — visually hidden from real users, bots fill it */
-        .hp-field { position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}
-        /* Auth gate */
-        #authGate { display:none; padding: 8px 0; text-align: center; }
-        #requestForm { display:none; } /* Hidden until auth check passes */
-        #authLoading { display:flex; flex-direction:column; align-items:center; gap:10px; padding:32px 0; color:#64748b; font-size:13px; }
-        #authGate .gate-icon { font-size: 48px; color: #3b82f6; display: block; margin-bottom: 14px; }
-        #authGate h2 { color: white; font-weight: 800; font-size: 18px; margin: 0 0 10px; }
-        #authGate p { color: #64748b; font-size: 13px; line-height: 1.6; margin: 0 0 22px; }
-        #authGate .gate-btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 28px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: none; border-radius: 14px; color: white; font-weight: 800; font-size: 14px; cursor: pointer; font-family: inherit; text-decoration: none; transition: opacity .2s, transform .15s; }
-        #authGate .gate-btn:hover { opacity: .92; transform: translateY(-1px); }
-        #authGate .gate-signin { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; color: #64748b; font-size: 13px; font-weight: 600; text-decoration: none; transition: color .2s; }
-        #authGate .gate-signin:hover { color: #93c5fd; }
+        .hp-field { position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+
+        /* ── Auth gate — visible by default; JS hides it only when session is confirmed ── */
+        .auth-gate-lock { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 8px 0 4px; }
+        .auth-gate-icon-wrap { width: 64px; height: 64px; border-radius: 20px; background: linear-gradient(135deg, rgba(59,130,246,0.18), rgba(139,92,246,0.18)); border: 1px solid rgba(59,130,246,0.25); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+        .auth-gate-icon-wrap .material-symbols-outlined { font-size: 30px; color: #93c5fd; }
+        .auth-gate-title { font-size: 18px; font-weight: 800; color: white; margin: 0 0 8px; }
+        .auth-gate-sub { font-size: 13px; color: #64748b; line-height: 1.6; margin: 0 0 24px; max-width: 320px; }
+        .auth-gate-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px; border-radius: 13px; font-size: 14px; font-weight: 800; cursor: pointer; font-family: inherit; text-decoration: none; transition: transform .2s, opacity .2s; border: none; }
+        .auth-gate-btn.primary { background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; margin-bottom: 10px; }
+        .auth-gate-btn.primary:hover { opacity: .9; transform: translateY(-1px); }
+        .auth-gate-btn.secondary { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12) !important; color: #94a3b8; }
+        .auth-gate-btn.secondary:hover { background: rgba(255,255,255,0.09); color: #e2e8f0; transform: translateY(-1px); }
+        .auth-gate-divider { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; }
+        .auth-gate-divider span { flex: 1; height: 1px; background: rgba(255,255,255,0.07); }
+        .auth-gate-divider p { font-size: 11px; color: #475569; font-weight: 600; white-space: nowrap; }
+        .auth-gate-perks { display: flex; flex-direction: column; gap: 8px; background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.14); border-radius: 14px; padding: 14px 16px; margin-top: 20px; text-align: left; }
+        .auth-gate-perk { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #94a3b8; font-weight: 500; }
+        .auth-gate-perk .material-symbols-outlined { font-size: 16px; color: #60a5fa; flex-shrink: 0; }
+
+        /* ── My past requests panel ── */
+        #myRequestsPanel { display:none; margin-bottom:20px; }
+        #myRequestsPanel.visible { display:block; }
+        .my-req-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:11px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); margin-bottom:6px; cursor:pointer; transition:background .2s; text-decoration:none; }
+        .my-req-item:hover { background:rgba(59,130,246,0.08); border-color:rgba(59,130,246,0.2); }
+        .my-req-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+        .my-req-name { font-size:12px; font-weight:700; color:#e2e8f0; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .my-req-status { font-size:10px; font-weight:700; color:#64748b; flex-shrink:0; }
+
+        /* ── Blurred/locked form preview ── */
+        #formPreview { position: relative; margin-top: 16px; border-radius: 14px; overflow: hidden; pointer-events: none; }
+        #formPreviewInner { filter: blur(3px); opacity: 0.35; padding: 4px 0; }
+        #formPreviewOverlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(15,23,42,0.1) 0%, rgba(15,23,42,0.7) 60%, rgba(15,23,42,0.95) 100%); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 16px; }
+        #formPreviewOverlay span { font-size: 12px; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 6px; }
+        #formPreviewOverlay .material-symbols-outlined { font-size: 14px; }
+
+        /* ── Page-level header bar ── */
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+        .page-header .back-link { margin-bottom: 0; }
+
+        /* ── User chip (top-right, shown when logged in) ── */
+        #userChip { display: none; align-items: center; gap: 8px; text-decoration: none;
+                    padding: 6px 12px 6px 8px; border-radius: 99px;
+                    background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.22);
+                    transition: background .2s, border-color .2s; }
+        #userChip:hover { background: rgba(59,130,246,0.2); border-color: rgba(59,130,246,0.38); }
+        #userChip.visible { display: flex; }
+        .user-chip-avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg,#3b82f6,#8b5cf6);
+                            display: flex; align-items: center; justify-content: center;
+                            font-size: 11px; font-weight: 800; color: white; flex-shrink: 0; overflow: hidden; }
+        .user-chip-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+        .user-chip-name { font-size: 12px; font-weight: 700; color: #93c5fd; max-width: 120px;
+                          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     </style>
 </head>
 <body>
@@ -95,10 +132,16 @@
 
     <main class="min-h-screen flex items-start justify-center px-4 pt-12 pb-16">
         <div class="w-full max-w-lg card-in">
-            <a href="index.html" class="back-link" aria-label="Back to FileVault">
-                <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">arrow_back</span>
-                Back to Vault
-            </a>
+            <div class="page-header">
+                <a href="index.html" class="back-link" aria-label="Back to FileVault">
+                    <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">arrow_back</span>
+                    Back to Vault
+                </a>
+                <a href="profile.html" id="userChip" aria-label="Go to your profile">
+                    <span class="user-chip-avatar" id="userChipAvatar">?</span>
+                    <span class="user-chip-name" id="userChipName">My Profile</span>
+                </a>
+            </div>
 
             <div class="glass-card rounded-3xl p-6 sm:p-8">
                 <!-- Header -->
@@ -112,35 +155,65 @@
                     </div>
                 </div>
 
-                <!-- Auth gate — shown to logged-out visitors instead of the form -->
-                <!-- Loading state while auth is checked -->
-                <div id="authLoading">
-                    <div style="width:28px;height:28px;border:3px solid rgba(99,102,241,0.2);border-top-color:#6366f1;border-radius:50%;animation:spin .8s linear infinite"></div>
-                    <span>Checking your account…</span>
-                </div>
-
+                <!-- ── Auth gate (shown to logged-out users) ── -->
                 <div id="authGate">
-                    <span class="material-symbols-outlined gate-icon" aria-hidden="true">lock</span>
-                    <h2>Log In to Upload a Request</h2>
-                    <p>You need to be signed in to submit a file request.<br>It's free and only takes a minute to create an account.</p>
-                    <a href="login.html?next=upload-request.html" class="gate-btn">
-                        <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">login</span>
-                        Sign In to Continue
-                    </a>
-                    <br>
-                    <a href="login.html?next=upload-request.html#signup" class="gate-signin">
-                        <span class="material-symbols-outlined" style="font-size:15px" aria-hidden="true">person_add</span>
-                        Don't have an account? Create one
-                    </a>
+                    <div class="auth-gate-lock">
+                        <div class="auth-gate-icon-wrap">
+                            <span class="material-symbols-outlined">lock</span>
+                        </div>
+                        <h2 class="auth-gate-title">Sign in to Request Files</h2>
+                        <p class="auth-gate-sub">You need a FileVault account to submit file requests. It's free and only takes a moment.</p>
+                        <a href="login.html?next=upload-request.html" class="auth-gate-btn primary">
+                            <span class="material-symbols-outlined" style="font-size:17px">login</span>
+                            Sign In
+                        </a>
+                        <div class="auth-gate-divider"><span></span><p>or</p><span></span></div>
+                        <a href="login.html?tab=signup&next=upload-request.html" class="auth-gate-btn secondary">
+                            <span class="material-symbols-outlined" style="font-size:17px">person_add</span>
+                            Create a Free Account
+                        </a>
+                    </div>
+
+                    <div class="auth-gate-perks">
+                        <div class="auth-gate-perk">
+                            <span class="material-symbols-outlined">notifications_active</span>
+                            Get notified when your requested file is uploaded
+                        </div>
+                        <div class="auth-gate-perk">
+                            <span class="material-symbols-outlined">history</span>
+                            Track the status of all your past requests
+                        </div>
+                        <div class="auth-gate-perk">
+                            <span class="material-symbols-outlined">verified</span>
+                            Verified requests are prioritised by the manager
+                        </div>
+                    </div>
+
+                    <!-- Blurred preview of the form to show what's behind the gate -->
+                    <div id="formPreview">
+                        <div id="formPreviewInner">
+                            <div class="form-group" style="margin-top:16px">
+                                <label>File / Material Name</label>
+                                <input type="text" disabled placeholder="e.g. UGBS 301 Lecture 5 Slides" style="width:100%;padding:12px 14px;font-size:14px"/>
+                            </div>
+                            <div class="form-group">
+                                <label>Why do you need it?</label>
+                                <textarea disabled rows="2" placeholder="e.g. Missed class due to illness..." style="width:100%;padding:12px 14px;font-size:14px;resize:none"></textarea>
+                            </div>
+                            <div style="width:100%;padding:13px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:13px;height:48px"></div>
+                        </div>
+                        <div id="formPreviewOverlay">
+                            <span><span class="material-symbols-outlined">lock</span>Sign in to unlock this form</span>
+                        </div>
+                    </div>
                 </div>
 
-                <form id="requestForm">
+                <form id="requestForm" style="display:none">
                     <!-- File Name -->
                     <div class="form-group">
                         <label for="req_filename">File / Material Name <span style="color:#ef4444">*</span></label>
                         <input type="text" id="req_filename" name="filename" placeholder="e.g. UGBS 301 Lecture 5 Slides" maxlength="160"
-                            style="width:100%;padding:12px 14px;font-size:14px"
-                            required aria-required="true"/>
+                            style="width:100%;padding:12px 14px;font-size:14px" required aria-required="true"/>
                         <div class="char-count" aria-live="polite"><span id="fn_count">0</span> / 160</div>
                     </div>
 
@@ -156,8 +229,7 @@
                     <div class="form-group">
                         <label for="req_reason">Why do you need it? <span style="color:#ef4444">*</span></label>
                         <textarea id="req_reason" name="reason" placeholder="e.g. Missed class due to illness. Preparing for exams." rows="2" maxlength="300"
-                            style="width:100%;padding:12px 14px;font-size:14px;resize:vertical"
-                            required aria-required="true"></textarea>
+                            style="width:100%;padding:12px 14px;font-size:14px;resize:vertical" required aria-required="true"></textarea>
                         <div class="char-count" aria-live="polite"><span id="reason_count">0</span> / 300</div>
                     </div>
 
@@ -165,8 +237,7 @@
                     <div class="form-group">
                         <label for="req_folder">Course / Folder <span style="color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
                         <input type="text" id="req_folder" name="folder" placeholder="e.g. UGBS 301 or Business Analytics"
-                            style="width:100%;padding:12px 14px;font-size:14px" maxlength="80"
-                            list="folderSuggestions"/>
+                            style="width:100%;padding:12px 14px;font-size:14px" maxlength="80" list="folderSuggestions"/>
                         <datalist id="folderSuggestions"></datalist>
                         <div class="char-count" aria-live="polite"><span id="folder_count">0</span> / 80</div>
                         <p class="field-note">Leave blank if you're unsure.</p>
@@ -180,8 +251,7 @@
                         <p class="field-note">If provided, the manager can notify you directly when your file is ready.</p>
                     </div>
 
-                    <!-- Push opt-in — permission is only requested when this is checked,
-                         never automatically, so the browser doesn't see an unprompted ask. -->
+                    <!-- Push opt-in -->
                     <div class="form-group" style="display:flex;align-items:flex-start;gap:10px">
                         <input type="checkbox" id="req_push_optin" style="margin-top:3px;width:16px;height:16px;flex-shrink:0;accent-color:#3b82f6"/>
                         <label for="req_push_optin" style="font-size:12px;font-weight:500;text-transform:none;letter-spacing:0;color:#94a3b8;margin:0">
@@ -189,10 +259,22 @@
                         </label>
                     </div>
 
-                    <!-- Honeypot — must stay empty; bots fill it, real users never see it -->
+                    <!-- Honeypot -->
                     <div class="hp-field" aria-hidden="true">
                         <label for="hp_website">Website (leave blank)</label>
                         <input type="text" id="hp_website" name="website" autocomplete="off" tabindex="-1"/>
+                    </div>
+
+                    <!-- My past requests (shown to logged-in users) -->
+                    <div id="myRequestsPanel">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                            <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin:0">Your Past Requests</label>
+                            <button type="button" id="myReqRefreshBtn" style="background:none;border:none;cursor:pointer;color:#60a5fa;font-size:11px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:3px;padding:0">
+                                <span class="material-symbols-outlined" style="font-size:13px" id="myReqRefreshIcon">refresh</span> Refresh
+                            </button>
+                        </div>
+                        <div id="myRequestsList"></div>
+                        <p id="myReqEmpty" style="display:none;font-size:12px;color:#475569;text-align:center;padding:10px 0">No past requests yet.</p>
                     </div>
 
                     <!-- Submit -->
@@ -202,7 +284,7 @@
                     </button>
                 </form>
 
-                <!-- Success state (hidden initially) -->
+                <!-- Success state -->
                 <div id="successState" style="display:none;padding:8px 0">
                     <div style="text-align:center;margin-bottom:20px">
                         <span class="material-symbols-outlined" style="font-size:52px;color:#34d399;display:block;margin-bottom:10px">check_circle</span>
@@ -210,19 +292,17 @@
                         <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0">Your request has been sent. Once the manager uploads the file it'll appear in the Vault.</p>
                     </div>
 
-                    <!-- Token / request ID display -->
                     <div id="tokenBox" style="display:none;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:14px;padding:14px 16px;margin-bottom:16px">
                         <p style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin:0 0 6px">Your Request ID — save this!</p>
                         <div style="display:flex;align-items:center;gap:8px">
                             <code id="tokenDisplay" style="flex:1;font-size:12px;color:#93c5fd;word-break:break-all;background:rgba(0,0,0,0.25);padding:7px 10px;border-radius:8px;font-family:monospace"></code>
-                            <button title="Copy ID" style="flex-shrink:0;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.25);border-radius:8px;padding:7px 10px;color:#93c5fd;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px;font-family:inherit;font-weight:700" id="copyTokenBtn">
+                            <button title="Copy ID" id="copyTokenBtn" style="flex-shrink:0;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.25);border-radius:8px;padding:7px 10px;color:#93c5fd;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px;font-family:inherit;font-weight:700">
                                 <span class="material-symbols-outlined" style="font-size:14px">content_copy</span> Copy
                             </button>
                         </div>
                         <p style="font-size:11px;color:#475569;margin:8px 0 0">This page URL also contains your ID — bookmark it to return here and check your status.</p>
                     </div>
 
-                    <!-- Status poller -->
                     <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:14px 16px;margin-bottom:16px">
                         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
                             <p style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin:0">Request Status</p>
@@ -247,19 +327,8 @@
                 Requests are reviewed by the manager. This is not a guaranteed upload.
             </p>
 
-            <!-- ── QR Code for the Vault URL ── -->
-            <div id="qrSection" class="glass-card rounded-2xl p-5" style="margin-top:20px;text-align:center">
-                <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px">
-                    <span class="material-symbols-outlined" style="font-size:18px;color:#3b82f6">qr_code_2</span>
-                    <p style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin:0">Scan to visit the Vault</p>
-                </div>
-                <div id="qrCanvas" style="display:inline-flex;align-items:center;justify-content:center;background:white;border-radius:16px;padding:12px;margin-bottom:10px">
-                    <div id="qrCodeCanvas" style="width:160px;height:160px;border-radius:8px;overflow:hidden;line-height:0"></div>
-                </div>
-                <p id="qrUrl" style="color:#64748b;font-size:10px;word-break:break-all;margin:0"></p>
-            </div>
 
-             <p class="text-center mt-5 animate-fade-in" style="color:#334155;font-size:12px">FileVault · Built by <span style="color:#475569;font-weight:600">Jonathan Acheampong</span></p>
+            <p class="text-center mt-5 animate-fade-in" style="color:#334155;font-size:12px">FileVault · Built by <span style="color:#475569;font-weight:600">Jonathan Acheampong</span></p>
         </div>
     </main>
 
@@ -269,67 +338,168 @@
     </div>
 
     <script>
-    // ── Inline auth gate — runs before upload-request.js loads ──
-    // Initialises Supabase once with retry, checks auth, then exposes the
-    // client + session on window so upload-request.js reuses them directly.
-    window._fvReady = (async function initAuthGate() {
-        const _API_BASE = window.location.hostname === "localhost"
-            ? "http://localhost:3000"
-            : "https://project-one-187u.onrender.com";
+    (function () {
+        'use strict';
 
-        const authLoading = document.getElementById("authLoading");
-        const authGate    = document.getElementById("authGate");
-        const requestForm = document.getElementById("requestForm");
+        // ── Supabase setup ──────────────────────────────────────────────────────
+        // This inline script handles ONLY the auth gate reveal.
+        // All other functionality (form submit, char counters, status polling,
+        // folder autocomplete, URL pre-fill) lives in upload-request.js which
+        // is loaded after this script. The two scripts share the same Supabase
+        // session because they both read from the same localStorage.
+        const SUPABASE_URL      = 'https://lvhecpvwpzmstciewziv.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI';
 
-        function showGate() {
-            if (authLoading) authLoading.style.display = "none";
-            if (authGate)    authGate.style.display    = "block";
-            if (requestForm) requestForm.style.display = "none";
-        }
-        function showForm() {
-            if (authLoading) authLoading.style.display = "none";
-            if (authGate)    authGate.style.display    = "none";
-            if (requestForm) requestForm.style.display = "block";
-        }
+        const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+        });
 
-        try {
-            // Retry helper — Render free tier can take ~15s to wake from sleep
-            // Cap at 3 attempts (max ~12s wait) so the gate appears quickly on failure
-            async function fetchWithRetry(url, maxAttempts = 3, baseDelay = 2000) {
-                for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-                    try {
-                        const res = await fetch(url);
-                        if (res.ok) return res;
-                        throw new Error("HTTP " + res.status);
-                    } catch (e) {
-                        if (attempt === maxAttempts) throw e;
-                        await new Promise(r => setTimeout(r, baseDelay * attempt));
-                    }
+        // ── Auth gate ───────────────────────────────────────────────────────────
+        // authGate is visible by default. We hide it only when a confirmed
+        // session exists. Handles all cases: direct visit while logged in,
+        // redirect back from login.html (?next=), and token refresh.
+        var _isAuthenticated = false;
+        var _requesterEmail  = null;
+        function _revealForm(userEmail, userMeta) {
+            if (_isAuthenticated) return; // already revealed — don't re-run
+            _isAuthenticated = true;
+            _requesterEmail = userEmail || null;
+            var gate = document.getElementById('authGate');
+            var form = document.getElementById('requestForm');
+            if (gate) gate.style.display = 'none';
+            if (form) form.style.display = '';
+            // Pre-fill email field with session email
+            var emailInput = document.getElementById('req_email');
+            if (emailInput && userEmail) { emailInput.value = userEmail; }
+
+            // ── Populate & show user chip ──────────────────────────────────────
+            var chip = document.getElementById('userChip');
+            var chipName = document.getElementById('userChipName');
+            var chipAvatar = document.getElementById('userChipAvatar');
+            if (chip && chipName && chipAvatar) {
+                var meta = userMeta || {};
+                var displayName = meta.display_name || meta.full_name || meta.name
+                                  || (userEmail ? userEmail.split('@')[0] : 'Profile');
+                chipName.textContent = displayName;
+                var photoUrl = meta.avatar_url || meta.picture || null;
+                if (photoUrl) {
+                    var img = document.createElement('img');
+                    img.src = photoUrl;
+                    img.alt = displayName;
+                    img.onerror = function() {
+                        chipAvatar.textContent = displayName.slice(0,1).toUpperCase();
+                    };
+                    chipAvatar.innerHTML = '';
+                    chipAvatar.appendChild(img);
+                } else {
+                    chipAvatar.textContent = displayName.slice(0,1).toUpperCase();
                 }
+                chip.classList.add('visible');
             }
-            const cfgRes = await fetchWithRetry(_API_BASE + "/api/config");
-            const cfg    = await cfgRes.json();
-            // Expose client + API base globally so upload-request.js reuses them
-            window._fvSupabase = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
-                auth: { storage: window.localStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-            });
-            window._fvPushApi = _API_BASE;
-            const { data: { session } } = await window._fvSupabase.auth.getSession();
-            // Expose session so upload-request.js skips its own getSession call
-            window._fvSession = session || null;
-            if (session) { showForm(); } else { showGate(); }
-            return { ok: true, session };
-        } catch (err) {
-            console.error("[upload-request] Auth gate error:", err);
-            showGate(); // safer than exposing the form on failure
-            return { ok: false, err };
+
+            // Load past requests for this user
+            _loadMyRequests(userEmail);
         }
+
+        // onAuthStateChange fires for EVERY session event including
+        // INITIAL_SESSION (already logged in on page load) and SIGNED_IN
+        // (returned from login redirect). This is the single reliable hook.
+        _supabase.auth.onAuthStateChange(function(event, session) {
+            if (session && session.user) {
+                _revealForm(session.user.email, session.user.user_metadata);
+            }
+        });
+
+        // Also call getSession() directly as an instant fallback for
+        // browsers where the storage event fires late
+        _supabase.auth.getSession().then(function(result) {
+            var session = result && result.data && result.data.session;
+            if (session && session.user) _revealForm(session.user.email, session.user.user_metadata);
+        }).catch(function() {});
+
+        // ── My past requests ────────────────────────────────────────────────────
+        var STATUS_DOT = {
+            pending:   '#f59e0b',
+            fulfilled: '#22c55e',
+            approved:  '#22c55e',
+            declined:  '#64748b',
+            dismissed: '#64748b'
+        };
+        var STATUS_LABEL = {
+            pending:   'Pending',
+            fulfilled: 'Uploaded ✓',
+            approved:  'Uploaded ✓',
+            declined:  'Dismissed',
+            dismissed: 'Dismissed'
+        };
+
+        function _loadMyRequests(email) {
+            if (!email) return;
+            var panel = document.getElementById('myRequestsPanel');
+            var list  = document.getElementById('myRequestsList');
+            var empty = document.getElementById('myReqEmpty');
+            if (!panel || !list) return;
+
+            var icon = document.getElementById('myReqRefreshIcon');
+            if (icon) icon.style.animation = 'spin .7s linear infinite';
+
+            _supabase
+                .from('upload_requests')
+                .select('id, filename, status, created_at')
+                .eq('requester_email', email)
+                .order('created_at', { ascending: false })
+                .limit(5)
+                .then(function(res) {
+                    if (icon) icon.style.animation = '';
+                    if (res.error || !res.data) return;
+                    var rows = res.data;
+                    list.innerHTML = '';
+                    if (rows.length === 0) {
+                        if (empty) empty.style.display = 'block';
+                        panel.classList.add('visible');
+                        return;
+                    }
+                    if (empty) empty.style.display = 'none';
+                    rows.forEach(function(r) {
+                        var dot   = STATUS_DOT[r.status]   || '#94a3b8';
+                        var label = STATUS_LABEL[r.status] || r.status;
+                        var a = document.createElement('a');
+                        a.className = 'my-req-item';
+                        a.href = '#req=' + r.id;
+                        a.innerHTML =
+                            '<span class="my-req-dot" style="background:' + dot + '"></span>' +
+                            '<span class="my-req-name">' + _esc(r.filename) + '</span>' +
+                            '<span class="my-req-status">' + label + '</span>';
+                        a.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            // _showSavedRequest is exposed by upload-request.js
+                            if (typeof window._fvShowSavedRequest === 'function') {
+                                window._fvShowSavedRequest(r.id);
+                            } else {
+                                // Fallback: navigate to the hash so upload-request.js picks it up on load
+                                window.location.hash = 'req=' + r.id;
+                            }
+                        });
+                        list.appendChild(a);
+                    });
+                    panel.classList.add('visible');
+                }).catch(function() { if (icon) icon.style.animation = ''; });
+        }
+
+        function _esc(str) {
+            return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        // ── Refresh button for my past requests ────────────────────────────────
+        // Wired here because it needs access to _loadMyRequests and _requesterEmail.
+        document.addEventListener('DOMContentLoaded', function() {
+            var myReqBtn = document.getElementById('myReqRefreshBtn');
+            if (myReqBtn) myReqBtn.addEventListener('click', function() { _loadMyRequests(_requesterEmail); });
+        });
+
     })();
     </script>
     <script src="upload-request.js"></script>
-    <style>
-        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-    </style>
 
 </body>
 </html>

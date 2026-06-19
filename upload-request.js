@@ -1,61 +1,48 @@
-(async function () {
-// Everything in this file is scoped inside this async IIFE so none of it leaks onto
+(function () {
+// Everything in this file is scoped inside this IIFE so none of it leaks onto
 // window — this file can never collide with chat-widget.js or any other script
 // you load on a page later, regardless of variable/function naming overlap.
 'use strict';
 
-        // ── Wait for the inline auth gate (in upload-request.html) to finish ──
-        // window._fvReady is the Promise returned by the inline <script> block.
-        // It resolves once Supabase is initialised, the session is checked, and
-        // the correct UI state (gate vs form) is already showing.  We then simply
-        // reuse the client and session it exposed on window rather than creating
-        // our own — avoids a double getSession() round-trip and keeps credentials
-        // in one place (fetched server-side, never hardcoded here).
-        let _initResult = { ok: false, session: null };
-        try {
-            _initResult = await window._fvReady;
-        } catch(e) {
-            console.warn('[upload-request.js] _fvReady rejected:', e);
-        }
-
-        // Reuse the Supabase client the inline script created
-        const _supabase = window._fvSupabase;
-        const _PUSH_API = window._fvPushApi || (
-            window.location.hostname === 'localhost'
-                ? 'http://localhost:3000'
-                : 'https://project-one-187u.onrender.com'
+        const _supabase = supabase.createClient(
+            'https://lvhecpvwpzmstciewziv.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI'
         );
 
-        // ── Auth state (already applied to the DOM by the inline script) ──────
-        var _requesterEmail = _initResult.session?.user?.email || null;
-        var _isAuthenticated = !!_initResult.session;
+        const _PUSH_API = window.location.hostname === 'localhost'
+            ? 'http://localhost:3000'
+            : 'https://project-one-187u.onrender.com';
 
-        // Keep auth state live — if the user signs out in another tab, hide the form
-        if (_supabase) {
-            _supabase.auth.onAuthStateChange((event, session) => {
-                if (event === 'SIGNED_IN' && session?.user) {
-                    _requesterEmail  = session.user.email || null;
-                    _isAuthenticated = true;
-                    const authLoading = document.getElementById('authLoading');
-                    const authGate    = document.getElementById('authGate');
-                    const requestForm = document.getElementById('requestForm');
-                    if (authLoading) authLoading.style.display = 'none';
-                    if (authGate)    authGate.style.display    = 'none';
-                    if (requestForm) requestForm.style.display = 'block';
-                } else if (event === 'SIGNED_OUT') {
-                    _requesterEmail  = null;
-                    _isAuthenticated = false;
-                    const authLoading = document.getElementById('authLoading');
-                    const authGate    = document.getElementById('authGate');
-                    const requestForm = document.getElementById('requestForm');
-                    if (authLoading) authLoading.style.display = 'none';
-                    if (authGate)    authGate.style.display    = 'block';
-                    if (requestForm) requestForm.style.display = 'none';
-                }
-            });
-        }
+        // ── Auth state ────────────────────────────────────────────────
+        // NOTE: Auth gate visibility is controlled entirely by the inline
+        // script in upload-request.html (via onAuthStateChange + getSession).
+        // This file only tracks _isAuthenticated so the submit handler can
+        // guard against unauthenticated submissions. We sync it here via
+        // onAuthStateChange so it stays in step with the inline script.
+        var _requesterEmail  = null;
+        var _isAuthenticated = false;
 
-        // ── Capture push subscription so manager can ping you on approval ──
+        _supabase.auth.onAuthStateChange(function(event, session) {
+            if (session && session.user) {
+                _requesterEmail  = session.user.email || null;
+                _isAuthenticated = true;
+            } else {
+                _requesterEmail  = null;
+                _isAuthenticated = false;
+            }
+        });
+
+        // Also read the session immediately for browsers where the storage
+        // event fires before onAuthStateChange resolves.
+        _supabase.auth.getSession().then(function(result) {
+            var session = result && result.data && result.data.session;
+            if (session && session.user) {
+                _requesterEmail  = session.user.email || null;
+                _isAuthenticated = true;
+            }
+        }).catch(function() {});
+
+        // ── Capture push subscription ──
         var _reqPushEndpoint = null;
         var _reqPushKeys = null;
 
@@ -65,12 +52,10 @@
                 const res = await fetch(_PUSH_API + '/api/push/vapid-public-key');
                 const { key } = await res.json();
                 if (!key) return;
-                // Register service worker if not already
                 let reg;
                 try { reg = await navigator.serviceWorker.register('/Sw.js'); }
                 catch(e) { reg = await navigator.serviceWorker.ready; }
                 reg = await navigator.serviceWorker.ready;
-                // Get existing or create new subscription
                 let sub = await reg.pushManager.getSubscription();
                 if (!sub) {
                     const perm = await Notification.requestPermission();
@@ -81,7 +66,6 @@
                     const appKey = new Uint8Array(rawData.length);
                     for (let i = 0; i < rawData.length; ++i) appKey[i] = rawData.charCodeAt(i);
                     sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey });
-                    // Register on server
                     await fetch(_PUSH_API + '/api/push/subscribe', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -93,22 +77,18 @@
             } catch(e) { /* non-critical */ }
         }
 
-        // Push permission is opt-in only — see the checkbox listener further down.
-        // We never call _captureRequestPushSub() automatically on load anymore,
-        // since requesting Notification permission without a direct user gesture
-        // gets silently auto-blocked by some browsers and burns the prompt for good.
         window.addEventListener('load', () => {
-            // ── Wire up char counters (moved from inline oninput= so CSP can drop 'unsafe-inline') ──
+            // ── Char counters ──
             document.getElementById('req_filename')?.addEventListener('input', () => updateCount('req_filename','fn_count',160));
             document.getElementById('req_desc')?.addEventListener('input', () => updateCount('req_desc','desc_count',400));
             document.getElementById('req_reason')?.addEventListener('input', () => updateCount('req_reason','reason_count',300));
             document.getElementById('req_folder')?.addEventListener('input', () => updateCount('req_folder','folder_count',80));
 
-            // ── Wire up buttons (moved from inline onclick= so CSP can drop 'unsafe-inline') ──
+            // ── Button listeners ──
             document.getElementById('copyTokenBtn')?.addEventListener('click', copyToken);
             document.getElementById('refreshStatusBtn')?.addEventListener('click', pollStatus);
 
-            // ── Push opt-in: only requests permission as a direct result of this checkbox ──
+            // ── Push opt-in ──
             const pushOptin = document.getElementById('req_push_optin');
             if (pushOptin) {
                 pushOptin.addEventListener('change', () => {
@@ -118,9 +98,8 @@
                 });
             }
 
-            // ── Populate folder autocomplete from existing folders in DB ──
+            // ── Folder autocomplete ──
             (async () => {
-                if (!_supabase) return; // guard: supabase unavailable (backend down / not logged in)
                 try {
                     const { data, error } = await _supabase
                         .from('files_list')
@@ -140,43 +119,35 @@
                                 dl.appendChild(opt);
                             }
                         });
-                        // Update field note to hint that suggestions are available
                         if (seen.size > 0) {
-                            const note = document.querySelector('#req_folder ~ .char-count + .field-note') ||
-                                         document.querySelector('[for="req_folder"]')?.closest('.form-group')?.querySelector('.field-note');
+                            const note = document.querySelector('[for="req_folder"]')?.closest('.form-group')?.querySelector('.field-note');
                             if (note) note.textContent = 'Start typing to see existing folders, or leave blank if unsure.';
                         }
                     }
-                } catch(e) { /* non-critical — field still works as plain text */ }
+                } catch(e) {}
             })();
-            // Pre-fill from ?filename=...&folder=... (set by index.html "Need" button)
+
+            // ── Pre-fill from URL params ──
             const params = new URLSearchParams(window.location.search);
             const prefillName   = params.get('filename');
             const prefillFolder = params.get('folder');
             if (prefillName) {
                 const inp = document.getElementById('req_filename');
-                if (inp) {
-                    inp.value = prefillName;
-                    inp.dispatchEvent(new Event('input')); // trigger char count
-                }
+                if (inp) { inp.value = prefillName; inp.dispatchEvent(new Event('input')); }
             }
             if (prefillFolder) {
                 const folderEl = document.getElementById('req_folder');
-                if (folderEl) {
-                    folderEl.value = prefillFolder;
-                    folderEl.dispatchEvent(new Event('input'));
-                }
+                if (folderEl) { folderEl.value = prefillFolder; folderEl.dispatchEvent(new Event('input')); }
             }
             if (prefillName) {
-                // Show a subtle banner so students know the form was pre-filled
                 const banner = document.createElement('div');
                 banner.style.cssText = 'background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.25);border-radius:10px;padding:9px 14px;font-size:12px;color:#93c5fd;margin-bottom:16px;display:flex;align-items:center;gap:8px';
                 banner.innerHTML = '<span class="material-symbols-outlined" style="font-size:15px;flex-shrink:0">auto_fix_high</span>Form pre-filled from your Vault — just add a reason and submit!';
                 const form = document.getElementById('requestForm');
                 if (form) form.insertBefore(banner, form.firstChild);
-                // Scroll the reason field into view gently
                 setTimeout(() => { const r = document.getElementById('req_reason'); if (r) r.focus(); }, 300);
             }
+
         });
 
         function updateCount(inputId, countId, max) {
@@ -185,23 +156,30 @@
             if (el && cnt) cnt.textContent = el.value.length;
         }
 
-        // ── Request token helpers ────────────────────────────────────
+        // ── Request token helpers ──
         let _activeReqId = null;
 
         function showRequestToken(id) {
             _activeReqId = id;
             const box = document.getElementById('tokenBox');
             const display = document.getElementById('tokenDisplay');
-            if (box && display) {
-                display.textContent = id;
-                box.style.display = 'block';
-            }
+            if (box && display) { display.textContent = id; box.style.display = 'block'; }
         }
+
+        // Expose globally so the inline auth script can navigate to a saved request
+        // when a user clicks one of their past request items.
+        window._fvShowSavedRequest = function(id) {
+            _activeReqId = id;
+            history.replaceState(null, '', '#req=' + id);
+            document.getElementById('requestForm').style.display = 'none';
+            document.getElementById('successState').style.display = 'block';
+            showRequestToken(id);
+            pollStatus();
+        };
 
         function copyToken() {
             if (!_activeReqId) return;
             const btn = document.getElementById('copyTokenBtn');
-
             function markCopied() {
                 if (btn) {
                     btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">check</span> Copied!';
@@ -213,7 +191,6 @@
                     btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">error</span> Failed';
                     setTimeout(() => { btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">content_copy</span> Copy'; }, 2500);
                 }
-                // Last resort: select the text so the user can copy manually
                 const display = document.getElementById('tokenDisplay');
                 if (display) {
                     const range = document.createRange();
@@ -222,86 +199,65 @@
                     if (sel) { sel.removeAllRanges(); sel.addRange(range); }
                 }
             }
-
-            // Primary: modern async clipboard API
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(_activeReqId).then(markCopied).catch(() => {
-                    // Fallback: execCommand (deprecated but broadly supported, works without HTTPS)
                     try {
                         const tmp = document.createElement('textarea');
                         tmp.value = _activeReqId;
                         tmp.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
-                        document.body.appendChild(tmp);
-                        tmp.focus(); tmp.select();
-                        const ok = document.execCommand('copy');
+                        document.body.appendChild(tmp); tmp.focus(); tmp.select();
+                        document.execCommand('copy') ? markCopied() : markFailed();
                         document.body.removeChild(tmp);
-                        ok ? markCopied() : markFailed();
                     } catch(e2) { markFailed(); }
                 });
             } else {
-                // No clipboard API at all — go straight to execCommand
                 try {
                     const tmp = document.createElement('textarea');
                     tmp.value = _activeReqId;
                     tmp.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
-                    document.body.appendChild(tmp);
-                    tmp.focus(); tmp.select();
-                    const ok = document.execCommand('copy');
+                    document.body.appendChild(tmp); tmp.focus(); tmp.select();
+                    document.execCommand('copy') ? markCopied() : markFailed();
                     document.body.removeChild(tmp);
-                    ok ? markCopied() : markFailed();
                 } catch(e) { markFailed(); }
             }
         }
 
         const STATUS_CONFIG = {
             pending:   { dot: '#f59e0b', label: 'Pending review' },
-            fulfilled: { dot: '#22c55e', label: 'Approved — file uploaded to Vault!' },
-            declined:  { dot: '#64748b', label: 'Dismissed by manager' },
-            // Legacy aliases — kept so any rows written before the enum fix still display correctly
             approved:  { dot: '#22c55e', label: 'Approved — file uploaded to Vault!' },
             dismissed: { dot: '#64748b', label: 'Dismissed by manager' }
         };
 
         async function pollStatus() {
-            if (!_activeReqId || !_supabase) return;
-            const refreshBtn = document.getElementById('refreshStatusBtn');
+            if (!_activeReqId) return;
+            const refreshBtn  = document.getElementById('refreshStatusBtn');
             const refreshIcon = document.getElementById('refreshIcon');
-            if (refreshIcon) { refreshIcon.style.animation = 'spin .7s linear infinite'; }
+            if (refreshIcon) refreshIcon.style.animation = 'spin .7s linear infinite';
             if (refreshBtn) refreshBtn.disabled = true;
-
             try {
                 const { data, error } = await _supabase
                     .from('upload_requests')
                     .select('status, manager_note')
                     .eq('id', _activeReqId)
                     .single();
-
                 if (!error && data) {
                     const cfg = STATUS_CONFIG[data.status] || { dot: '#94a3b8', label: data.status };
                     document.getElementById('statusDisplay').innerHTML =
                         `<span style="width:8px;height:8px;border-radius:50%;background:${cfg.dot};flex-shrink:0;display:inline-block"></span>` +
                         `<span style="font-size:13px;color:#e2e8f0;font-weight:600">${cfg.label}</span>`;
                     const noteEl = document.getElementById('managerNote');
-                    if (data.manager_note) {
-                        noteEl.textContent = '💬 ' + data.manager_note;
-                        noteEl.style.display = 'block';
-                    } else {
-                        noteEl.style.display = 'none';
-                    }
+                    if (data.manager_note) { noteEl.textContent = '💬 ' + data.manager_note; noteEl.style.display = 'block'; }
+                    else { noteEl.style.display = 'none'; }
                 }
             } catch(e) {}
-
             if (refreshIcon) refreshIcon.style.animation = '';
             if (refreshBtn) refreshBtn.disabled = false;
         }
 
-        // ── On load: check if returning via bookmarked #req= URL ────
+        // ── Resume from bookmarked #req= URL ──
         window.addEventListener('load', () => {
-            // Check URL hash for a stored request ID (e.g. from a bookmark).
-            // Only restore the success state when the user is authenticated —
-            // logged-out visitors already see the gate, which is correct.
             const hashMatch = window.location.hash.match(/[#&]req=([^&]+)/);
-            if (hashMatch && _isAuthenticated) {
+            if (hashMatch) {
                 const resumeId = hashMatch[1];
                 _activeReqId = resumeId;
                 document.getElementById('requestForm').style.display = 'none';
@@ -322,16 +278,6 @@
             t._timer = setTimeout(() => { t.style.display = 'none'; t.className = ''; }, 4000);
         }
 
-        // ── Feature 10: Notify ALL push subscribers (manager included) about a new request ──
-        // KNOWN ISSUE, NOT FULLY FIXABLE FROM THIS FILE: this broadcasts to every
-        // subscriber, including other students who opted into push for their OWN
-        // request status. The real fix is server-side — store the manager's
-        // subscription in its own table (e.g. `manager_push_subscriptions`) and
-        // target it with /api/push/notify-one instead of a broadcast. That change
-        // belongs in server.js, which wasn't provided alongside this file.
-        // As a stopgap, the requester's email is intentionally left OUT of the
-        // broadcast body below so the one piece of real PII isn't shown to every
-        // other subscribed student until the server-side targeting is fixed.
         async function _notifyManagerNewRequest(filename) {
             if (!('serviceWorker' in navigator)) return;
             try {
@@ -354,45 +300,23 @@
         document.getElementById('requestForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
-            // Safety net: block submission if the user somehow isn't authenticated
             if (!_isAuthenticated) {
                 showToast('Please create an account or sign in to submit a request.', 'error');
                 return;
             }
 
-            // Guard: supabase client unavailable (backend down on page load)
-            if (!_supabase) {
-                showToast('Connection unavailable. Please refresh the page and try again.', 'error');
-                return;
-            }
-
             const filename = document.getElementById('req_filename').value.trim();
-            const reason = document.getElementById('req_reason').value.trim();
+            const reason   = document.getElementById('req_reason').value.trim();
 
-            if (!filename) {
-                document.getElementById('req_filename').focus();
-                showToast('Please enter the file name.', 'error');
-                return;
-            }
-            if (!reason) {
-                document.getElementById('req_reason').focus();
-                showToast('Please provide a reason.', 'error');
-                return;
-            }
+            if (!filename) { document.getElementById('req_filename').focus(); showToast('Please enter the file name.', 'error'); return; }
+            if (!reason)   { document.getElementById('req_reason').focus();   showToast('Please provide a reason.', 'error');   return; }
 
-            // Honeypot check — real users never fill this field
             if (document.getElementById('hp_website').value) {
-                // Silently appear to succeed; bots shouldn't know they were caught
                 document.getElementById('requestForm').style.display = 'none';
                 document.getElementById('successState').style.display = 'block';
                 return;
             }
 
-            // ── Local throttle: applies even when no email is given, closing the
-            // gap where the DB-based check below was skipped entirely for anonymous
-            // submitters. Still bypassable by clearing storage / private browsing —
-            // the durable fix is a server-side check (IP- or trigger-based), which
-            // belongs in the Supabase policies / server.js, not in client JS. ──
             const LOCAL_THROTTLE_KEY = 'fv_last_submit_ts';
             try {
                 const lastTs = parseInt(localStorage.getItem(LOCAL_THROTTLE_KEY) || '0', 10);
@@ -400,10 +324,9 @@
                     showToast('You\'ve already submitted a request in the last hour. Please wait before submitting another.', 'error');
                     return;
                 }
-            } catch(e) { /* localStorage unavailable — fall through to the server-side check */ }
+            } catch(e) {}
 
-            const emailInput = (document.getElementById('req_email').value || '').trim();
-            // Use the logged-in email if available, otherwise fall back to the typed one
+            const emailInput   = (document.getElementById('req_email').value || '').trim();
             const contactEmail = _requesterEmail || emailInput || null;
 
             const btn = document.getElementById('submitBtn');
@@ -411,7 +334,6 @@
             btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;animation:spin .8s linear infinite">refresh</span> Submitting…';
 
             try {
-                // ── Rate-limit: one request per email per hour ──────────────
                 if (contactEmail) {
                     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
                     const { count } = await _supabase
@@ -420,55 +342,44 @@
                         .eq('requester_email', contactEmail)
                         .gte('created_at', oneHourAgo);
                     if (count > 0) {
-                        showToast('You\'ve already submitted a request in the last hour. Please wait before submitting another.', 'error');
+                        showToast('You\'ve already submitted a request in the last hour.', 'error');
                         btn.disabled = false;
                         btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">send</span> Submit Request';
                         return;
                     }
                 }
-                // ───────────────────────────────────────────────────────────
-
 
                 const { data: inserted, error } = await _supabase.from('upload_requests').insert({
-                    filename: filename,
-                    description: document.getElementById('req_desc').value.trim() || null,
-                    reason: reason,
-                    folder: document.getElementById('req_folder').value.trim() || null,
-                    status: 'pending',
-                    requester_email: contactEmail,
+                    filename:            filename,
+                    description:         document.getElementById('req_desc').value.trim() || null,
+                    reason:              reason,
+                    folder:              document.getElementById('req_folder').value.trim() || null,
+                    status:              'pending',
+                    requester_email:     contactEmail,
                     subscriber_endpoint: _reqPushEndpoint || null,
-                    subscriber_keys: _reqPushKeys ? JSON.stringify(_reqPushKeys) : null
+                    subscriber_keys:     _reqPushKeys ? JSON.stringify(_reqPushKeys) : null
                 }).select('id').single();
                 if (error) throw error;
 
-                // Record the local throttle timestamp now that the insert succeeded
                 try { localStorage.setItem(LOCAL_THROTTLE_KEY, String(Date.now())); } catch(e) {}
 
-                // ── Persist the request ID so the student can check status later ──
                 const reqId = inserted?.id;
                 if (reqId) {
-                    // Store in both localStorage and sessionStorage for resilience
                     try {
                         const stored = JSON.parse(localStorage.getItem('fv_request_ids') || '[]');
                         stored.unshift(reqId);
                         localStorage.setItem('fv_request_ids', JSON.stringify(stored.slice(0, 10)));
                     } catch(e) {}
-                    // Also write the key that chat-widget.js reads for the "Check Request Status"
-                    // modal pre-fill — keeps both the upload-request page and the chat widget in sync
-                    try { localStorage.setItem('fvFileRequestToken', reqId); } catch(e) {}
                     try { sessionStorage.setItem('fv_last_request_id', reqId); } catch(e) {}
-                    // Put it in the URL hash so a bookmark or copy of the URL preserves it
                     history.replaceState(null, '', '#req=' + reqId);
                     showRequestToken(reqId);
                 }
 
-                // ── Feature 10: Notify manager about new file request ──
-                // Fire-and-forget — don't block the success state on push delivery
                 _notifyManagerNewRequest(filename).catch(() => {});
 
                 document.getElementById('requestForm').style.display = 'none';
                 document.getElementById('successState').style.display = 'block';
-            } catch (err) {
+            } catch(err) {
                 console.error(err);
                 showToast('Submission failed: ' + (err.message || 'Unknown error'), 'error');
                 btn.disabled = false;
@@ -476,35 +387,4 @@
             }
         });
 
-// ── QR Code generation — deferred to load so the container is painted ──
-window.addEventListener('load', function() {
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-    script.onload = function() {
-        const vaultUrl = window.location.origin + '/index.html';
-        const urlEl = document.getElementById('qrUrl');
-        if (urlEl) urlEl.textContent = vaultUrl;
-        const container = document.getElementById('qrCodeCanvas');
-        if (!container) return;
-        container.innerHTML = '';
-        try {
-            new QRCode(container, {
-                text: vaultUrl,
-                width: 160,
-                height: 160,
-                colorDark: '#0f172a',
-                colorLight: '#ffffff',
-                correctLevel: QRCode.CorrectLevel.H
-            });
-        } catch(e) {
-            const cv = document.getElementById('qrCanvas');
-            if (cv) cv.innerHTML = '<p style="color:#64748b;font-size:11px;padding:12px">QR unavailable</p>';
-        }
-    };
-    script.onerror = function() {
-        const cv = document.getElementById('qrCanvas');
-        if (cv) cv.innerHTML = '<p style="color:#64748b;font-size:11px;padding:12px">QR unavailable</p>';
-    };
-    document.head.appendChild(script);
-});
 })();

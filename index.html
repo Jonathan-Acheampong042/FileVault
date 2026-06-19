@@ -109,6 +109,30 @@
         /* Prevent horizontal overflow on small screens */
         * { box-sizing: border-box; }
         .file-card { word-break: break-word; }
+
+        /* ── Auth nudge banner (for non-logged-in users after several interactions) ── */
+        #authNudge { display:none; position:fixed; bottom:max(env(safe-area-inset-bottom,0px) + 80px, 90px); left:50%; transform:translateX(-50%); z-index:9500; width:calc(100% - 32px); max-width:420px; background:rgba(15,23,42,0.97); border:1px solid rgba(59,130,246,0.35); border-radius:20px; padding:16px 18px; box-shadow:0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(59,130,246,0.1); backdrop-filter:blur(20px); animation:nudgeIn .35s cubic-bezier(.22,1,.36,1) both; }
+        #authNudge.visible { display:block; }
+        @keyframes nudgeIn { from{opacity:0;transform:translateX(-50%) translateY(24px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+        @keyframes nudgeOut { from{opacity:1;transform:translateX(-50%) translateY(0)} to{opacity:0;transform:translateX(-50%) translateY(16px)} }
+        #authNudge.hiding { animation:nudgeOut .25s ease both; }
+        .nudge-top { display:flex; align-items:flex-start; gap:12px; }
+        .nudge-icon { width:36px; height:36px; border-radius:11px; background:linear-gradient(135deg,rgba(59,130,246,0.25),rgba(139,92,246,0.25)); border:1px solid rgba(59,130,246,0.3); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .nudge-icon .material-symbols-outlined { font-size:18px; color:#93c5fd; }
+        .nudge-body { flex:1; }
+        .nudge-title { font-size:13px; font-weight:800; color:white; margin:0 0 3px; }
+        .nudge-sub { font-size:12px; color:#64748b; line-height:1.5; margin:0; }
+        .nudge-dismiss { background:none; border:none; cursor:pointer; color:#475569; padding:2px; border-radius:6px; display:flex; align-items:center; flex-shrink:0; transition:color .2s; }
+        .nudge-dismiss:hover { color:#94a3b8; }
+        .nudge-dismiss .material-symbols-outlined { font-size:18px; }
+        .nudge-actions { display:flex; gap:8px; margin-top:12px; }
+        .nudge-btn { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:9px 12px; border-radius:11px; font-size:12px; font-weight:700; cursor:pointer; text-decoration:none; border:none; font-family:inherit; transition:all .2s; }
+        .nudge-btn.primary { background:linear-gradient(135deg,#3b82f6,#7c3aed); color:white; }
+        .nudge-btn.primary:hover { opacity:.9; transform:translateY(-1px); }
+        .nudge-btn.ghost { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1) !important; color:#94a3b8; }
+        .nudge-btn.ghost:hover { background:rgba(255,255,255,0.09); color:#e2e8f0; }
+        @media (min-width:1024px) { #authNudge { bottom:32px; } }
+
         /* Bottom nav safe area */
         .pb-safe { padding-bottom: env(safe-area-inset-bottom, 8px); }
 
@@ -6072,5 +6096,112 @@ window.isFolderSubscribed = function(folder) {
 
 })();
 </script>
+
+    <!-- ── Auth nudge banner ── -->
+    <div id="authNudge" role="dialog" aria-label="Sign in prompt" aria-modal="false">
+        <div class="nudge-top">
+            <div class="nudge-icon"><span class="material-symbols-outlined">lock_open</span></div>
+            <div class="nudge-body">
+                <p class="nudge-title">Unlock the full FileVault</p>
+                <p class="nudge-sub">Sign in to download files, request materials, and track your requests — all free.</p>
+            </div>
+            <button class="nudge-dismiss" id="authNudgeDismiss" aria-label="Dismiss">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div class="nudge-actions">
+            <a href="login.html" class="nudge-btn primary">
+                <span class="material-symbols-outlined" style="font-size:15px">login</span>
+                Sign In
+            </a>
+            <a href="login.html?tab=signup" class="nudge-btn ghost">
+                <span class="material-symbols-outlined" style="font-size:15px">person_add</span>
+                Create Account
+            </a>
+        </div>
+    </div>
+
+    <script>
+    /* ── Auth nudge: show after N interactions for guests ── */
+    (function() {
+        var NUDGE_KEY          = 'fv_nudge_dismissed';
+        var INTERACTION_KEY    = 'fv_guest_interactions';
+        var TRIGGER_COUNT      = 5;   // show after this many clicks/interactions
+        var SNOOZE_HOURS       = 24;  // how long a dismiss lasts
+
+        function nudgeIsDismissed() {
+            try {
+                var ts = parseInt(localStorage.getItem(NUDGE_KEY) || '0', 10);
+                if (!ts) return false;
+                return (Date.now() - ts) < SNOOZE_HOURS * 60 * 60 * 1000;
+            } catch(e) { return false; }
+        }
+
+        function showNudge() {
+            var el = document.getElementById('authNudge');
+            if (!el || el.classList.contains('visible')) return;
+            el.classList.add('visible');
+        }
+
+        function dismissNudge(permanent) {
+            var el = document.getElementById('authNudge');
+            if (!el) return;
+            el.classList.add('hiding');
+            setTimeout(function() {
+                el.classList.remove('visible', 'hiding');
+            }, 260);
+            try { localStorage.setItem(NUDGE_KEY, String(Date.now())); } catch(e) {}
+        }
+
+        function bumpInteraction() {
+            // Only nudge guests — if _currentUserEmail is set, they're logged in
+            if (window._currentUserEmail || window._currentUserId) return;
+            if (nudgeIsDismissed()) return;
+            try {
+                var count = parseInt(sessionStorage.getItem(INTERACTION_KEY) || '0', 10) + 1;
+                sessionStorage.setItem(INTERACTION_KEY, String(count));
+                if (count >= TRIGGER_COUNT) showNudge();
+            } catch(e) {}
+        }
+
+        // Wire up dismiss button
+        document.addEventListener('DOMContentLoaded', function() {
+            var btn = document.getElementById('authNudgeDismiss');
+            if (btn) btn.addEventListener('click', function() { dismissNudge(); });
+
+            // Track meaningful interactions: folder clicks, file clicks, searches, downloads
+            var trackedSelectors = [
+                '.folder-btn',
+                '.file-card',
+                '#searchInput',
+                '.type-btn',
+                '#sortSelect'
+            ];
+            trackedSelectors.forEach(function(sel) {
+                document.addEventListener('click', function(e) {
+                    if (e.target.closest(sel)) bumpInteraction();
+                }, { passive: true });
+            });
+
+            // Also count on search typing (debounced so rapid typing = 1 interaction)
+            var searchDebounce;
+            var searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    clearTimeout(searchDebounce);
+                    searchDebounce = setTimeout(bumpInteraction, 800);
+                }, { passive: true });
+            }
+
+            // Delay the first check slightly to let checkAuth() populate _currentUserEmail
+            setTimeout(function() {
+                // If already logged in, do nothing — bail entirely
+                if (window._currentUserEmail || window._currentUserId) return;
+                // Re-attach the interaction counter now that auth state is known
+            }, 1200);
+        });
+    })();
+    </script>
+
 </body>
 </html>
