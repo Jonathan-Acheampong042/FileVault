@@ -6,7 +6,13 @@
 
         const _supabase = supabase.createClient(
             'https://lvhecpvwpzmstciewziv.supabase.co',
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI'
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI',
+            // detectSessionInUrl MUST be true here so that any access_token hash
+            // still in the URL (e.g. from an OAuth redirect that lands here via ?next=)
+            // is consumed and a valid session is written to localStorage before
+            // onAuthStateChange fires. Without this, the client sees no session
+            // and the auth gate stays locked even though the user just signed in.
+            { auth: { storage: window.localStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
         );
 
         const _PUSH_API = window.location.hostname === 'localhost'
@@ -300,8 +306,20 @@
         document.getElementById('requestForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
+            // Re-check the session at submit time in case onAuthStateChange fired late
+            // (race condition between Supabase SDK init and page render).
+            if (!_isAuthenticated) {
+                const { data: { session } } = await _supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+                if (session && session.user) {
+                    _requesterEmail  = session.user.email || null;
+                    _isAuthenticated = true;
+                }
+            }
+
             if (!_isAuthenticated) {
                 showToast('Please create an account or sign in to submit a request.', 'error');
+                // Redirect to login with return target so they come back here
+                setTimeout(() => { window.location.href = 'login.html?next=upload-request.html'; }, 1500);
                 return;
             }
 

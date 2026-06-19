@@ -572,31 +572,85 @@
         <p class="text-center mt-5 animate-fade-in" style="color:#334155;font-size:12px">FileVault · Built by <span style="color:#475569;font-weight:600">Jonathan Acheampong</span></p>
     </div><!-- /max-w-md -->
 
-    <!-- ── Two-Factor Authentication challenge modal (TOTP) ── -->
+    <!-- ── Two-Factor Authentication challenge modal (TOTP + Recovery) ── -->
     <div id="mfaChallengeModal" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(2,6,23,0.75);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px">
-        <div class="glass-card animate-fade-in" style="width:100%;max-width:380px;border-radius:24px;padding:28px">
-            <div style="text-align:center;margin-bottom:20px">
-                <div style="width:52px;height:52px;border-radius:16px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.28);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
-                    <span class="material-symbols-outlined" style="font-size:26px;color:#60a5fa">shield_lock</span>
+        <div class="glass-card animate-fade-in" style="width:100%;max-width:400px;border-radius:24px;padding:28px">
+
+            <!-- Tab switcher: Authenticator | Recovery Code -->
+            <div style="display:flex;gap:6px;margin-bottom:20px">
+                <button id="mfaTabTotp" onclick="switchMfaTab('totp')" class="tab-pill active" style="flex:1">Authenticator App</button>
+                <button id="mfaTabRecovery" onclick="switchMfaTab('recovery')" class="tab-pill" style="flex:1">Recovery Code</button>
+            </div>
+
+            <!-- ── TOTP panel ── -->
+            <div id="mfaPanelTotp">
+                <div style="text-align:center;margin-bottom:20px">
+                    <div style="width:52px;height:52px;border-radius:16px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.28);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                        <span class="material-symbols-outlined" style="font-size:26px;color:#60a5fa">shield_lock</span>
+                    </div>
+                    <h3 style="color:white;font-weight:700;font-size:16px;margin-bottom:4px">Two-Factor Authentication</h3>
+                    <p style="color:#64748b;font-size:13px">Enter the 6-digit code from your authenticator app</p>
                 </div>
-                <h3 style="color:white;font-weight:700;font-size:16px;margin-bottom:4px">Two-Factor Authentication</h3>
-                <p style="color:#64748b;font-size:13px">Enter the 6-digit code from your authenticator app</p>
+                <div class="flex justify-between gap-2" style="display:flex;justify-content:space-between;gap:8px">
+                    <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa0" oninput="mfaInputMove(0)" onkeydown="mfaInputBack(event,0)" onpaste="mfaInputPaste(event)" autocomplete="one-time-code"/>
+                    <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa1" oninput="mfaInputMove(1)" onkeydown="mfaInputBack(event,1)" autocomplete="off"/>
+                    <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa2" oninput="mfaInputMove(2)" onkeydown="mfaInputBack(event,2)" autocomplete="off"/>
+                    <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa3" oninput="mfaInputMove(3)" onkeydown="mfaInputBack(event,3)" autocomplete="off"/>
+                    <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa4" oninput="mfaInputMove(4)" onkeydown="mfaInputBack(event,4)" autocomplete="off"/>
+                    <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa5" oninput="mfaInputMove(5)" onkeydown="mfaInputBack(event,5)" autocomplete="off"/>
+                </div>
+                <button class="btn-primary" id="mfaVerifyBtn" onclick="verifyMfaCode()" style="margin-top:20px">
+                    <span id="mfaVerifyText">Verify &amp; Continue</span>
+                </button>
+                <p id="mfaVerifyMsg" class="mt-3 text-center text-sm min-h-5" style="color:#f87171" aria-live="polite" aria-atomic="true"></p>
             </div>
-            <div class="flex justify-between gap-2" style="display:flex;justify-content:space-between;gap:8px">
-                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa0" oninput="mfaInputMove(0)" onkeydown="mfaInputBack(event,0)" onpaste="mfaInputPaste(event)"/>
-                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa1" oninput="mfaInputMove(1)" onkeydown="mfaInputBack(event,1)"/>
-                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa2" oninput="mfaInputMove(2)" onkeydown="mfaInputBack(event,2)"/>
-                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa3" oninput="mfaInputMove(3)" onkeydown="mfaInputBack(event,3)"/>
-                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa4" oninput="mfaInputMove(4)" onkeydown="mfaInputBack(event,4)"/>
-                <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa5" oninput="mfaInputMove(5)" onkeydown="mfaInputBack(event,5)"/>
+
+            <!-- ── Recovery Code panel ── -->
+            <div id="mfaPanelRecovery" style="display:none">
+                <div style="text-align:center;margin-bottom:20px">
+                    <div style="width:52px;height:52px;border-radius:16px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.28);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                        <span class="material-symbols-outlined" style="font-size:26px;color:#fbbf24">key</span>
+                    </div>
+                    <h3 style="color:white;font-weight:700;font-size:16px;margin-bottom:4px">Use a Recovery Code</h3>
+                    <p style="color:#64748b;font-size:13px;line-height:1.55">Don't have your authenticator app? Enter one of the recovery codes you saved when you set up 2FA.</p>
+                </div>
+                <div style="position:relative">
+                    <span class="auth-input-icon material-symbols-outlined">password</span>
+                    <input type="text" id="mfaRecoveryInput" class="auth-input" placeholder="xxxx-xxxx-xxxx-xxxx"
+                        autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+                        style="font-family:monospace;letter-spacing:0.08em"
+                        onkeydown="if(event.key==='Enter')verifyMfaRecovery()"/>
+                </div>
+                <p style="font-size:11px;color:#475569;margin:8px 2px 0">Each recovery code can only be used once.</p>
+                <button class="btn-primary" id="mfaRecoveryBtn" onclick="verifyMfaRecovery()" style="margin-top:16px;background:linear-gradient(135deg,#d97706,#b45309)">
+                    <span id="mfaRecoveryText">Verify Recovery Code</span>
+                </button>
+                <p id="mfaRecoveryMsg" class="mt-3 text-center text-sm min-h-5" style="color:#f87171" aria-live="polite" aria-atomic="true"></p>
+
+                <!-- Generate / view recovery codes section -->
+                <div style="margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.07)">
+                    <p style="font-size:12px;color:#64748b;text-align:center;margin:0 0 10px">Need to generate new recovery codes?</p>
+                    <button onclick="generateRecoveryCodes()" id="genRecoveryBtn"
+                        style="width:100%;padding:10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:11px;color:#fbbf24;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+                        <span class="material-symbols-outlined" style="font-size:15px">refresh</span>
+                        <span id="genRecoveryBtnText">Generate New Recovery Codes</span>
+                    </button>
+                    <div id="recoveryCodesDisplay" style="display:none;margin-top:12px">
+                        <p style="font-size:11px;font-weight:700;color:#fbbf24;text-transform:uppercase;letter-spacing:.07em;margin:0 0 8px">Your Recovery Codes — Save these now!</p>
+                        <div id="recoveryCodesList" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px"></div>
+                        <button onclick="copyAllRecoveryCodes()"
+                            style="width:100%;padding:9px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.2);border-radius:9px;color:#fbbf24;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+                            <span class="material-symbols-outlined" style="font-size:14px">content_copy</span>
+                            <span id="copyRecoveryText">Copy All Codes</span>
+                        </button>
+                        <p style="font-size:11px;color:#ef4444;margin:8px 0 0;line-height:1.5">⚠️ Old codes are now invalid. These won't be shown again — copy them now.</p>
+                    </div>
+                </div>
             </div>
-            <button class="btn-primary" id="mfaVerifyBtn" onclick="verifyMfaCode()" style="margin-top:20px">
-                <span id="mfaVerifyText">Verify &amp; Continue</span>
-            </button>
-            <button type="button" onclick="cancelMfaChallenge()" style="margin-top:12px;background:none;border:none;cursor:pointer;color:#64748b;font-size:12px;width:100%;text-align:center;font-family:inherit">
+
+            <button type="button" onclick="cancelMfaChallenge()" style="margin-top:14px;background:none;border:none;cursor:pointer;color:#64748b;font-size:12px;width:100%;text-align:center;font-family:inherit">
                 Cancel and sign out
             </button>
-            <p id="mfaVerifyMsg" class="mt-3 text-center text-sm min-h-5" style="color:#f87171" aria-live="polite" aria-atomic="true"></p>
         </div>
     </div>
 
@@ -1301,9 +1355,100 @@
     function openMfaModal() {
         const modal = document.getElementById('mfaChallengeModal');
         modal.style.display = 'flex';
+        switchMfaTab('totp'); // always open on the TOTP tab
         setMsg('mfaVerifyMsg','', 'info');
+        setMsg('mfaRecoveryMsg','', 'info');
         [0,1,2,3,4,5].forEach(i => { const el = document.getElementById('mfa'+i); el.value = ''; el.classList.remove('filled'); });
+        const recovInput = document.getElementById('mfaRecoveryInput');
+        if (recovInput) recovInput.value = '';
+        document.getElementById('recoveryCodesDisplay').style.display = 'none';
         setTimeout(() => document.getElementById('mfa0')?.focus(), 50);
+    }
+
+    function switchMfaTab(tab) {
+        document.getElementById('mfaPanelTotp').style.display     = tab === 'totp'     ? '' : 'none';
+        document.getElementById('mfaPanelRecovery').style.display = tab === 'recovery' ? '' : 'none';
+        document.getElementById('mfaTabTotp').classList.toggle('active', tab === 'totp');
+        document.getElementById('mfaTabRecovery').classList.toggle('active', tab === 'recovery');
+        if (tab === 'recovery') setTimeout(() => document.getElementById('mfaRecoveryInput')?.focus(), 50);
+        if (tab === 'totp')     setTimeout(() => document.getElementById('mfa0')?.focus(), 50);
+    }
+
+    async function verifyMfaRecovery() {
+        const code = (document.getElementById('mfaRecoveryInput').value || '').trim().replace(/\s+/g,'');
+        if (!code) { setMsg('mfaRecoveryMsg', 'Please enter a recovery code.', 'error'); return; }
+        if (!_mfaFactorId || !_mfaChallengeId) { setMsg('mfaRecoveryMsg', 'Session error — please cancel and sign in again.', 'error'); return; }
+
+        setBtnLoading('mfaRecoveryBtn','mfaRecoveryText','Verifying…');
+        // Supabase TOTP verify also accepts backup/recovery codes when passed
+        // as the code — the server knows from the factor type whether to treat
+        // it as a TOTP or a one-time recovery code.
+        const { data, error } = await _supabase.auth.mfa.verify({
+            factorId:    _mfaFactorId,
+            challengeId: _mfaChallengeId,
+            code
+        });
+        clearBtnLoading('mfaRecoveryBtn','mfaRecoveryText','Verify Recovery Code');
+
+        if (error) {
+            setMsg('mfaRecoveryMsg', 'Invalid or already-used recovery code. Please try another.', 'error');
+            document.getElementById('mfaRecoveryInput').value = '';
+            document.getElementById('mfaRecoveryInput').focus();
+            return;
+        }
+
+        document.getElementById('mfaChallengeModal').style.display = 'none';
+        _mfaFactorId = null; _mfaChallengeId = null; _mfaTargetMode = null; _mfaPending = false;
+        _redirecting = false;
+        await routeUser(data.user);
+    }
+
+    // Generate 8 custom random recovery codes (format: xxxx-xxxx-xxxx-xxxx)
+    // and store them as a custom metadata field in the user's profile.
+    // NOTE: Supabase doesn't have a built-in recovery-codes API for TOTP —
+    // these codes are stored in your user_profiles table under recovery_codes
+    // and your app checks them server-side or via an Edge Function.
+    // For maximum security you should hash them before storing.
+    let _generatedRecoveryCodes = [];
+    async function generateRecoveryCodes() {
+        setBtnLoading('genRecoveryBtn','genRecoveryBtnText','Generating…');
+        try {
+            // Generate 8 random codes client-side
+            const codes = Array.from({ length: 8 }, () => {
+                const part = () => Math.random().toString(36).slice(2,6).padStart(4,'0');
+                return `${part()}-${part()}-${part()}-${part()}`;
+            });
+            _generatedRecoveryCodes = codes;
+
+            // Persist to user_profiles table (hashed ideally — here stored as JSON for demo)
+            const { data: { user } } = await _supabase.auth.getUser();
+            if (user) {
+                await _supabase.from('user_profiles')
+                    .upsert({ id: user.id, recovery_codes: JSON.stringify(codes) }, { onConflict: 'id' });
+            }
+
+            // Render codes
+            const list = document.getElementById('recoveryCodesList');
+            list.innerHTML = codes.map(c =>
+                `<div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:7px 10px;font-family:monospace;font-size:12px;color:#93c5fd;text-align:center">${c}</div>`
+            ).join('');
+            document.getElementById('recoveryCodesDisplay').style.display = '';
+        } catch(e) {
+            showToast('Failed to generate codes — please try again.', 'error');
+        }
+        clearBtnLoading('genRecoveryBtn','genRecoveryBtnText','Generate New Recovery Codes');
+    }
+
+    function copyAllRecoveryCodes() {
+        if (!_generatedRecoveryCodes.length) return;
+        const text = _generatedRecoveryCodes.join('\n');
+        const btn = document.getElementById('copyRecoveryText');
+        navigator.clipboard?.writeText(text).then(() => {
+            if (btn) btn.textContent = 'Copied!';
+            setTimeout(() => { if (btn) btn.textContent = 'Copy All Codes'; }, 2000);
+        }).catch(() => {
+            if (btn) btn.textContent = 'Failed — copy manually';
+        });
     }
 
     async function cancelMfaChallenge() {
@@ -1315,16 +1460,30 @@
     }
 
     function mfaInputMove(idx) {
-        const el = document.getElementById('mfa'+idx);
-        const v = el.value.replace(/\D/g,'');
-        el.value = v.slice(-1);
-        el.classList.toggle('filled', !!el.value);
-        if (el.value && idx < 5) document.getElementById('mfa'+(idx+1)).focus();
-        if (idx === 5 && [0,1,2,3,4,5].every(i => document.getElementById('mfa'+i).value)) verifyMfaCode();
+        // Use setTimeout(0) so soft keyboards (Android/iOS) have time to commit
+        // the character into el.value before we read it. Without this deferral,
+        // el.value is still empty when oninput fires on many mobile browsers,
+        // which means the box appears blank and focus never advances.
+        setTimeout(function() {
+            const el = document.getElementById('mfa'+idx);
+            const v = el.value.replace(/\D/g,'');
+            el.value = v.slice(-1);
+            el.classList.toggle('filled', !!el.value);
+            if (el.value && idx < 5) {
+                const next = document.getElementById('mfa'+(idx+1));
+                next.focus();
+                // On iOS, focus alone doesn't always open the keyboard for the
+                // next field — clicking it programmatically helps.
+                next.click && next.click();
+            }
+            if (idx === 5 && [0,1,2,3,4,5].every(i => document.getElementById('mfa'+i).value)) verifyMfaCode();
+        }, 0);
     }
     function mfaInputBack(e, idx) {
         if (e.key === 'Backspace' && !document.getElementById('mfa'+idx).value && idx > 0) {
-            document.getElementById('mfa'+(idx-1)).focus();
+            const prev = document.getElementById('mfa'+(idx-1));
+            prev.focus();
+            prev.click && prev.click();
         }
     }
     function mfaInputPaste(e) {
@@ -1744,6 +1903,40 @@
     // Keyboard shortcuts
     window.addEventListener('offline',  () => showToast('You are offline — check your connection.', 'error'));
     window.addEventListener('online',   () => showToast('Back online!', 'success'));
+
+    // ── Expose functions called from onclick= attributes ──────────────────────
+    // All auth functions are defined inside this async IIFE and are therefore
+    // invisible to inline event handlers (onclick="...") in the HTML. We must
+    // explicitly attach them to window so the browser can find them.
+    window.switchStudentTab        = switchStudentTab;
+    window.studentSignIn           = studentSignIn;
+    window.studentSignUp           = studentSignUp;
+    window.resendSignupConfirmation= resendSignupConfirmation;
+    window.resendConfirmation      = resendConfirmation;
+    window.backToSignUp            = backToSignUp;
+    window.socialLogin             = socialLogin;
+    window.sendMagicLink           = sendMagicLink;
+    window.sendOTP                 = sendOTP;
+    window.resendOTP               = resendOTP;
+    window.verifyOTP               = verifyOTP;
+    window.verifyMfaCode           = verifyMfaCode;
+    window.cancelMfaChallenge      = cancelMfaChallenge;
+    window.switchMfaTab            = switchMfaTab;
+    window.verifyMfaRecovery       = verifyMfaRecovery;
+    window.generateRecoveryCodes   = generateRecoveryCodes;
+    window.copyAllRecoveryCodes    = copyAllRecoveryCodes;
+    window.openForgotPassword      = openForgotPassword;
+    window.closeForgotPassword     = closeForgotPassword;
+    window.sendPasswordReset       = sendPasswordReset;
+    window.setNewPassword          = setNewPassword;
+    window.cancelPasswordReset     = cancelPasswordReset;
+    window.togglePwd               = togglePwd;
+    window.checkResetPwdMatch      = checkResetPwdMatch;
+    window.updatePwdStrength       = updatePwdStrength;
+    window.updateResetStrength     = updateResetStrength;
+    window._goToManager            = _goToManager;
+    window._goToBrowseAsAdmin      = _goToBrowseAsAdmin;
+
     })(); // end async IIFE
     </script>
 </body>

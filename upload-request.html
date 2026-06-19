@@ -351,7 +351,7 @@
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI';
 
         const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-            auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+            auth: { storage: window.localStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
         });
 
         // ── Auth gate ───────────────────────────────────────────────────────────
