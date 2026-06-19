@@ -111,28 +111,30 @@
         .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
         .page-header .back-link { margin-bottom: 0; }
 
-        /* ── User chip (top-right, shown when logged in) ── */
-        #userChip { display: none; align-items: center; gap: 8px; text-decoration: none;
-                    padding: 6px 12px 6px 8px; border-radius: 99px;
-                    background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.22);
-                    transition: background .2s, border-color .2s; position: relative; }
-        #userChip:hover { background: rgba(59,130,246,0.2); border-color: rgba(59,130,246,0.38); }
-        #userChip.visible { display: flex; }
-        .user-chip-avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg,#3b82f6,#8b5cf6);
-                            display: flex; align-items: center; justify-content: center;
-                            font-size: 11px; font-weight: 800; color: white; flex-shrink: 0; overflow: hidden;
-                            position: relative; }
-        .user-chip-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-        /* green online dot on the avatar */
-        .user-chip-avatar::after { content: ''; position: absolute; bottom: 0; right: 0;
-                                    width: 8px; height: 8px; border-radius: 50%;
-                                    background: #22c55e; border: 1.5px solid #020617; }
-        .user-chip-name { font-size: 12px; font-weight: 700; color: #93c5fd; max-width: 120px;
-                          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        /* "Signed in" label shown on hover */
-        #userChip .chip-signed-in { font-size: 10px; color: #22c55e; font-weight: 700;
-                                     display: none; white-space: nowrap; }
-        #userChip:hover .chip-signed-in { display: inline; }
+        /* ── User profile chip & dropdown (top-right, shown when logged in) ──
+           Mirrors the #profileChip / #profileDropdown pattern used on index.html
+           so the signed-in experience looks identical across pages. ── */
+        #profileChip { display:none;align-items:center;gap:6px;padding:5px 8px 5px 5px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);border-radius:99px;cursor:pointer;transition:all .2s;flex-shrink:0;position:relative;min-width:0;max-width:160px; }
+        #profileChip.visible { display:flex; }
+        #profileChip:hover { background:rgba(59,130,246,0.14);border-color:rgba(59,130,246,0.35); }
+        #profileAvatar { width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:white;flex-shrink:0;text-transform:uppercase;overflow:hidden; }
+        #profileAvatar img { width:100%;height:100%;object-fit:cover;border-radius:50%; }
+        #profileName { font-size:12px;font-weight:700;color:#cbd5e1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px; }
+        @media (max-width:480px) { #profileChip { max-width:110px; } #profileName { font-size:11px; } }
+        #profileDropdown { position:absolute;top:calc(100% + 8px);right:0;min-width:220px;background:rgba(10,18,35,0.97);border:1px solid rgba(255,255,255,0.10);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,0.55);backdrop-filter:blur(20px);z-index:9999;overflow:hidden;display:none;animation:fadeSlideDown .18s ease; }
+        #profileDropdown.open { display:block; }
+        @keyframes fadeSlideDown { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+        .pd-header { padding:14px 16px 10px;border-bottom:1px solid rgba(255,255,255,0.07); }
+        .pd-email { font-size:11px;color:#64748b;margin-top:2px;word-break:break-all; }
+        .pd-badge { display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;margin-top:5px; }
+        .pd-badge.student { background:rgba(59,130,246,0.15);color:#93c5fd;border:1px solid rgba(59,130,246,0.25); }
+        .pd-badge.verified { background:rgba(16,185,129,0.13);color:#6ee7b7;border:1px solid rgba(16,185,129,0.25); }
+        .pd-badge.unverified { background:rgba(245,158,11,0.13);color:#fcd34d;border:1px solid rgba(245,158,11,0.25); }
+        .pd-item { display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:13px;font-weight:600;color:#94a3b8;cursor:pointer;transition:background .15s;border:none;background:none;width:100%;text-align:left;font-family:inherit; }
+        .pd-item:hover { background:rgba(255,255,255,0.05);color:#e2e8f0; }
+        .pd-item.danger { color:#f87171; }
+        .pd-item.danger:hover { background:rgba(239,68,68,0.08);color:#fca5a5; }
+        .pd-item .material-symbols-outlined { font-size:17px;flex-shrink:0; }
     </style>
 </head>
 <body>
@@ -146,13 +148,36 @@
                     <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">arrow_back</span>
                     Back to Vault
                 </a>
-                <a href="profile.html" id="userChip" aria-label="Go to your profile — signed in" title="Signed in — view your profile">
-                    <span class="user-chip-avatar" id="userChipAvatar">?</span>
-                    <div style="display:flex;flex-direction:column;line-height:1.2">
-                        <span class="user-chip-name" id="userChipName">My Profile</span>
-                        <span class="chip-signed-in">● Signed in</span>
+                <!-- Profile chip (shown when signed in) — mirrors index.html's pattern -->
+                <div id="profileChip" onclick="toggleProfileDropdown()" aria-label="User account" role="button" tabindex="0">
+                    <div id="profileAvatar">?</div>
+                    <span id="profileName">Account</span>
+                    <span class="material-symbols-outlined" style="font-size:14px;color:#64748b">expand_more</span>
+                    <!-- Dropdown -->
+                    <div id="profileDropdown" onclick="event.stopPropagation()">
+                        <div class="pd-header">
+                            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+                                <div id="pdPhotoWrap" style="flex-shrink:0;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:white;overflow:hidden;border:2px solid rgba(255,255,255,0.1)">?</div>
+                                <div style="min-width:0;flex:1">
+                                    <p style="font-size:13px;font-weight:800;color:#e2e8f0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="pdName">—</p>
+                                    <p class="pd-email" id="pdEmail" style="margin:2px 0 0">—</p>
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:5px;flex-wrap:wrap">
+                                <span class="pd-badge student"><span class="material-symbols-outlined" style="font-size:10px">school</span> Student</span>
+                                <span class="pd-badge" id="pdVerifiedBadge"></span>
+                            </div>
+                        </div>
+                        <div style="padding:6px 0">
+                            <a class="pd-item" href="profile.html" style="text-decoration:none">
+                                <span class="material-symbols-outlined">manage_accounts</span> My Profile
+                            </a>
+                            <button type="button" class="pd-item danger" onclick="signOutUser()">
+                                <span class="material-symbols-outlined">logout</span> Sign Out
+                            </button>
+                        </div>
                     </div>
-                </a>
+                </div>
             </div>
 
             <div class="glass-card rounded-3xl p-6 sm:p-8">
@@ -372,10 +397,12 @@
         // redirect back from login.html (?next=), and token refresh.
         var _isAuthenticated = false;
         var _requesterEmail  = null;
-        function _revealForm(userEmail, userMeta) {
+        var _lastSessionUser = null;
+        function _revealForm(userEmail, userMeta, sessionUser) {
             if (_isAuthenticated) return; // already revealed — don't re-run
             _isAuthenticated = true;
             _requesterEmail = userEmail || null;
+            _lastSessionUser = sessionUser || null;
             var gate = document.getElementById('authGate');
             var form = document.getElementById('requestForm');
             if (gate) gate.style.display = 'none';
@@ -384,41 +411,97 @@
             var emailInput = document.getElementById('req_email');
             if (emailInput && userEmail) { emailInput.value = userEmail; }
 
-            // ── Populate & show user chip ──────────────────────────────────────
-            var chip = document.getElementById('userChip');
-            var chipName = document.getElementById('userChipName');
-            var chipAvatar = document.getElementById('userChipAvatar');
-            if (chip && chipName && chipAvatar) {
-                var meta = userMeta || {};
-                var displayName = meta.display_name || meta.full_name || meta.name
-                                  || (userEmail ? userEmail.split('@')[0] : 'Profile');
-                chipName.textContent = displayName;
-                var photoUrl = meta.avatar_url || meta.picture || null;
-                if (photoUrl) {
-                    var img = document.createElement('img');
-                    img.src = photoUrl;
-                    img.alt = displayName;
-                    img.onerror = function() {
-                        chipAvatar.textContent = displayName.slice(0,1).toUpperCase();
-                    };
-                    chipAvatar.innerHTML = '';
-                    chipAvatar.appendChild(img);
-                } else {
-                    chipAvatar.textContent = displayName.slice(0,1).toUpperCase();
-                }
-                chip.classList.add('visible');
-            }
+            // ── Populate & show profile chip + dropdown ──────────────────────────
+            // Mirrors populateProfileUI() in index.html so the signed-in header
+            // looks and behaves identically across pages.
+            populateProfileChip(userEmail, userMeta, sessionUser);
 
             // Load past requests for this user
             _loadMyRequests(userEmail);
         }
+
+        // Utility: inject photo or initials into an avatar container
+        function _setAvatar(el, photoUrl, initials, size) {
+            if (!el) return;
+            el.innerHTML = '';
+            if (photoUrl) {
+                var img = document.createElement('img');
+                img.src = photoUrl;
+                img.alt = initials;
+                img.style.cssText = 'width:' + size + 'px;height:' + size + 'px;border-radius:50%;object-fit:cover;display:block';
+                img.onerror = function() { el.innerHTML = ''; el.textContent = initials; };
+                el.appendChild(img);
+            } else {
+                el.textContent = initials;
+            }
+        }
+
+        function populateProfileChip(userEmail, userMeta, sessionUser) {
+            var meta = userMeta || {};
+            var email = userEmail || '';
+            var displayName = meta.display_name || meta.full_name || meta.name
+                               || (email ? email.split('@')[0] : 'Student');
+            var initials = displayName.slice(0, 2).toUpperCase();
+            var photoUrl = meta.avatar_url || meta.picture || meta.photo_url || null;
+            var verified = !!(sessionUser && sessionUser.email_confirmed_at);
+
+            var chip = document.getElementById('profileChip');
+            if (!chip) return;
+            chip.classList.add('visible');
+
+            _setAvatar(document.getElementById('profileAvatar'), photoUrl, initials, 26);
+            var nameEl = document.getElementById('profileName');
+            if (nameEl) nameEl.textContent = displayName.length > 14 ? displayName.slice(0, 14) + '\u2026' : displayName;
+
+            var pdWrap = document.getElementById('pdPhotoWrap');
+            if (pdWrap) {
+                if (photoUrl) { pdWrap.style.background = 'transparent'; pdWrap.style.border = 'none'; }
+                _setAvatar(pdWrap, photoUrl, initials, 44);
+            }
+            var pdName = document.getElementById('pdName');
+            if (pdName) pdName.textContent = displayName;
+            var pdEmail = document.getElementById('pdEmail');
+            if (pdEmail) pdEmail.textContent = email;
+
+            var vb = document.getElementById('pdVerifiedBadge');
+            if (vb) {
+                vb.className = 'pd-badge ' + (verified ? 'verified' : 'unverified');
+                vb.innerHTML = verified
+                    ? '<span class="material-symbols-outlined" style="font-size:10px">verified</span> Verified'
+                    : '<span class="material-symbols-outlined" style="font-size:10px">warning</span> Email unverified';
+            }
+        }
+
+        function toggleProfileDropdown() {
+            var dd = document.getElementById('profileDropdown');
+            if (!dd) return;
+            dd.classList.toggle('open');
+            if (dd.classList.contains('open')) {
+                setTimeout(function() {
+                    document.addEventListener('click', _closeDropdownOutside, { once: true });
+                }, 10);
+            }
+        }
+        function _closeDropdownOutside(e) {
+            var dd = document.getElementById('profileDropdown');
+            var chip = document.getElementById('profileChip');
+            if (dd && chip && !chip.contains(e.target)) dd.classList.remove('open');
+        }
+        // Exposed on window so they're callable from inline onclick= handlers
+        window.toggleProfileDropdown = toggleProfileDropdown;
+        window.signOutUser = async function signOutUser() {
+            var dd = document.getElementById('profileDropdown');
+            if (dd) dd.classList.remove('open');
+            await _supabase.auth.signOut();
+            window.location.href = 'login.html';
+        };
 
         // onAuthStateChange fires for EVERY session event including
         // INITIAL_SESSION (already logged in on page load) and SIGNED_IN
         // (returned from login redirect). This is the single reliable hook.
         _supabase.auth.onAuthStateChange(function(event, session) {
             if (session && session.user) {
-                _revealForm(session.user.email, session.user.user_metadata);
+                _revealForm(session.user.email, session.user.user_metadata, session.user);
             }
         });
 
@@ -426,7 +509,7 @@
         // browsers where the storage event fires late
         _supabase.auth.getSession().then(function(result) {
             var session = result && result.data && result.data.session;
-            if (session && session.user) _revealForm(session.user.email, session.user.user_metadata);
+            if (session && session.user) _revealForm(session.user.email, session.user.user_metadata, session.user);
         }).catch(function() {});
 
         // ── My past requests ────────────────────────────────────────────────────
