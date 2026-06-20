@@ -136,6 +136,31 @@
         /* Bottom nav safe area */
         .pb-safe { padding-bottom: env(safe-area-inset-bottom, 8px); }
 
+        /* ── Install & Notification prompt banners ── */
+        .fv-banner { display:none; position:fixed; top:max(env(safe-area-inset-top,0px), 0px); left:0; right:0; z-index:99990; padding:11px 16px; align-items:center; gap:12px; backdrop-filter:blur(16px); border-bottom:1px solid; font-size:13px; font-weight:600; animation:bannerSlideIn .3s cubic-bezier(.22,1,.36,1); }
+        .fv-banner.visible { display:flex; }
+        @keyframes bannerSlideIn { from{opacity:0;transform:translateY(-100%)} to{opacity:1;transform:translateY(0)} }
+        @keyframes bannerSlideOut { from{opacity:1;transform:translateY(0)} to{opacity:0;transform:translateY(-100%)} }
+        .fv-banner.hiding { animation:bannerSlideOut .25s ease both; }
+        #installBanner { background:rgba(15,23,42,0.95); border-color:rgba(59,130,246,0.3); color:#93c5fd; }
+        #notifBanner  { background:rgba(15,23,42,0.95); border-color:rgba(34,197,94,0.3);  color:#86efac; }
+        .fv-banner-icon { font-size:18px; flex-shrink:0; }
+        .fv-banner-text { flex:1; line-height:1.4; }
+        .fv-banner-text strong { display:block; color:white; font-size:13px; }
+        .fv-banner-text span { color:#94a3b8; font-size:11px; font-weight:500; }
+        .fv-banner-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+        .fv-banner-cta { padding:6px 14px; border-radius:9px; font-size:12px; font-weight:700; cursor:pointer; border:none; font-family:inherit; transition:all .2s; white-space:nowrap; }
+        #installBanner .fv-banner-cta { background:linear-gradient(135deg,#3b82f6,#7c3aed); color:white; }
+        #installBanner .fv-banner-cta:hover { opacity:.88; transform:translateY(-1px); }
+        #notifBanner .fv-banner-cta  { background:rgba(34,197,94,0.2); border:1px solid rgba(34,197,94,0.4); color:#4ade80; }
+        #notifBanner .fv-banner-cta:hover  { background:rgba(34,197,94,0.3); }
+        .fv-banner-dismiss { background:none; border:none; cursor:pointer; color:#475569; padding:4px; border-radius:7px; display:flex; align-items:center; flex-shrink:0; transition:color .2s; }
+        .fv-banner-dismiss:hover { color:#94a3b8; }
+        .fv-banner-dismiss .material-symbols-outlined { font-size:17px; }
+        /* Push banners down when offline/polling banners are showing */
+        #offlineBanner.visible ~ #installBanner,
+        #offlineBanner.visible ~ #notifBanner { top:calc(max(env(safe-area-inset-top,0px), 0px) + 40px); }
+
         /* ── NEW badge ── */
         .badge-new { display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:800;letter-spacing:.06em;background:rgba(16,185,129,0.18);color:#34d399;border:1px solid rgba(52,211,153,0.3);padding:1px 6px;border-radius:99px;vertical-align:middle;animation:badgePulse 2.4s ease-in-out infinite; }
         @keyframes badgePulse { 0%,100%{opacity:1} 50%{opacity:.65} }
@@ -6079,8 +6104,12 @@ window.isFolderSubscribed = function(folder) {
         var row = document.createElement('div');
         row.className = 'sc-row';
         row.innerHTML = '<span style="color:#cbd5e1;font-size:13px">Jump to folder 1–9</span><span class="sc-key"><kbd>1</kbd> … <kbd>9</kbd></span>';
-        // Insert before the last <p> (the "press Esc" note)
-        var lastP = scBox.querySelector('p');
+        // Insert before the "press Esc" note — find only direct-child <p> elements
+        // (querySelector would match the header <p> which is a grandchild, causing insertBefore to throw)
+        var directPs = Array.prototype.filter.call(scBox.childNodes, function(n) {
+            return n.nodeType === 1 && n.tagName === 'P';
+        });
+        var lastP = directPs[directPs.length - 1] || null;
         if (lastP) scBox.insertBefore(row, lastP);
         else scBox.appendChild(row);
     });
@@ -6096,6 +6125,36 @@ window.isFolderSubscribed = function(folder) {
 
 })();
 </script>
+
+    <!-- ── Install prompt banner ── -->
+    <div id="installBanner" class="fv-banner" role="banner" aria-label="Install FileVault">
+        <span class="material-symbols-outlined fv-banner-icon" style="color:#60a5fa">install_mobile</span>
+        <div class="fv-banner-text">
+            <strong>Install FileVault</strong>
+            <span>Add to your home screen for faster, offline-ready access</span>
+        </div>
+        <div class="fv-banner-actions">
+            <button class="fv-banner-cta" id="installBannerCta">Install</button>
+            <button class="fv-banner-dismiss" id="installBannerDismiss" aria-label="Dismiss">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ── Notification prompt banner (logged-in, not yet subscribed) ── -->
+    <div id="notifBanner" class="fv-banner" role="banner" aria-label="Enable notifications">
+        <span class="material-symbols-outlined fv-banner-icon" style="color:#4ade80">notifications</span>
+        <div class="fv-banner-text">
+            <strong>Stay in the loop</strong>
+            <span>Turn on notifications to get alerted when new files are added</span>
+        </div>
+        <div class="fv-banner-actions">
+            <button class="fv-banner-cta" id="notifBannerCta">Turn on</button>
+            <button class="fv-banner-dismiss" id="notifBannerDismiss" aria-label="Dismiss">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+    </div>
 
     <!-- ── Auth nudge banner ── -->
     <div id="authNudge" role="dialog" aria-label="Sign in prompt" aria-modal="false">
@@ -6199,6 +6258,136 @@ window.isFolderSubscribed = function(folder) {
                 if (window._currentUserEmail || window._currentUserId) return;
                 // Re-attach the interaction counter now that auth state is known
             }, 1200);
+        });
+    })();
+    </script>
+
+    <script>
+    /* ── Install & Notification banners ─────────────────────────────────────── */
+    (function () {
+        var INSTALL_DISMISSED_KEY = 'fv_install_banner_dismissed';
+        var NOTIF_DISMISSED_KEY   = 'fv_notif_banner_dismissed';
+        var DISMISS_DAYS = 7; // how long a dismiss lasts (days)
+
+        function isDismissed(key) {
+            try {
+                var ts = parseInt(localStorage.getItem(key) || '0', 10);
+                if (!ts) return false;
+                return (Date.now() - ts) < DISMISS_DAYS * 86400000;
+            } catch(e) { return false; }
+        }
+
+        function markDismissed(key) {
+            try { localStorage.setItem(key, String(Date.now())); } catch(e) {}
+        }
+
+        function showBanner(id) {
+            var el = document.getElementById(id);
+            if (!el || el.classList.contains('visible')) return;
+            el.classList.add('visible');
+        }
+
+        function hideBanner(id, key) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.classList.add('hiding');
+            setTimeout(function () { el.classList.remove('visible', 'hiding'); }, 280);
+            if (key) markDismissed(key);
+        }
+
+        // ── Install banner ────────────────────────────────────────────────────
+        // Show only if: not already installed (not standalone), browser supports install
+        // prompt OR is on iOS Safari (which doesn't fire the event), and not dismissed.
+        function isStandalone() {
+            return window.matchMedia('(display-mode: standalone)').matches ||
+                   window.navigator.standalone === true;
+        }
+
+        function isIosSafari() {
+            var ua = navigator.userAgent;
+            return /iP(hone|ad|od)/.test(ua) && /WebKit/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!isStandalone() && !isDismissed(INSTALL_DISMISSED_KEY)) {
+                // On iOS, show immediately (no beforeinstallprompt fires)
+                if (isIosSafari()) {
+                    setTimeout(function() { showBanner('installBanner'); }, 2500);
+                }
+                // On other browsers the beforeinstallprompt handler below shows it
+            }
+
+            // Wire up buttons
+            var installCta     = document.getElementById('installBannerCta');
+            var installDismiss = document.getElementById('installBannerDismiss');
+            var notifCta       = document.getElementById('notifBannerCta');
+            var notifDismiss   = document.getElementById('notifBannerDismiss');
+
+            if (installDismiss) {
+                installDismiss.addEventListener('click', function () {
+                    hideBanner('installBanner', INSTALL_DISMISSED_KEY);
+                });
+            }
+
+            if (installCta) {
+                installCta.addEventListener('click', function () {
+                    hideBanner('installBanner', INSTALL_DISMISSED_KEY);
+                    if (isIosSafari()) {
+                        // Can't trigger programmatically on iOS — show a toast with instructions
+                        if (typeof showToast === 'function') {
+                            showToast('Tap the Share button, then "Add to Home Screen"', 'info', 5000);
+                        }
+                    } else if (window._pwaPrompt) {
+                        // Reuse the existing installPWA() function if available
+                        if (typeof installPWA === 'function') { installPWA(); }
+                        else { window._pwaPrompt.prompt(); window._pwaPrompt.userChoice.then(function() { window._pwaPrompt = null; }); }
+                    }
+                });
+            }
+
+            if (notifDismiss) {
+                notifDismiss.addEventListener('click', function () {
+                    hideBanner('notifBanner', NOTIF_DISMISSED_KEY);
+                });
+            }
+
+            if (notifCta) {
+                notifCta.addEventListener('click', function () {
+                    hideBanner('notifBanner', NOTIF_DISMISSED_KEY);
+                    // Delegate to the existing push toggle
+                    if (typeof togglePushSubscription === 'function') {
+                        togglePushSubscription();
+                    }
+                });
+            }
+
+            // ── Notification banner: show for logged-in users not yet subscribed ──
+            // Wait for auth + push init to settle, then check state
+            setTimeout(function() {
+                var isLoggedIn = !!(window._currentUserEmail || window._currentUserId);
+                if (!isLoggedIn) return;
+                if (isDismissed(NOTIF_DISMISSED_KEY)) return;
+                // Check push subscription state via bell icon text (already resolved by initPush)
+                var bellIcon = document.getElementById('pushBellIcon');
+                var alreadySubscribed = bellIcon && (
+                    bellIcon.textContent.trim() === 'notifications_active'
+                );
+                if (!alreadySubscribed) {
+                    showBanner('notifBanner');
+                }
+            }, 3000); // wait 3 s for auth + initPush to complete
+        });
+
+        // ── Hook into beforeinstallprompt (already handled in page, but show banner too) ──
+        window.addEventListener('beforeinstallprompt', function () {
+            if (!isStandalone() && !isDismissed(INSTALL_DISMISSED_KEY)) {
+                setTimeout(function() { showBanner('installBanner'); }, 2000);
+            }
+        });
+
+        // ── Hide install banner once installed ──
+        window.addEventListener('appinstalled', function () {
+            hideBanner('installBanner', INSTALL_DISMISSED_KEY);
         });
     })();
     </script>

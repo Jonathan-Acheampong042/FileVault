@@ -28,6 +28,7 @@
   base-uri 'self';
 "/>
     <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+    <meta name="mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
     <meta name="apple-mobile-web-app-title" content="FileVault"/>
@@ -48,7 +49,7 @@
             --sar: env(safe-area-inset-right, 0px);
         }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0;
-               padding-top: var(--sat); padding-left: var(--sal); padding-right: var(--sar); padding-bottom: var(--sab); }
+               padding-left: var(--sal); padding-right: var(--sar); padding-bottom: var(--sab); }
         .bg-fixed-image { position: fixed; inset: 0; background-image: url('screen.png'); background-size: cover; background-position: center; z-index: -2; filter: saturate(0.72) brightness(0.5); }
         .bg-overlay { position: fixed; inset: 0; background: radial-gradient(circle at top left, rgba(59,130,246,0.15), transparent 24%), radial-gradient(circle at bottom right, rgba(139,92,246,0.14), transparent 20%), linear-gradient(180deg, rgba(8,12,27,0.88), rgba(4,7,18,0.96)); z-index: -1; pointer-events: none; }
         .glass-card { background: rgba(30,41,59,0.35); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 8px 32px rgba(0,0,0,0.25); }
@@ -60,10 +61,13 @@
         .submit-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: none; border-radius: 14px; color: white; font-weight: 800; font-size: 15px; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity .2s, transform .15s; }
         .submit-btn:hover { opacity: .92; transform: translateY(-1px); }
         .submit-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
-        #toast { position: fixed; top: 20px; right: 20px; z-index: 9999; padding: 14px 20px; border-radius: 14px; font-size: 13px; font-weight: 700; color: white; backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 8px 32px rgba(0,0,0,.4); display: none; align-items: center; gap: 10px; min-width: 240px; }
+        #toast { position: fixed; top: max(20px, var(--sat)); right: 20px; z-index: 9999; padding: 14px 20px; border-radius: 14px; font-size: 13px; font-weight: 700; color: white; backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 8px 32px rgba(0,0,0,.4); display: none; align-items: center; gap: 10px; min-width: 240px; }
         #toast.success { background: rgba(16,185,129,0.2); border-color: rgba(16,185,129,0.35); display: flex; }
         #toast.error { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.35); display: flex; }
         :focus-visible { outline: 2px solid #3b82f6 !important; outline-offset: 2px !important; border-radius: 8px; }
+        @media (display-mode: standalone) {
+            main { padding-top: max(56px, calc(var(--sat) + 28px)); }
+        }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .card-in { animation: fadeInUp .45s ease-out both; }
@@ -107,6 +111,43 @@
         #formPreviewOverlay span { font-size: 12px; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 6px; }
         #formPreviewOverlay .material-symbols-outlined { font-size: 14px; }
 
+        /* ── Full request history section (below the form) ── */
+        #historySection { display:none; margin-top:28px; }
+        #historySection.visible { display:block; }
+        .history-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+        .history-title-wrap { display:flex; align-items:center; gap:8px; }
+        .history-title-wrap .material-symbols-outlined { font-size:18px; color:#60a5fa; }
+        .history-title { font-size:14px; font-weight:800; color:white; margin:0; }
+        .history-count { font-size:11px; color:#64748b; font-weight:600; margin-left:2px; }
+        .history-refresh-btn { background:none; border:none; cursor:pointer; color:#60a5fa; font-size:12px; font-weight:700; font-family:inherit; display:flex; align-items:center; gap:4px; padding:4px 8px; border-radius:8px; transition:background .15s; }
+        .history-refresh-btn:hover { background:rgba(59,130,246,0.1); }
+        .history-list { display:flex; flex-direction:column; gap:8px; }
+        .history-card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:14px; overflow:hidden; transition:border-color .2s; }
+        .history-card:hover { border-color:rgba(255,255,255,0.14); }
+        .history-card-head { display:flex; align-items:center; gap:10px; padding:13px 14px; cursor:pointer; user-select:none; }
+        .history-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+        .history-card-main { flex:1; min-width:0; }
+        .history-card-filename { font-size:13px; font-weight:700; color:#e2e8f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .history-card-meta { font-size:11px; color:#64748b; margin-top:2px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+        .history-status-pill { font-size:10px; font-weight:800; padding:3px 9px; border-radius:99px; flex-shrink:0; white-space:nowrap; text-transform:uppercase; letter-spacing:.04em; }
+        .history-chevron { font-size:18px !important; color:#475569; flex-shrink:0; transition:transform .2s; }
+        .history-card.expanded .history-chevron { transform:rotate(180deg); }
+        .history-card-body { display:none; padding:0 14px 14px; border-top:1px solid rgba(255,255,255,0.06); }
+        .history-card.expanded .history-card-body { display:block; }
+        .history-detail-block { margin-top:12px; }
+        .history-detail-label { font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.07em; margin:0 0 4px; }
+        .history-detail-text { font-size:12.5px; color:#cbd5e1; line-height:1.55; margin:0; white-space:pre-wrap; word-break:break-word; }
+        .history-manager-note { background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.18); border-left:3px solid #3b82f6; border-radius:8px; padding:9px 11px; }
+        .history-manager-note .history-detail-label { color:#93c5fd; }
+        .history-manager-note .history-detail-text { color:#bfdbfe; }
+        .history-empty { text-align:center; padding:28px 16px; color:#475569; font-size:12.5px; }
+        .history-empty .material-symbols-outlined { font-size:28px; display:block; margin:0 auto 8px; opacity:.5; }
+        .history-load-more { width:100%; padding:10px; margin-top:4px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:11px; color:#94a3b8; font-size:12px; font-weight:700; font-family:inherit; cursor:pointer; transition:background .15s; }
+        .history-load-more:hover { background:rgba(255,255,255,0.07); color:#e2e8f0; }
+        .history-load-more:disabled { opacity:.5; cursor:not-allowed; }
+        .history-skeleton { height:54px; border-radius:14px; background:linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 37%, rgba(255,255,255,0.03) 63%); background-size:400% 100%; animation:histShimmer 1.4s ease infinite; margin-bottom:8px; }
+        @keyframes histShimmer { 0% { background-position:100% 50%; } 100% { background-position:0 50%; } }
+
         /* ── Page-level header bar ── */
         .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
         .page-header .back-link { margin-bottom: 0; }
@@ -141,7 +182,7 @@
     <div class="bg-fixed-image" aria-hidden="true"></div>
     <div class="bg-overlay" aria-hidden="true"></div>
 
-    <main class="min-h-screen flex items-start justify-center px-4 pt-12 pb-16">
+    <main class="min-h-screen flex items-start justify-center px-4 pb-16" style="padding-top: max(48px, calc(var(--sat) + 24px))">
         <div class="w-full max-w-lg card-in">
             <div class="page-header">
                 <a href="index.html" class="back-link" aria-label="Back to FileVault">
@@ -360,6 +401,26 @@
                 </div>
             </div>
 
+            <!-- ── Full request history (below the form) ── -->
+            <div id="historySection">
+                <div class="history-header">
+                    <div class="history-title-wrap">
+                        <span class="material-symbols-outlined">history</span>
+                        <h2 class="history-title">Request History</h2>
+                        <span class="history-count" id="historyCount"></span>
+                    </div>
+                    <button type="button" class="history-refresh-btn" id="historyRefreshBtn">
+                        <span class="material-symbols-outlined" style="font-size:14px" id="historyRefreshIcon">refresh</span> Refresh
+                    </button>
+                </div>
+                <div class="history-list" id="historyList"></div>
+                <div id="historyEmpty" class="history-empty" style="display:none">
+                    <span class="material-symbols-outlined">inbox</span>
+                    You haven't submitted any requests yet.
+                </div>
+                <button type="button" class="history-load-more" id="historyLoadMoreBtn" style="display:none">Load more</button>
+            </div>
+
             <p style="text-align:center;color:rgba(255,255,255,0.15);font-size:11px;margin-top:20px">
                 Requests are reviewed by the manager. This is not a guaranteed upload.
             </p>
@@ -418,6 +479,7 @@
 
             // Load past requests for this user
             _loadMyRequests(userEmail);
+            _loadHistory(userEmail, false);
         }
 
         // Utility: inject photo or initials into an avatar container
@@ -606,11 +668,143 @@
             return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         }
 
+        // ── Full request history (below the form) ──────────────────────────────
+        // Separate from the compact in-form panel above: shows everything, paginated,
+        // with each card expandable to reveal description/reason/manager note.
+        var HISTORY_PAGE_SIZE = 8;
+        var _historyOffset = 0;
+        var _historyEmail = null;
+
+        function _fmtDate(iso) {
+            try {
+                var d = new Date(iso);
+                return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) +
+                       ' · ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+            } catch (e) { return ''; }
+        }
+
+        function _historyStatusPillStyle(status) {
+            var dot = STATUS_DOT[status] || '#94a3b8';
+            // translucent pill background derived from the same status colour
+            return 'background:' + dot + '22;color:' + dot + ';border:1px solid ' + dot + '44';
+        }
+
+        function _buildHistoryCard(r) {
+            var dot   = STATUS_DOT[r.status]   || '#94a3b8';
+            var label = STATUS_LABEL[r.status] || r.status;
+
+            var card = document.createElement('div');
+            card.className = 'history-card';
+
+            var head = document.createElement('div');
+            head.className = 'history-card-head';
+            head.innerHTML =
+                '<span class="history-dot" style="background:' + dot + '"></span>' +
+                '<div class="history-card-main">' +
+                    '<div class="history-card-filename">' + _esc(r.filename) + '</div>' +
+                    '<div class="history-card-meta">' +
+                        '<span>' + _esc(_fmtDate(r.created_at)) + '</span>' +
+                        (r.folder ? '<span>·</span><span>' + _esc(r.folder) + '</span>' : '') +
+                    '</div>' +
+                '</div>' +
+                '<span class="history-status-pill" style="' + _historyStatusPillStyle(r.status) + '">' + _esc(label) + '</span>' +
+                '<span class="material-symbols-outlined history-chevron">expand_more</span>';
+
+            var body = document.createElement('div');
+            body.className = 'history-card-body';
+
+            var blocks = '';
+            if (r.reason) {
+                blocks += '<div class="history-detail-block"><p class="history-detail-label">Reason</p><p class="history-detail-text">' + _esc(r.reason) + '</p></div>';
+            }
+            if (r.description) {
+                blocks += '<div class="history-detail-block"><p class="history-detail-label">Description</p><p class="history-detail-text">' + _esc(r.description) + '</p></div>';
+            }
+            if (r.manager_note) {
+                blocks += '<div class="history-detail-block history-manager-note"><p class="history-detail-label">💬 Manager note</p><p class="history-detail-text">' + _esc(r.manager_note) + '</p></div>';
+            }
+            if (!blocks) {
+                blocks = '<div class="history-detail-block"><p class="history-detail-text" style="color:#475569">No additional details provided.</p></div>';
+            }
+            body.innerHTML = blocks;
+
+            head.addEventListener('click', function() {
+                card.classList.toggle('expanded');
+            });
+
+            card.appendChild(head);
+            card.appendChild(body);
+            return card;
+        }
+
+        function _loadHistory(email, append) {
+            if (!email) return;
+            var list      = document.getElementById('historyList');
+            var empty     = document.getElementById('historyEmpty');
+            var section   = document.getElementById('historySection');
+            var countEl   = document.getElementById('historyCount');
+            var loadMore  = document.getElementById('historyLoadMoreBtn');
+            var refreshIc = document.getElementById('historyRefreshIcon');
+            if (!list || !section) return;
+
+            if (!append) {
+                _historyOffset = 0;
+                _historyEmail = email;
+                list.innerHTML = '<div class="history-skeleton"></div><div class="history-skeleton"></div><div class="history-skeleton"></div>';
+                if (empty) empty.style.display = 'none';
+            }
+            if (refreshIc) refreshIc.style.animation = 'spin .7s linear infinite';
+            if (loadMore) loadMore.disabled = true;
+
+            _supabase
+                .from('upload_requests')
+                .select('id, filename, description, reason, folder, status, manager_note, created_at', { count: 'exact' })
+                .eq('requester_email', email)
+                .order('created_at', { ascending: false })
+                .range(_historyOffset, _historyOffset + HISTORY_PAGE_SIZE - 1)
+                .then(function(res) {
+                    if (refreshIc) refreshIc.style.animation = '';
+                    if (loadMore) loadMore.disabled = false;
+                    section.classList.add('visible');
+
+                    if (res.error) { return; }
+                    var rows  = res.data || [];
+                    var total = typeof res.count === 'number' ? res.count : null;
+
+                    if (!append) list.innerHTML = '';
+
+                    if (!append && rows.length === 0) {
+                        if (empty) empty.style.display = 'block';
+                        if (loadMore) loadMore.style.display = 'none';
+                        if (countEl) countEl.textContent = '';
+                        return;
+                    }
+                    if (empty) empty.style.display = 'none';
+
+                    rows.forEach(function(r) { list.appendChild(_buildHistoryCard(r)); });
+
+                    _historyOffset += rows.length;
+                    if (countEl && total !== null) countEl.textContent = '(' + total + ')';
+
+                    var hasMore = total !== null ? _historyOffset < total : rows.length === HISTORY_PAGE_SIZE;
+                    if (loadMore) loadMore.style.display = hasMore ? 'block' : 'none';
+                }).catch(function() {
+                    if (refreshIc) refreshIc.style.animation = '';
+                    if (loadMore) loadMore.disabled = false;
+                });
+        }
+
         // ── Refresh button for my past requests ────────────────────────────────
         // Wired here because it needs access to _loadMyRequests and _requesterEmail.
         document.addEventListener('DOMContentLoaded', function() {
             var myReqBtn = document.getElementById('myReqRefreshBtn');
             if (myReqBtn) myReqBtn.addEventListener('click', function() { _loadMyRequests(_requesterEmail); });
+
+            var histRefreshBtn = document.getElementById('historyRefreshBtn');
+            if (histRefreshBtn) histRefreshBtn.addEventListener('click', function() { _loadHistory(_historyEmail || _requesterEmail, false); });
+
+            var histLoadMoreBtn = document.getElementById('historyLoadMoreBtn');
+            if (histLoadMoreBtn) histLoadMoreBtn.addEventListener('click', function() { _loadHistory(_historyEmail || _requesterEmail, true); });
         });
 
     })();

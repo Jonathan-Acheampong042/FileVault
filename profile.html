@@ -30,6 +30,7 @@
 "/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
     <!-- iOS PWA / Safari full-bleed -->
+    <meta name="mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
     <meta name="apple-mobile-web-app-title" content="FileVault"/>
@@ -98,14 +99,14 @@
         .spinner { width:18px; height:18px; border:2.5px solid rgba(255,255,255,0.3); border-top-color:white; border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0; }
 
         /* ── Toast ── */
-        #toastWrap { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+        #toastWrap { position:fixed; top:max(20px, var(--sat)); right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
         .toast { display:flex; align-items:center; gap:10px; padding:11px 16px; border-radius:14px; font-size:13px; font-weight:600; color:white; backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.12); box-shadow:0 8px 32px rgba(0,0,0,0.4); min-width:220px; animation:slideUp .3s ease; }
         .toast.success { background:rgba(16,185,129,0.18); border-color:rgba(16,185,129,0.3); }
         .toast.error   { background:rgba(239,68,68,0.18); border-color:rgba(239,68,68,0.3); }
         .toast.info    { background:rgba(59,130,246,0.18); border-color:rgba(59,130,246,0.3); }
 
         @media (max-width:480px) {
-            #toastWrap { left:16px; right:16px; top:16px; }
+            #toastWrap { left:16px; right:16px; top:max(16px, var(--sat)); }
             .toast { min-width:0; }
         }
 
@@ -288,6 +289,11 @@
             padding-top: max(0.75rem, var(--sat));
             padding-left: max(1rem, var(--sal));
             padding-right: max(1rem, var(--sar));
+        }
+        @media (display-mode: standalone) {
+            .profile-header {
+                padding-top: max(20px, var(--sat));
+            }
         }
         .header-signout { display:flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid rgba(239,68,68,0.25);border-radius:10px;background:rgba(239,68,68,0.07);color:#fca5a5;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;transition:all .2s;text-decoration:none; }
         .header-signout:hover { background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.4); }
@@ -809,6 +815,17 @@
             : 'https://project-one-187u.onrender.com';
         let _currentUser = null;
         let _isAdminBrowsing = false; // true when an admin chose "Browse as Admin"
+
+        // file_ratings / file_reactions on index.html are keyed by a local,
+        // login-independent "user key" (not the Supabase auth user id) so
+        // students can like/react without an account. Must read the exact
+        // same localStorage key ('fvUserKey') index.html writes, or every
+        // lookup here will miss real data.
+        function _getUserKey() {
+            let k = localStorage.getItem('fvUserKey');
+            if (!k) { k = 'u_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('fvUserKey', k); }
+            return k;
+        }
 
         // ═══════════════════════════════════════════════════════════
         // INIT — require an active session
@@ -1337,66 +1354,40 @@
             // the patterns in REACTION_PREFIXES / LIKE_PREFIXES below to match.
             //
             // Expected localStorage key patterns (written by index.html):
-            //   Reactions: keys starting with "fvReact_" or "fv_react_"
-            //              Each key holds the emoji the user chose for that file.
-            //   Likes:     keys starting with "fvLike_" or "fv_like_"
-            //              Each key holds "1" (truthy) when the file is liked.
-            //
-            // If neither prefix yields results, we fall back to querying
-            // file_reactions / file_likes Supabase tables (if they exist).
+            // Reaction/like counts come straight from Supabase, keyed by the
+            // same local user_key index.html uses (file_ratings = likes,
+            // file_reactions = emoji reactions). There's no per-file
+            // localStorage record of these on this app — index.html writes
+            // everything straight to Supabase — so a localStorage prefix
+            // scan here would never find anything; query the real tables.
             (function _loadEngagementStats() {
-                const REACTION_PREFIXES = ['fvReact_', 'fv_react_'];
-                const LIKE_PREFIXES     = ['fvLike_',  'fv_like_'];
-
-                let reactionCount = 0;
-                let likeCount     = 0;
-
-                try {
-                    for (let i = 0; i < localStorage.length; i++) {
-                        const k = localStorage.key(i);
-                        if (!k) continue;
-                        if (REACTION_PREFIXES.some(p => k.startsWith(p))) reactionCount++;
-                        if (LIKE_PREFIXES.some(p => k.startsWith(p))) likeCount++;
-                    }
-                } catch(_) {}
-
                 const reactEl = document.getElementById('statReactions');
                 const likeEl  = document.getElementById('statLikes');
+                const userKey = _getUserKey();
 
-                if (reactionCount > 0 || likeCount > 0) {
-                    // localStorage scan found data — use it directly
-                    if (reactEl) reactEl.textContent = reactionCount;
-                    if (likeEl)  likeEl.textContent  = likeCount;
+                Promise.allSettled([
+                    _supabase
+                        .from('file_reactions')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('user_key', userKey),
+                    _supabase
+                        .from('file_ratings')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('user_key', userKey),
+                ]).then(([reactRes, likeRes]) => {
+                    if (reactEl) reactEl.textContent =
+                        (reactRes.status === 'fulfilled' && !reactRes.value.error && reactRes.value.count != null)
+                            ? reactRes.value.count : 0;
+                    if (likeEl) likeEl.textContent =
+                        (likeRes.status === 'fulfilled' && !likeRes.value.error && likeRes.value.count != null)
+                            ? likeRes.value.count : 0;
+                }).catch(() => {
+                    if (reactEl) reactEl.textContent = 0;
+                    if (likeEl)  likeEl.textContent  = 0;
+                }).finally(() => {
                     document.getElementById('statReactionsCell').classList.remove('loading');
                     document.getElementById('statLikesCell').classList.remove('loading');
-                } else {
-                    // No localStorage data found — attempt Supabase fallback.
-                    // file_reactions and file_likes are optional tables; if they
-                    // don't exist the counts silently show 0.
-                    Promise.allSettled([
-                        _supabase
-                            .from('file_reactions')
-                            .select('id', { count: 'exact', head: true })
-                            .eq('user_id', user.id),
-                        _supabase
-                            .from('file_likes')
-                            .select('id', { count: 'exact', head: true })
-                            .eq('user_id', user.id),
-                    ]).then(([reactRes, likeRes]) => {
-                        if (reactEl) reactEl.textContent =
-                            (reactRes.status === 'fulfilled' && !reactRes.value.error && reactRes.value.count != null)
-                                ? reactRes.value.count : 0;
-                        if (likeEl) likeEl.textContent =
-                            (likeRes.status === 'fulfilled' && !likeRes.value.error && likeRes.value.count != null)
-                                ? likeRes.value.count : 0;
-                    }).catch(() => {
-                        if (reactEl) reactEl.textContent = 0;
-                        if (likeEl)  likeEl.textContent  = 0;
-                    }).finally(() => {
-                        document.getElementById('statReactionsCell').classList.remove('loading');
-                        document.getElementById('statLikesCell').classList.remove('loading');
-                    });
-                }
+                });
             })();
 
             loadAchievements();

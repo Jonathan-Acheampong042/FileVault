@@ -29,6 +29,7 @@
 "/>
     <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
     <!-- iOS PWA / Safari full-bleed -->
+    <meta name="mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
     <meta name="apple-mobile-web-app-title" content="FileVault"/>
@@ -249,6 +250,13 @@
         #bulkExpiryModal { display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:16px; }
         #bulkExpiryModal.open { display:flex; }
 
+        /* ── Standalone PWA: extra breathing room below Dynamic Island / notch ── */
+        @media (display-mode: standalone) {
+            header {
+                padding-top: max(20px, var(--sat)) !important;
+            }
+        }
+
         /* ── Request Priority Labels ── */
         .req-label-chip { display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;cursor:pointer;transition:all .15s;border:1px solid;user-select:none; }
         .req-label-chip[data-label="urgent"]         { background:rgba(239,68,68,0.08);color:#f87171;border-color:rgba(239,68,68,0.25); }
@@ -265,7 +273,7 @@
     <div class="bg-overlay"></div>
     <div class="flex flex-col min-h-screen">
 
-    <header class="glass-card border-b border-white/10 p-4 sticky top-0 z-50 w-full" style="padding-top: calc(1rem + var(--sat)); padding-left: calc(1rem + var(--sal)); padding-right: calc(1rem + var(--sar))">
+    <header class="glass-card border-b border-white/10 p-4 sticky top-0 z-50 w-full" style="padding-top: max(1rem, var(--sat)); padding-left: max(1rem, var(--sal)); padding-right: max(1rem, var(--sar))">
         <div class="flex justify-between items-center w-full">
             <div class="flex items-center gap-3">
                 <div class="site-logo">
