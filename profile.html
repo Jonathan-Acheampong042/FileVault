@@ -668,6 +668,16 @@
                     </button>
                 </div>
 
+                <!-- Recovery Codes (only relevant once 2FA is on) -->
+                <div class="section-card" id="recoveryCodesSection" style="display:none">
+                    <div class="section-title"><span class="material-symbols-outlined">key</span> Recovery Codes</div>
+                    <p style="font-size:12px;color:#64748b;margin:0 0 12px;line-height:1.5">If you lose access to your authenticator app, a recovery code is the only other way into your account. Each code works once. Generating new codes invalidates all previous ones.</p>
+                    <button class="btn-primary" id="regenRecoveryBtn" onclick="openRegenerateRecoveryModal()"
+                        style="margin-top:0;background:linear-gradient(135deg,#d97706,#b45309)">
+                        <span id="regenRecoveryBtnText">Regenerate Recovery Codes</span>
+                    </button>
+                </div>
+
                 <!-- MFA enrollment modal -->
                 <div class="mfa-modal-overlay" id="mfaEnrollModal">
                     <div class="glass-card mfa-modal-box">
@@ -704,6 +714,53 @@
                             <p id="mfaEnrollMsg" class="mt-2 text-center text-sm min-h-5" style="color:#f87171"></p>
                         </div>
                         <button type="button" onclick="closeMfaEnrollModal()" style="margin-top:8px;background:none;border:none;cursor:pointer;color:#64748b;font-size:12px;width:100%;text-align:center;font-family:inherit">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Recovery codes display modal — shown once right after generation,
+                     whether triggered by first-time enrollment or a manual regenerate.
+                     Codes are never shown again after this modal closes. -->
+                <div class="mfa-modal-overlay" id="recoveryCodesModal">
+                    <div class="glass-card mfa-modal-box">
+                        <div style="text-align:center;margin-bottom:18px">
+                            <div style="width:52px;height:52px;border-radius:16px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.28);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                                <span class="material-symbols-outlined" style="font-size:26px;color:#fbbf24">key</span>
+                            </div>
+                            <h3 style="color:white;font-weight:700;font-size:16px;margin-bottom:4px">Your Recovery Codes</h3>
+                            <p style="color:#64748b;font-size:13px;line-height:1.55">Save these somewhere safe. Each code works once to sign in if you lose access to your authenticator app. <strong style="color:#fbbf24">They won't be shown again.</strong></p>
+                        </div>
+                        <div id="recoveryCodesModalList" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px"></div>
+                        <p id="recoveryCodesEmailNote" style="font-size:11px;color:#64748b;text-align:center;margin:0 0 14px"></p>
+                        <button class="btn-primary" onclick="copyRecoveryCodesModal()">
+                            <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">content_copy</span>
+                            <span id="copyRecoveryModalText">Copy All Codes</span>
+                        </button>
+                        <button type="button" onclick="closeRecoveryCodesModal()" style="margin-top:10px;background:none;border:none;cursor:pointer;color:#64748b;font-size:12px;width:100%;text-align:center;font-family:inherit">
+                            I've saved these — Close
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Regenerate recovery codes — type-to-confirm, since this permanently
+                     invalidates every existing code, including unused ones. -->
+                <div class="mfa-modal-overlay" id="regenRecoveryModal">
+                    <div class="glass-card mfa-modal-box" style="max-width:380px">
+                        <div style="text-align:center;margin-bottom:18px">
+                            <div style="width:52px;height:52px;border-radius:16px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.28);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+                                <span class="material-symbols-outlined" style="font-size:26px;color:#fbbf24">warning</span>
+                            </div>
+                            <h3 style="color:white;font-weight:700;font-size:16px;margin-bottom:4px">Regenerate Recovery Codes</h3>
+                            <p style="color:#64748b;font-size:13px;line-height:1.5">This immediately invalidates all of your existing recovery codes, including any you haven't used yet. A new set of 8 codes will replace them.</p>
+                        </div>
+                        <p style="font-size:11px;color:#94a3b8;margin-bottom:8px;text-align:center">Type <strong style="color:#fbbf24">REGENERATE</strong> to confirm</p>
+                        <input type="text" id="regenConfirmInput" class="delete-confirm-input" placeholder="REGENERATE" autocomplete="off" oninput="document.getElementById('confirmRegenBtn').disabled = this.value.trim().toUpperCase() !== 'REGENERATE'"/>
+                        <button class="btn-primary" id="confirmRegenBtn" disabled onclick="confirmRegenerateRecoveryCodes()" style="width:100%;justify-content:center;margin-top:14px;padding:12px;font-size:13px;background:linear-gradient(135deg,#d97706,#b45309)">
+                            <span id="confirmRegenText">Regenerate Codes</span>
+                        </button>
+                        <p id="regenRecoveryMsg" class="mt-2 text-center text-sm min-h-5" style="color:#f87171"></p>
+                        <button type="button" onclick="closeRegenerateRecoveryModal()" style="margin-top:4px;background:none;border:none;cursor:pointer;color:#64748b;font-size:12px;width:100%;text-align:center;font-family:inherit">
                             Cancel
                         </button>
                     </div>
@@ -912,7 +969,8 @@
     </div>
 
     <script>
-        const _supabase = supabase.createClient('https://lvhecpvwpzmstciewziv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI',
+        const _SUPABASE_URL = 'https://lvhecpvwpzmstciewziv.supabase.co';
+        const _supabase = supabase.createClient(_SUPABASE_URL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI',
             // Must match login.html's client config exactly so the session written
             // to localStorage by login.html is found here. detectSessionInUrl:false
             // because profile.html never receives an OAuth redirect hash.
@@ -2411,6 +2469,7 @@
                 ? 'Two-factor authentication is on — you\'ll need your authenticator app at sign-in'
                 : 'Two-factor authentication is off';
             btnText.textContent = enabled ? 'Disable Two-Factor Authentication' : 'Enable Two-Factor Authentication';
+            document.getElementById('recoveryCodesSection').style.display = enabled ? '' : 'none';
             const btn = document.getElementById('mfaActionBtn');
             btn.style.background = enabled ? 'rgba(239,68,68,0.15)' : '';
             btn.style.color = enabled ? '#fca5a5' : '';
@@ -2515,25 +2574,162 @@
             document.getElementById('mfaEnrollModal').style.display = 'none';
             updateMfaStatusUI(true);
             showToast('Two-factor authentication enabled', 'success');
+
+            // Recovery codes are FileVault's own backup mechanism (separate from
+            // Supabase's TOTP factor) — generate the first batch immediately so
+            // the user always has a way in if they lose the authenticator app.
+            await generateAndShowRecoveryCodes();
         }
 
         // ── Disable ──
         async function disableMfa() {
             if (!_mfaFactor) return;
-            if (!confirm('Disable two-factor authentication? You will no longer be asked for an authenticator code at sign-in.')) return;
+            if (!confirm('Disable two-factor authentication? You will no longer be asked for an authenticator code at sign-in. Your recovery codes will also be cleared.')) return;
 
             const btn = document.getElementById('mfaActionBtn');
             btn.disabled = true;
             const { error } = await _supabase.auth.mfa.unenroll({ factorId: _mfaFactor.id });
-            btn.disabled = false;
-
             if (error) {
+                btn.disabled = false;
                 showToast('Could not disable 2FA: ' + error.message, 'error');
                 return;
             }
+
+            // 2FA is off, so the recovery codes no longer protect anything —
+            // clear them so a leaked old code can't be used for anything later
+            // (e.g. if 2FA gets re-enabled and the bypass logic is ever reused).
+            try {
+                await fetch(`${_SUPABASE_URL}/functions/v1/recovery-codes`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${(await _supabase.auth.getSession()).data.session.access_token}`,
+                    },
+                    body: JSON.stringify({ action: 'clear' }),
+                });
+            } catch (e) {
+                console.warn('[recovery-codes] clear on disable failed:', e);
+            }
+
+            btn.disabled = false;
             _mfaFactor = null;
             updateMfaStatusUI(false);
             showToast('Two-factor authentication disabled', 'info');
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // RECOVERY CODES
+        // ═══════════════════════════════════════════════════════════
+        // FileVault's own backup-code system (supabase/functions/recovery-codes).
+        // Generation only ever happens here, post-authentication on the profile
+        // page — never during login — so possessing the account password alone
+        // is never enough to mint a fresh set of codes.
+        let _lastGeneratedCodes = [];
+
+        async function generateAndShowRecoveryCodes() {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (!session) { showToast('Session expired — please sign in again.', 'error'); return; }
+
+            try {
+                const res = await fetch(`${_SUPABASE_URL}/functions/v1/recovery-codes`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify({ action: 'generate' }),
+                });
+                const result = await res.json();
+                if (!res.ok || !result.codes) {
+                    showToast(result.error || 'Failed to generate recovery codes.', 'error');
+                    return;
+                }
+
+                _lastGeneratedCodes = result.codes;
+                openRecoveryCodesModal(result.emailSent);
+            } catch (e) {
+                showToast('Failed to generate recovery codes: ' + e.message, 'error');
+            }
+        }
+
+        function openRecoveryCodesModal(emailSent) {
+            const list = document.getElementById('recoveryCodesModalList');
+            list.innerHTML = _lastGeneratedCodes.map(c =>
+                `<div style="font-family:monospace;font-size:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fbbf24;border-radius:8px;padding:8px 10px;text-align:center;letter-spacing:0.02em">${c}</div>`
+            ).join('');
+
+            const note = document.getElementById('recoveryCodesEmailNote');
+            note.textContent = emailSent
+                ? 'A copy was also sent to your email.'
+                : 'Email delivery failed — make sure you save these now.';
+
+            document.getElementById('recoveryCodesModal').style.display = 'flex';
+        }
+
+        function closeRecoveryCodesModal() {
+            document.getElementById('recoveryCodesModal').style.display = 'none';
+            _lastGeneratedCodes = [];
+        }
+
+        function copyRecoveryCodesModal() {
+            if (!_lastGeneratedCodes.length) return;
+            navigator.clipboard.writeText(_lastGeneratedCodes.join('\n')).then(() => {
+                const el = document.getElementById('copyRecoveryModalText');
+                const prev = el.textContent;
+                el.textContent = 'Copied!';
+                setTimeout(() => { el.textContent = prev; }, 1500);
+            }).catch(() => showToast('Could not copy — please select and copy manually.', 'error'));
+        }
+
+        // ── Regenerate (type-to-confirm, since it invalidates unused codes) ──
+        function openRegenerateRecoveryModal() {
+            document.getElementById('regenConfirmInput').value = '';
+            document.getElementById('confirmRegenBtn').disabled = true;
+            setMsg('regenRecoveryMsg', '', 'info');
+            document.getElementById('regenRecoveryModal').style.display = 'flex';
+        }
+
+        function closeRegenerateRecoveryModal() {
+            document.getElementById('regenRecoveryModal').style.display = 'none';
+        }
+
+        async function confirmRegenerateRecoveryCodes() {
+            const typed = (document.getElementById('regenConfirmInput').value || '').trim().toUpperCase();
+            if (typed !== 'REGENERATE') return;
+
+            setBtnLoading('confirmRegenBtn', 'confirmRegenText', 'Regenerating…');
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (!session) {
+                clearBtnLoading('confirmRegenBtn', 'confirmRegenText', 'Regenerate Codes');
+                setMsg('regenRecoveryMsg', 'Session expired — please sign in again.', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${_SUPABASE_URL}/functions/v1/recovery-codes`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify({ action: 'generate' }),
+                });
+                const result = await res.json();
+                clearBtnLoading('confirmRegenBtn', 'confirmRegenText', 'Regenerate Codes');
+
+                if (!res.ok || !result.codes) {
+                    setMsg('regenRecoveryMsg', result.error || 'Failed to regenerate recovery codes.', 'error');
+                    return;
+                }
+
+                closeRegenerateRecoveryModal();
+                _lastGeneratedCodes = result.codes;
+                openRecoveryCodesModal(result.emailSent);
+                showToast('Recovery codes regenerated', 'success');
+            } catch (e) {
+                clearBtnLoading('confirmRegenBtn', 'confirmRegenText', 'Regenerate Codes');
+                setMsg('regenRecoveryMsg', 'Failed to regenerate: ' + e.message, 'error');
+            }
         }
 
         // ═══════════════════════════════════════════════════════════

@@ -37,6 +37,11 @@
 // Actions (POST body: { action, ...params }):
 //   "generate" -> {}                  (requires valid user JWT)
 //   "verify"   -> { code }            (requires valid user JWT, aal1 session ok)
+//   "clear"    -> {}                  (requires valid user JWT; wipes stored
+//                                       codes — called by profile.html when
+//                                       2FA is disabled, since recovery codes
+//                                       have no purpose without an MFA factor
+//                                       to bypass)
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -261,6 +266,31 @@ Deno.serve(async (req: Request) => {
         200,
         cors
       );
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // ACTION: clear
+    // ══════════════════════════════════════════════════════════════════
+    // Called by profile.html's disableMfa() right after a successful
+    // auth.mfa.unenroll(). Recovery codes exist solely to bypass an MFA
+    // challenge, so once there's no MFA factor left, leftover codes (used
+    // or not) serve no purpose — wipe them rather than leave stale hashes
+    // sitting in the table indefinitely.
+    if (action === "clear") {
+      const { error: clearErr } = await admin
+        .from("user_profiles")
+        .update({
+          recovery_codes_hashed: [],
+          recovery_codes_generated_at: null,
+        })
+        .eq("id", user.id);
+
+      if (clearErr) {
+        console.error("[recovery-codes] clear error:", clearErr);
+        return jsonResponse({ error: "Failed to clear recovery codes." }, 500, cors);
+      }
+
+      return jsonResponse({ cleared: true }, 200, cors);
     }
 
     return jsonResponse({ error: `Unknown action: ${action}` }, 400, cors);
