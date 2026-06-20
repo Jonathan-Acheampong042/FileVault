@@ -86,6 +86,18 @@ self.addEventListener('activate', event => {
     );
 });
 
+// ── Update banner support: let the page ask a waiting SW to activate now ──
+// index.html's update banner posts { type: 'SKIP_WAITING' } when the user
+// clicks "Reload to update". Without this listener, a waiting SW (see the
+// install handler above) only ever activates once every controlled tab has
+// been closed or refreshed on its own — this lets the user opt in sooner
+// instead of waiting on that.
+self.addEventListener('message', event => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+});
+
 // ── Push Notifications ──
 self.addEventListener('push', event => {
     let data = { title: 'FileVault', body: 'New files available!', url: '/', icon: '/filevault%20logo.png', badge: '/filevault%20logo.png' };

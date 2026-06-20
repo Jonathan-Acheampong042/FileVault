@@ -258,6 +258,17 @@
         #pollingBanner { display:none;position:fixed;top:0;left:0;right:0;z-index:99997;align-items:center;justify-content:center;gap:8px;padding:7px 20px;background:rgba(30,41,59,0.88);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.07);color:#94a3b8;font-size:11px;font-weight:600;text-align:center;pointer-events:none; }
         #pollingBanner.visible { display:flex;animation:offlineSlide 0.3s ease; }
         #pollingDot { width:6px;height:6px;border-radius:50%;background:#f59e0b;flex-shrink:0;animation:pollingPulse 2s ease-in-out infinite; }
+
+        /* ── Update-available banner (new service worker waiting to activate) ── */
+        /* Sits above the offline banner (99998) since "an update is ready" is
+           actionable and more important to surface than "you're offline" if
+           somehow both are true at once. */
+        #updateBanner { display:none;position:fixed;top:0;left:0;right:0;z-index:99999;align-items:center;justify-content:center;gap:12px;padding:10px 20px;background:rgba(59,130,246,0.18);backdrop-filter:blur(12px);border-bottom:1px solid rgba(59,130,246,0.35);color:#93c5fd;font-size:13px;font-weight:700;text-align:center;flex-wrap:wrap; }
+        #updateBanner.visible { display:flex;animation:offlineSlide 0.3s ease; }
+        #updateBanner button { background:rgba(59,130,246,0.9);border:1px solid rgba(147,197,253,0.4);color:white;font-size:12px;font-weight:700;font-family:inherit;padding:5px 14px;border-radius:99px;cursor:pointer;flex-shrink:0; }
+        #updateBanner button:hover { background:rgba(59,130,246,1); }
+        #updateBanner .update-dismiss { background:none;border:none;color:#93c5fd;font-size:12px;font-weight:600;padding:5px 8px;opacity:0.75; }
+        #updateBanner .update-dismiss:hover { opacity:1; background:none; }
         @keyframes pollingPulse { 0%,100%{opacity:1} 50%{opacity:.35} }
 
         /* ── Folder subscription bell ── */
@@ -695,6 +706,14 @@
 </head>
 <body class="overflow-x-hidden">
     <div id="pullIndicator"><span class="material-symbols-outlined" style="font-size:18px">refresh</span><span id="pullLabel">Pull to refresh</span></div>
+    <!-- Update-available banner — shown when a new service worker has installed
+         and is waiting because this tab was already open when it arrived -->
+    <div id="updateBanner" role="status" aria-live="polite">
+        <span class="material-symbols-outlined" style="font-size:18px">system_update</span>
+        <span>A new version of FileVault is available.</span>
+        <button onclick="applyServiceWorkerUpdate()">Reload to update</button>
+        <button class="update-dismiss" onclick="dismissUpdateBanner()">Later</button>
+    </div>
     <!-- Offline banner -->
     <div id="offlineBanner" role="status" aria-live="polite">
         <span class="material-symbols-outlined" style="font-size:18px">wifi_off</span>
@@ -2930,9 +2949,86 @@ window.isFolderSubscribed = function(folder) {
             _pwaPrompt.userChoice.then(() => { _pwaPrompt = null; window._pwaPrompt = null; });
         }
         window.installPWA = installPWA;
+        // ── Service worker registration + update detection ──────────────────
+        // Sw.js's own install handler deliberately does NOT skipWaiting() when
+        // this tab is already open (see Sw.js comments) — it sits in 'waiting'
+        // instead, so an in-flight upload or Supabase realtime subscription in
+        // this tab isn't yanked out from under a different cache mid-session.
+        // That means a long-lived tab can silently keep running old code
+        // forever unless something tells the user an update is ready. This is
+        // that "something": it surfaces a banner and lets the user choose when
+        // to reload, rather than reloading out from under them.
+        let _swUpdateRegistration = null;
+        let _swUpdateDismissed = false;
+
+        function showUpdateBanner(reg) {
+            if (_swUpdateDismissed) return;
+            _swUpdateRegistration = reg;
+            document.getElementById('updateBanner').classList.add('visible');
+        }
+
+        function dismissUpdateBanner() {
+            _swUpdateDismissed = true;
+            document.getElementById('updateBanner').classList.remove('visible');
+        }
+
+        function applyServiceWorkerUpdate() {
+            const waiting = _swUpdateRegistration && _swUpdateRegistration.waiting;
+            if (!waiting) {
+                // Nothing actually waiting (e.g. banner state went stale) — a
+                // plain reload is still the correct fallback.
+                window.location.reload();
+                return;
+            }
+            // Ask the waiting worker to activate now. Sw.js doesn't currently
+            // listen for this message, so it has no effect there yet — it's a
+            // no-op until Sw.js adds a 'message' listener that calls
+            // self.skipWaiting(). Reloading below is what actually picks up
+            // the new version today: a fresh navigation always fetches HTML
+            // from the network (see Sw.js fetch handler, rule 2), and once
+            // every controlled tab is gone the browser activates the new SW
+            // on its own. We still send the message so behavior upgrades
+            // automatically the moment Sw.js adds that listener, with no
+            // change needed here.
+            waiting.postMessage({ type: 'SKIP_WAITING' });
+            window.location.reload();
+        }
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/Sw.js').catch(() => {});
+                navigator.serviceWorker.register('/Sw.js').then(reg => {
+                    // Case 1: a SW is already sitting in 'waiting' by the time
+                    // this registration resolves (e.g. it installed earlier in
+                    // this same tab session and we're re-running this code, or
+                    // another tab's install raced ahead of this one).
+                    if (reg.waiting) showUpdateBanner(reg);
+
+                    // Case 2: a new SW starts installing sometime after this
+                    // page is already open. Watch it through to 'installed' —
+                    // if a controller already exists, 'installed' means it's
+                    // the new version sitting in waiting (not the first-ever
+                    // install), which is exactly the case the banner is for.
+                    reg.addEventListener('updatefound', () => {
+                        const newWorker = reg.installing;
+                        if (!newWorker) return;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                showUpdateBanner(reg);
+                            }
+                        });
+                    });
+                }).catch(() => {});
+
+                // Fires when the new SW finally takes control (after all old
+                // tabs close/reload, or after applyServiceWorkerUpdate() above).
+                // Guards against the rare double-reload some browsers can
+                // trigger by only reloading once per controller change.
+                let _reloadedForUpdate = false;
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (_reloadedForUpdate) return;
+                    _reloadedForUpdate = true;
+                    document.getElementById('updateBanner').classList.remove('visible');
+                });
             });
         }
 
