@@ -598,7 +598,7 @@
                     <p style="color:#64748b;font-size:13px">Enter the 6-digit code from your authenticator app</p>
                 </div>
                 <div class="flex justify-between gap-2" style="display:flex;justify-content:space-between;gap:8px">
-                    <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa0" oninput="mfaInputMove(0)" onkeydown="mfaInputBack(event,0)" onpaste="mfaInputPaste(event)" autocomplete="one-time-code"/>
+                    <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa0" oninput="mfaInputMove(0)" onkeydown="mfaInputBack(event,0)" onpaste="mfaInputPaste(event)" autocomplete="off"/>
                     <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa1" oninput="mfaInputMove(1)" onkeydown="mfaInputBack(event,1)" autocomplete="off"/>
                     <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa2" oninput="mfaInputMove(2)" onkeydown="mfaInputBack(event,2)" autocomplete="off"/>
                     <input class="otp-input" type="text" inputmode="numeric" maxlength="1" id="mfa3" oninput="mfaInputMove(3)" onkeydown="mfaInputBack(event,3)" autocomplete="off"/>
@@ -857,14 +857,41 @@
 
         _redirecting = true;
 
-        // Check user_profiles table for explicit role — single source of truth
+        // Check user_profiles table for explicit role + MFA prompt cooldown
+        // in a single query — single source of truth for both.
         let isAdmin = false;
+        let mfaDismissedAt = null;
         try {
             const { data: profile } = await _supabase
-                .from('user_profiles').select('role').eq('id', user.id).single();
+                .from('user_profiles').select('role, mfa_prompt_dismissed_at').eq('id', user.id).single();
             if (profile?.role === 'admin' || profile?.role === 'manager') isAdmin = true;
+            mfaDismissedAt = profile?.mfa_prompt_dismissed_at || null;
         } catch(e) {}
 
+        // ── Periodic MFA opt-in nudge ───────────────────────────────────
+        // Only for accounts with NO enrolled TOTP factor at all (this is
+        // distinct from checkMfaRequired above, which only fires when a
+        // factor already exists and the challenge hasn't been completed).
+        // Shown at most once every 7 days — "Maybe later" snoozes it,
+        // there's no permanent opt-out, since security posture should keep
+        // resurfacing periodically rather than being silenced forever.
+        try {
+            const { data: factors } = await _supabase.auth.mfa.listFactors();
+            const hasMfa = (factors?.totp || []).some(f => f.status === 'verified');
+            if (!hasMfa) {
+                const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+                const dismissedRecently = mfaDismissedAt && (Date.now() - new Date(mfaDismissedAt).getTime() < sevenDaysMs);
+                if (!dismissedRecently) {
+                    _showMfaOptInScreen(user, isAdmin);
+                    return;
+                }
+            }
+        } catch (e) { /* fail open — don't block sign-in over this check */ }
+
+        _continueRouteUser(user, isAdmin);
+    }
+
+    function _continueRouteUser(user, isAdmin) {
         if (isAdmin) {
             // Show admin a choice: Manager Portal or Browse as Admin
             showToast('✓ Welcome, Admin!', 'success');
@@ -894,6 +921,83 @@
             }
         };
         setTimeout(confirmAndRedirect, 300);
+    }
+
+    // ── MFA opt-in nudge screen ───────────────────────────────────
+    // Shown to accounts with no TOTP factor enrolled, at most once per
+    // 7-day window. "Set it up" sends them to profile.html with a flag
+    // that auto-opens the enrollment modal there. "Maybe later" records
+    // the dismissal timestamp and continues the normal sign-in flow.
+    function _showMfaOptInScreen(user, isAdmin) {
+        const card = document.querySelector('.glass-card');
+        if (!card) { _continueRouteUser(user, isAdmin); return; }
+
+        card.innerHTML = `
+        <div style="text-align:center;margin-bottom:28px">
+            <div style="width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;box-shadow:0 8px 24px rgba(59,130,246,0.3)">
+                <span class="material-symbols-outlined" style="color:white;font-size:26px">shield_lock</span>
+            </div>
+            <h2 style="color:white;font-weight:800;font-size:20px;margin:0 0 4px">Secure your account</h2>
+            <p style="color:#64748b;font-size:13px;margin:0">Add two-factor authentication for extra protection against unauthorized sign-ins.</p>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px">
+            <button id="mfaOptInSetupBtn" onclick="_mfaOptInSetUp()" style="
+                width:100%;padding:16px 18px;
+                background:linear-gradient(135deg,rgba(59,130,246,0.18),rgba(139,92,246,0.18));
+                border:1px solid rgba(59,130,246,0.35);border-radius:16px;
+                color:white;font-family:inherit;cursor:pointer;text-align:left;
+                transition:all .2s;display:flex;align-items:center;gap:14px"
+                onmouseover="this.style.background='linear-gradient(135deg,rgba(59,130,246,0.28),rgba(139,92,246,0.26))'"
+                onmouseout="this.style.background='linear-gradient(135deg,rgba(59,130,246,0.18),rgba(139,92,246,0.18))'">
+                <div style="width:42px;height:42px;border-radius:12px;background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <span class="material-symbols-outlined" style="color:#93c5fd;font-size:22px">verified_user</span>
+                </div>
+                <div>
+                    <p style="font-weight:800;font-size:14px;color:white;margin:0 0 2px">Set up two-factor authentication</p>
+                    <p style="font-size:11px;color:#94a3b8;margin:0">Takes about a minute with an authenticator app</p>
+                </div>
+                <span class="material-symbols-outlined" style="color:#64748b;font-size:18px;margin-left:auto">arrow_forward</span>
+            </button>
+
+            <button id="mfaOptInLaterBtn" onclick="_mfaOptInLater()" style="
+                width:100%;padding:14px 18px;
+                background:transparent;border:1px solid rgba(255,255,255,0.08);border-radius:16px;
+                color:#94a3b8;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;
+                transition:all .2s"
+                onmouseover="this.style.borderColor='rgba(255,255,255,0.18)';this.style.color='#cbd5e1'"
+                onmouseout="this.style.borderColor='rgba(255,255,255,0.08)';this.style.color='#94a3b8'">
+                Maybe later
+            </button>
+        </div>
+
+        <p style="text-align:center;font-size:11px;color:#334155;margin-top:20px">
+            You can always set this up later from your profile
+        </p>`;
+
+        window._mfaOptInUser = user;
+        window._mfaOptInIsAdmin = isAdmin;
+    }
+
+    async function _mfaOptInSetUp() {
+        try { sessionStorage.setItem('fv_open_mfa_enroll', '1'); } catch(e) {}
+        window.location.href = 'profile.html';
+    }
+
+    async function _mfaOptInLater() {
+        const btn = document.getElementById('mfaOptInLaterBtn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Continuing…'; }
+        const user = window._mfaOptInUser;
+        const isAdmin = window._mfaOptInIsAdmin;
+        try {
+            await _supabase.from('user_profiles')
+                .update({ mfa_prompt_dismissed_at: new Date().toISOString() })
+                .eq('id', user.id);
+        } catch (e) {
+            // Non-fatal — worst case the prompt reappears next login instead of in 7 days.
+            console.warn('[MFA prompt] could not record dismissal:', e.message);
+        }
+        _continueRouteUser(user, isAdmin);
     }
 
     // ── Admin choice screen ───────────────────────────────────────
@@ -1953,6 +2057,9 @@
     window.updateResetStrength     = updateResetStrength;
     window._goToManager            = _goToManager;
     window._goToBrowseAsAdmin      = _goToBrowseAsAdmin;
+    window._mfaOptInSetUp          = _mfaOptInSetUp;
+    window._mfaOptInLater          = _mfaOptInLater;
+    window.clearSignInAlert        = clearSignInAlert;
 
     })(); // end async IIFE
     </script>

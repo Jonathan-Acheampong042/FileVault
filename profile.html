@@ -1042,6 +1042,17 @@
             initPushUI();
             document.getElementById('profileLoading').style.display = 'none';
             document.getElementById('profileContent').style.display = 'block';
+
+            // Arrived here via the "Set up two-factor authentication?" prompt
+            // on login.html — auto-open enrollment instead of making them
+            // hunt for the button. One-shot: clear the flag immediately so
+            // a refresh of this page doesn't keep reopening the modal.
+            try {
+                if (sessionStorage.getItem('fv_open_mfa_enroll') === '1') {
+                    sessionStorage.removeItem('fv_open_mfa_enroll');
+                    setTimeout(() => openMfaEnrollModal(), 300);
+                }
+            } catch(e) {}
         })();
 
         async function _checkAdminRole(userId) {
@@ -2736,9 +2747,13 @@
         // CONNECTED ACCOUNTS
         // ═══════════════════════════════════════════════════════════
         const PROVIDER_META = {
-            email:  { name: 'Email & Password', icon: 'mail',        color: '#60a5fa' },
-            google: { name: 'Google',            icon: 'g_translate', color: '#f87171' },
+            email:   { name: 'Email & Password', icon: 'mail',          color: '#60a5fa' },
+            google:  { name: 'Google',            icon: 'g_translate',  color: '#f87171' },
+            discord: { name: 'Discord',           icon: 'forum',        color: '#818cf8' },
+            github:  { name: 'GitHub',            icon: 'code',         color: '#e2e8f0' },
         };
+        // Order they appear as "Connect X Account" buttons when not yet linked.
+        const LINKABLE_PROVIDERS = ['google', 'discord', 'github'];
 
         async function loadConnectedAccounts() {
             const list = document.getElementById('connectedAccountsList');
@@ -2749,7 +2764,7 @@
                 if (!error && data && data.identities) identities = data.identities;
             } catch (_) { /* fall back to session identities */ }
 
-            const hasGoogle = identities.some(i => i.provider === 'google');
+            const linkedProviders = new Set(identities.map(i => i.provider));
 
             let html = identities.map(id => {
                 const p = PROVIDER_META[id.provider] || { name: id.provider, icon: 'link', color: '#94a3b8' };
@@ -2767,24 +2782,26 @@
                 </div>`;
             }).join('');
 
-            if (!hasGoogle) {
-                html += `<button class="btn-secondary mt-2" onclick="linkGoogleAccount()">
-                    <span class="material-symbols-outlined" style="font-size:16px">add_link</span> Connect Google Account
+            LINKABLE_PROVIDERS.filter(p => !linkedProviders.has(p)).forEach(provider => {
+                const p = PROVIDER_META[provider];
+                html += `<button class="btn-secondary mt-2" onclick="linkProviderAccount('${provider}')">
+                    <span class="material-symbols-outlined" style="font-size:16px">add_link</span> Connect ${p.name} Account
                 </button>`;
-            }
+            });
 
             list.innerHTML = html || '<p style="font-size:12px;color:#64748b;text-align:center;padding:8px 0">No connected accounts found.</p>';
         }
 
-        async function linkGoogleAccount() {
+        async function linkProviderAccount(provider) {
+            const name = (PROVIDER_META[provider] && PROVIDER_META[provider].name) || provider;
             try {
                 const { error } = await _supabase.auth.linkIdentity({
-                    provider: 'google',
+                    provider: provider,
                     options: { redirectTo: window.location.origin + '/profile.html' }
                 });
                 if (error) throw error;
             } catch (err) {
-                showToast('Could not start Google linking: ' + err.message, 'error');
+                showToast(`Could not start ${name} linking: ` + err.message, 'error');
             }
         }
 
