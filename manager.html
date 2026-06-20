@@ -43,14 +43,20 @@
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" href="filevault%20logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
-    <!-- Run theme + contrast init before first paint to prevent flash -->
+    <!-- Run theme + contrast + font size init before first paint to prevent flash.
+         NOTE: manager.html uses its own fvMgr* localStorage keys, completely separate
+         from the fv* keys used on index.html (the user-facing vault). This keeps the
+         manager's display settings independent from any regular user's settings —
+         changing one never affects the other. -->
     <script>
         (function() {
-            var saved = localStorage.getItem('fvTheme');
+            var saved = localStorage.getItem('fvMgrTheme');
             var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             var isLight = saved ? saved === 'light' : !prefersDark;
             if (isLight) document.documentElement.classList.add('light');
-            if (localStorage.getItem('fvHighContrast') === '1') document.documentElement.classList.add('high-contrast');
+            if (localStorage.getItem('fvMgrHighContrast') === '1') document.documentElement.classList.add('high-contrast');
+            var fs = localStorage.getItem('fvMgrFontSize') || 'medium';
+            document.documentElement.classList.add('fs-' + fs);
         })();
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
@@ -228,6 +234,51 @@
         html.light #mgrNeverDownloadedSection .text-white\/80 { color:#1e293b !important; }
         html.light #mgrNeverDownloadedCount { background:rgba(239,68,68,0.1) !important; color:#dc2626 !important; border-color:rgba(239,68,68,0.25) !important; }
         html.light #mgrPopularSection { background:rgba(255,255,255,0.78) !important; border-color:rgba(0,0,0,0.08) !important; }
+
+        /* ── Manager display settings: font size control ── */
+        html.fs-small  { font-size: 13px; }
+        html.fs-medium { font-size: 16px; }
+        html.fs-large  { font-size: 19px; }
+        .fs-btn { display:inline-flex;align-items:center;justify-content:center;width:32px;height:28px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#94a3b8;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;font-size:12px; }
+        .fs-btn.active { background:rgba(59,130,246,0.2);color:var(--accent);border-color:rgba(59,130,246,0.4); }
+        html.light .fs-btn { border-color:rgba(0,0,0,0.12) !important; color:#475569 !important; }
+
+        /* ── Manager display settings: accent color ── */
+        :root { --accent:#3b82f6; --accent-light:rgba(59,130,246,0.2); --accent-border:rgba(59,130,246,0.4); }
+        .text-primary { color: var(--accent) !important; }
+        .bg-primary { background-color: var(--accent) !important; }
+        .border-primary { border-color: var(--accent) !important; }
+        .hover\:text-primary:hover { color: var(--accent) !important; }
+        .bg-primary\/20 { background-color: var(--accent-light) !important; }
+        .hover\:bg-primary\/20:hover { background-color: var(--accent-light) !important; }
+        .border-primary\/40 { border-color: var(--accent-border) !important; }
+        .folder-btn.active { background: var(--accent-light) !important; color: var(--accent) !important; }
+        .active-nav { background: var(--accent-light) !important; color: var(--accent) !important; }
+        .active-nav::after { background: var(--accent) !important; }
+        .color-swatch { width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .2s;flex-shrink:0; }
+        .color-swatch.active { border-color:white;transform:scale(1.15); }
+        html.light .color-swatch.active { border-color:#0f172a !important; }
+
+        /* ── Manager display settings: compact / dense file list ── */
+        #managerFileGrid.compact-view { display:flex !important; flex-direction:column; gap:1px !important; }
+        #managerFileGrid.compact-view .file-item { padding:6px 10px !important; border-radius:8px !important; }
+        #managerFileGrid.compact-view .file-item .flex.items-start { align-items:center !important; margin-bottom:0 !important; gap:8px !important; }
+        #managerFileGrid.compact-view .file-item .w-12 { width:24px !important; height:24px !important; border-radius:6px !important; }
+        #managerFileGrid.compact-view .file-item .w-12 .material-symbols-outlined { font-size:14px !important; }
+        #managerFileGrid.compact-view .file-item p.font-semibold { font-size:12px !important; }
+        #managerFileGrid.compact-view .file-item .mt-0\.5,
+        #managerFileGrid.compact-view .file-item .mt-1.flex,
+        #managerFileGrid.compact-view .file-item p.italic { display:none !important; }
+        #managerFileGrid.compact-view .file-item .flex.gap-1\.5 { margin-top:4px !important; }
+
+        /* ── Manager display settings panel ── */
+        #mgrSettingsPanel { display:none;position:fixed;top:60px;right:16px;z-index:99990;width:260px;background:rgba(15,23,42,0.98);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:20px;box-shadow:0 24px 64px rgba(0,0,0,0.6);backdrop-filter:blur(24px); }
+        #mgrSettingsPanel.open { display:block; }
+        html.light #mgrSettingsPanel { background:rgba(255,255,255,0.98) !important; border-color:rgba(0,0,0,0.1) !important; }
+        html.high-contrast #mgrSettingsPanel { background:#000 !important; border:2px solid #fff !important; }
+        .mgr-setting-row { margin-bottom:16px; }
+        .mgr-setting-label { font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;display:block; }
+        html.light .mgr-setting-label { color:#64748b !important; }
         html.light #mgrPopularSection h4 { color:#475569 !important; }
 
         /* ── 31: New-since-last-visit badge ── */
@@ -288,8 +339,7 @@
                     </div>
                 </div>
             </div>
-            <button onclick="toggleMgrHighContrast()" title="Toggle high contrast" aria-label="Toggle high contrast mode" class="text-sm text-slate-400 hover:text-white hover:bg-white/10 px-2 py-2 rounded-lg transition-all flex items-center gap-1 mr-1"><span class="material-symbols-outlined text-sm">contrast</span></button>
-            <button id="mgrThemeBtn" onclick="toggleMgrTheme()" title="Toggle light/dark mode" aria-label="Toggle light/dark mode" class="text-sm text-slate-400 hover:text-white hover:bg-white/10 px-2 py-2 rounded-lg transition-all flex items-center gap-1 mr-1"><span id="mgrThemeIcon" class="material-symbols-outlined text-sm">light_mode</span></button>
+            <button onclick="toggleMgrSettings()" title="Display settings" aria-label="Open display settings" class="text-sm text-slate-400 hover:text-white hover:bg-white/10 px-2 py-2 rounded-lg transition-all flex items-center gap-1 mr-1"><span class="material-symbols-outlined text-sm">palette</span></button>
             <button onclick="browseVault()" title="Browse the Vault as a user" class="text-sm font-bold text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 px-3 py-2 rounded-lg transition-all flex items-center gap-2 border border-blue-500/20 mr-1">
                 <span class="material-symbols-outlined text-sm">folder_open</span><span class="hidden sm:inline">Browse Vault</span>
             </button>
@@ -298,6 +348,68 @@
             </button>
         </div>
     </header>
+
+    <!-- ══ Manager Display Settings Panel (independent from user-page settings) ══ -->
+    <div id="mgrSettingsPanel" role="dialog" aria-label="Display settings" aria-modal="true">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <p style="color:white;font-weight:700;font-size:14px">Display Settings</p>
+            <button onclick="toggleMgrSettings()" aria-label="Close display settings" style="background:none;border:none;cursor:pointer;color:#64748b"><span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">close</span></button>
+        </div>
+        <!-- Theme toggle -->
+        <div class="mgr-setting-row" style="margin-bottom:12px">
+            <span class="mgr-setting-label">Theme</span>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+                <span style="font-size:12px;color:#cbd5e1">Light / Dark mode</span>
+                <button id="mgrThemeBtn" onclick="toggleMgrTheme()" title="Toggle light/dark mode" aria-label="Toggle light/dark mode"
+                    style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
+                    <span id="mgrThemeIcon" class="material-symbols-outlined" style="font-size:15px" aria-hidden="true">light_mode</span> Toggle
+                </button>
+            </div>
+        </div>
+        <!-- High Contrast -->
+        <div class="mgr-setting-row" style="margin-bottom:12px">
+            <span class="mgr-setting-label">High Contrast</span>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+                <span style="font-size:12px;color:#cbd5e1">Accessibility mode</span>
+                <button id="mgrHighContrastToggle" onclick="toggleMgrHighContrast()" aria-label="Toggle high contrast mode"
+                    style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
+                    <span class="material-symbols-outlined" style="font-size:15px" aria-hidden="true">contrast</span> <span id="mgrHighContrastLabel">Off</span>
+                </button>
+            </div>
+        </div>
+        <!-- Font Size -->
+        <div class="mgr-setting-row" style="margin-bottom:12px">
+            <span class="mgr-setting-label">Font Size</span>
+            <div style="display:flex;align-items:center;gap:6px">
+                <button class="fs-btn" id="mgr-fs-small" onclick="setMgrFontSize('small')" aria-label="Small font size" aria-pressed="false">A</button>
+                <button class="fs-btn" id="mgr-fs-medium" onclick="setMgrFontSize('medium')" aria-label="Medium font size" aria-pressed="true" style="font-size:15px">A</button>
+                <button class="fs-btn" id="mgr-fs-large" onclick="setMgrFontSize('large')" aria-label="Large font size" aria-pressed="false" style="font-size:18px">A</button>
+            </div>
+        </div>
+        <!-- Accent Color -->
+        <div class="mgr-setting-row" style="margin-bottom:12px">
+            <span class="mgr-setting-label">Accent Color</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <div class="color-swatch active" style="background:#3b82f6" onclick="setMgrAccent('#3b82f6','rgba(59,130,246,0.2)','rgba(59,130,246,0.4)',this)" title="Blue" role="radio" aria-label="Blue accent" aria-checked="true" tabindex="0"></div>
+                <div class="color-swatch" style="background:#8b5cf6" onclick="setMgrAccent('#8b5cf6','rgba(139,92,246,0.2)','rgba(139,92,246,0.4)',this)" title="Purple" role="radio" aria-label="Purple accent" aria-checked="false" tabindex="0"></div>
+                <div class="color-swatch" style="background:#10b981" onclick="setMgrAccent('#10b981','rgba(16,185,129,0.2)','rgba(16,185,129,0.4)',this)" title="Green" role="radio" aria-label="Green accent" aria-checked="false" tabindex="0"></div>
+                <div class="color-swatch" style="background:#f59e0b" onclick="setMgrAccent('#f59e0b','rgba(245,158,11,0.2)','rgba(245,158,11,0.4)',this)" title="Amber" role="radio" aria-label="Amber accent" aria-checked="false" tabindex="0"></div>
+                <div class="color-swatch" style="background:#ef4444" onclick="setMgrAccent('#ef4444','rgba(239,68,68,0.2)','rgba(239,68,68,0.4)',this)" title="Red" role="radio" aria-label="Red accent" aria-checked="false" tabindex="0"></div>
+                <div class="color-swatch" style="background:#06b6d4" onclick="setMgrAccent('#06b6d4','rgba(6,182,212,0.2)','rgba(6,182,212,0.4)',this)" title="Cyan" role="radio" aria-label="Cyan accent" aria-checked="false" tabindex="0"></div>
+            </div>
+        </div>
+        <!-- Compact View -->
+        <div class="mgr-setting-row">
+            <span class="mgr-setting-label">Compact View</span>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+                <span style="font-size:12px;color:#cbd5e1">Dense file list</span>
+                <button id="mgrCompactToggle" onclick="toggleMgrCompactView()" aria-label="Toggle compact view"
+                    style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
+                    <span class="material-symbols-outlined" style="font-size:15px" aria-hidden="true">density_small</span> Off
+                </button>
+            </div>
+        </div>
+    </div>
 
 
 <main class="w-full p-4 sm:p-6 sm:max-w-4xl sm:mx-auto relative z-10 space-y-6 sm:space-y-8" id="mainContent">
@@ -4526,15 +4638,46 @@ create policy "Admins can read audit log"
         } catch(e) {}
     }
 
-    // ── 36: High contrast ──
-    function initMgrHighContrast() { if (localStorage.getItem('fvHighContrast') === '1') document.documentElement.classList.add('high-contrast'); }
+    // ══════════════════════════════════════════════════════════
+    // MANAGER DISPLAY SETTINGS
+    // Uses fvMgr*-prefixed localStorage keys, kept entirely separate
+    // from the fv*-prefixed keys used by index.html (the user vault).
+    // This means changing display settings here as the manager/admin
+    // never affects what regular users see on the vault, and vice versa.
+    // ══════════════════════════════════════════════════════════
+
+    // ── High contrast ──
+    function initMgrHighContrast() {
+        if (localStorage.getItem('fvMgrHighContrast') === '1') {
+            document.documentElement.classList.add('high-contrast');
+            _updateMgrHighContrastBtn(true);
+        }
+    }
     function toggleMgrHighContrast() {
         const on = document.documentElement.classList.toggle('high-contrast');
-        localStorage.setItem('fvHighContrast', on ? '1' : '0');
+        localStorage.setItem('fvMgrHighContrast', on ? '1' : '0');
+        _updateMgrHighContrastBtn(on);
         setStatus('High contrast ' + (on ? 'enabled' : 'disabled'), 'blue');
     }
+    function _updateMgrHighContrastBtn(on) {
+        const btn = document.getElementById('mgrHighContrastToggle');
+        const lbl = document.getElementById('mgrHighContrastLabel');
+        if (!btn) return;
+        if (on) {
+            btn.style.background = 'rgba(255,255,255,0.2)';
+            btn.style.color = '#fff';
+            btn.style.borderColor = 'rgba(255,255,255,0.4)';
+        } else {
+            btn.style.background = '';
+            btn.style.color = '';
+            btn.style.borderColor = '';
+        }
+        if (lbl) lbl.textContent = on ? 'On' : 'Off';
+    }
+
+    // ── Light / Dark mode ──
     function initMgrTheme() {
-        const saved = localStorage.getItem('fvTheme');
+        const saved = localStorage.getItem('fvMgrTheme');
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         const isLight = saved ? saved === 'light' : !prefersDark;
         document.documentElement.classList.toggle('light', isLight);
@@ -4542,13 +4685,106 @@ create policy "Admins can read audit log"
     }
     function toggleMgrTheme() {
         const isLight = document.documentElement.classList.toggle('light');
-        localStorage.setItem('fvTheme', isLight ? 'light' : 'dark');
+        localStorage.setItem('fvMgrTheme', isLight ? 'light' : 'dark');
         _updateMgrThemeIcon();
+        setStatus(isLight ? 'Light mode on' : 'Dark mode on', 'blue');
     }
     function _updateMgrThemeIcon() {
         const icon = document.getElementById('mgrThemeIcon');
         if (icon) icon.textContent = document.documentElement.classList.contains('light') ? 'dark_mode' : 'light_mode';
     }
+
+    // ── Font size ──
+    function setMgrFontSize(size) {
+        document.documentElement.classList.remove('fs-small','fs-medium','fs-large');
+        document.documentElement.classList.add('fs-' + size);
+        localStorage.setItem('fvMgrFontSize', size);
+        document.querySelectorAll('#mgrSettingsPanel .fs-btn').forEach(b => {
+            b.classList.remove('active');
+            b.setAttribute('aria-pressed', 'false');
+        });
+        const btn = document.getElementById('mgr-fs-' + size);
+        if (btn) { btn.classList.add('active'); btn.setAttribute('aria-pressed', 'true'); }
+    }
+    function initMgrFontSize() {
+        const saved = localStorage.getItem('fvMgrFontSize') || 'medium';
+        setMgrFontSize(saved);
+    }
+
+    // ── Accent color ──
+    function setMgrAccent(color, light, border, el) {
+        document.documentElement.style.setProperty('--accent', color);
+        document.documentElement.style.setProperty('--accent-light', light);
+        document.documentElement.style.setProperty('--accent-border', border);
+        document.querySelectorAll('#mgrSettingsPanel .color-swatch').forEach(s => s.classList.remove('active'));
+        if (el) el.classList.add('active');
+        localStorage.setItem('fvMgrAccent', JSON.stringify({ color, light, border }));
+    }
+    function initMgrAccent() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('fvMgrAccent'));
+            if (saved) {
+                document.documentElement.style.setProperty('--accent', saved.color);
+                document.documentElement.style.setProperty('--accent-light', saved.light);
+                document.documentElement.style.setProperty('--accent-border', saved.border);
+                document.querySelectorAll('#mgrSettingsPanel .color-swatch').forEach(s => {
+                    s.classList.toggle('active', s.style.background === saved.color);
+                });
+            }
+        } catch(e) {}
+    }
+
+    // ── Compact view ──
+    var mgrCompactView = localStorage.getItem('fvMgrCompactView') === '1';
+    function applyMgrCompactView() {
+        const grid = document.getElementById('managerFileGrid');
+        const toggle = document.getElementById('mgrCompactToggle');
+        if (!grid) return;
+        grid.classList.toggle('compact-view', mgrCompactView);
+        if (toggle) {
+            if (mgrCompactView) {
+                toggle.style.background = 'rgba(59,130,246,0.25)';
+                toggle.style.color = 'var(--accent)';
+                toggle.style.borderColor = 'rgba(59,130,246,0.4)';
+                toggle.innerHTML = '<span class="material-symbols-outlined" style="font-size:15px">density_small</span> On';
+            } else {
+                toggle.style.background = 'rgba(255,255,255,0.05)';
+                toggle.style.color = '#94a3b8';
+                toggle.style.borderColor = 'rgba(255,255,255,0.1)';
+                toggle.innerHTML = '<span class="material-symbols-outlined" style="font-size:15px">density_small</span> Off';
+            }
+        }
+    }
+    function toggleMgrCompactView() {
+        mgrCompactView = !mgrCompactView;
+        localStorage.setItem('fvMgrCompactView', mgrCompactView ? '1' : '0');
+        applyMgrCompactView();
+        setStatus(mgrCompactView ? 'Compact view on' : 'Compact view off', 'blue');
+    }
+    // Re-apply compact view every time the file grid is re-rendered
+    const _origLoadManagerFiles = loadManagerFiles;
+    loadManagerFiles = async function(...args) {
+        await _origLoadManagerFiles.apply(this, args);
+        applyMgrCompactView();
+    };
+
+    // ── Settings panel open/close ──
+    function toggleMgrSettings() {
+        document.getElementById('mgrSettingsPanel').classList.toggle('open');
+    }
+    document.addEventListener('click', e => {
+        const panel = document.getElementById('mgrSettingsPanel');
+        if (panel && panel.classList.contains('open') && !panel.contains(e.target) && !e.target.closest('[onclick="toggleMgrSettings()"]')) {
+            panel.classList.remove('open');
+        }
+    });
+
+    // ── Init all manager display settings ──
+    initMgrHighContrast();
+    initMgrTheme();
+    initMgrFontSize();
+    initMgrAccent();
+    applyMgrCompactView();
 
     // ── Patch loadFromDB: popular + new badges + ratings + search filter ──
     const _origLoadDB = loadFromDB;
@@ -4572,8 +4808,6 @@ create policy "Admins can read audit log"
     };
 
     initMgrLastVisit();
-    initMgrHighContrast(); // still needed to keep the toggle function wired
-    initMgrTheme();        // still needed to keep the icon in sync
     loadDashboardStats();  // was defined but never called
 
     // ── DASHBOARD SUMMARY CARDS ──────────────────────────────

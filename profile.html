@@ -40,6 +40,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     <link rel="icon" href="filevault%20logo.png">
+    <!-- Run theme + contrast + font size init before first paint to prevent flash.
+         Uses the same fv* localStorage keys as index.html and upload-request.html
+         so display settings stay in sync across all user-facing pages. -->
+    <script>
+        (function() {
+            var saved = localStorage.getItem('fvTheme');
+            var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            var isLight = saved ? saved === 'light' : !prefersDark;
+            if (isLight) document.documentElement.classList.add('light');
+            if (localStorage.getItem('fvHighContrast') === '1') document.documentElement.classList.add('high-contrast');
+            var fs = localStorage.getItem('fvFontSize') || 'medium';
+            document.documentElement.classList.add('fs-' + fs);
+        })();
+    </script>
     <style>
         * { box-sizing: border-box; }
         :root {
@@ -48,17 +62,74 @@
             --sal: env(safe-area-inset-left, 0px);
             --sar: env(safe-area-inset-right, 0px);
         }
-        :root { --accent-from: #3b82f6; --accent-to: #7c3aed; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; min-height: 100vh; color: #e2e8f0; }
+        /* ══ Shared display settings (kept identical to index.html / upload-request.html) ══
+           Uses the same html.light / html.high-contrast / html.fs-* classes and the same
+           --accent / --accent-light / --accent-border variables, driven by the same
+           fvTheme / fvHighContrast / fvFontSize / fvAccent / fvCompactView localStorage
+           keys. This is what keeps light mode, contrast, font size, accent color, and
+           compact view in sync across the user-facing pages (vault, profile, request form). */
+        :root { --accent:#3b82f6; --accent-light:rgba(59,130,246,0.2); --accent-border:rgba(59,130,246,0.4); --accent-from:#3b82f6; --accent-to:#3b82f6; }
+        .text-primary { color: var(--accent) !important; }
+        .bg-primary { background-color: var(--accent) !important; }
+        .border-primary { border-color: var(--accent) !important; }
 
-        /* ── Appearance: compact mode & text size ── */
-        body.compact-mode .section-card { padding: 13px 16px; }
-        body.compact-mode .space-y-5 > * + * { margin-top: 12px !important; }
-        body.compact-mode .section-title { margin-bottom: 8px; }
-        body.compact-mode .toggle-row { padding: 7px 0; }
-        body.compact-mode .glass-card { padding: 18px !important; }
-        body.fs-large #profileContent { font-size: 110%; }
-        body.fs-small #profileContent { font-size: 92%; }
+        html.fs-small  { font-size: 13px; }
+        html.fs-medium { font-size: 16px; }
+        html.fs-large  { font-size: 19px; }
+
+        /* ── Compact view ── */
+        body.compact-view .section-card { padding: 13px 16px; }
+        body.compact-view .space-y-5 > * + * { margin-top: 12px !important; }
+        body.compact-view .section-title { margin-bottom: 8px; }
+        body.compact-view .toggle-row { padding: 7px 0; }
+        body.compact-view .glass-card { padding: 18px !important; }
+
+        /* ── High contrast ── */
+        html.high-contrast body { background:#000 !important; color:#fff !important; }
+        html.high-contrast .glass-card { background:#111 !important; border:2px solid #fff !important; }
+        html.high-contrast .section-card { background:#111 !important; border:2px solid #fff !important; }
+        html.high-contrast header.profile-header { border-color:#fff !important; }
+        html.high-contrast a, html.high-contrast button { outline-color:#fff !important; }
+        html.high-contrast #mgrSettingsPanel,
+        html.high-contrast #settingsPanel { background:#000 !important; border:2px solid #fff !important; }
+
+        /* ── Light mode ── */
+        html.light body { background:#f1f5f9 !important; color:#0f172a !important; }
+        html.light .bg-fixed-image { filter: saturate(0.5) brightness(0.85) !important; }
+        html.light .bg-overlay { background: radial-gradient(circle at top left,rgba(59,130,246,0.07),transparent 24%), radial-gradient(circle at bottom right,rgba(139,92,246,0.07),transparent 20%), linear-gradient(180deg,rgba(241,245,249,0.94),rgba(226,232,240,0.97)) !important; }
+        html.light .glass-card { background:rgba(255,255,255,0.82) !important; border-color:rgba(0,0,0,0.08) !important; box-shadow:0 2px 16px rgba(0,0,0,0.06) !important; }
+        html.light .section-card { background:rgba(255,255,255,0.55) !important; border-color:rgba(0,0,0,0.08) !important; }
+        html.light .section-title { color:#1e293b !important; }
+        html.light .field-label { color:#475569 !important; }
+        html.light .toggle-label, html.light .danger-item-label, html.light .session-val { color:#1e293b !important; }
+        html.light .toggle-sub, html.light .danger-item-sub, html.light .session-key { color:#64748b !important; }
+        html.light .stat-cell { background:rgba(255,255,255,0.6) !important; border-color:rgba(0,0,0,0.07) !important; }
+        html.light .stat-num { color:#0f172a !important; }
+        html.light .req-chip, html.light .file-history-chip, html.light .notif-item { background:rgba(255,255,255,0.55) !important; border-color:rgba(0,0,0,0.07) !important; }
+        html.light .file-chip-name, html.light .notif-title { color:#1e293b !important; }
+        html.light .auth-input, html.light .auth-textarea, html.light select.auth-input { background:rgba(0,0,0,0.04) !important; color:#0f172a !important; border-color:rgba(0,0,0,0.12) !important; }
+        html.light .auth-input::placeholder, html.light .auth-textarea::placeholder { color:#94a3b8 !important; }
+        html.light .seg-control { background:rgba(0,0,0,0.04) !important; border-color:rgba(0,0,0,0.08) !important; }
+        html.light .seg-control button { color:#475569 !important; }
+        html.light .badge-cell { background:rgba(255,255,255,0.55) !important; border-color:rgba(0,0,0,0.07) !important; }
+        html.light .badge-name { color:#1e293b !important; }
+        html.light .toast { color:#0f172a !important; }
+        html.light header.profile-header a, html.light .header-signout { color:#475569 !important; }
+        html.light #profileLoading { color:#475569 !important; }
+
+        /* ── Display settings panel (gear icon + panel), shared markup with index.html ── */
+        #settingsPanel { display:none;position:fixed;top:60px;right:16px;z-index:99990;width:260px;background:rgba(15,23,42,0.98);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:20px;box-shadow:0 24px 64px rgba(0,0,0,0.6);backdrop-filter:blur(24px); }
+        #settingsPanel.open { display:block; }
+        html.light #settingsPanel { background:rgba(255,255,255,0.98) !important; border-color:rgba(0,0,0,0.1) !important; }
+        .setting-row { margin-bottom:16px; }
+        .setting-label { font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;display:block; }
+        html.light .setting-label { color:#64748b !important; }
+        .color-swatch { width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .2s;flex-shrink:0; }
+        .color-swatch.active { border-color:white;transform:scale(1.15); }
+        html.light .color-swatch.active { border-color:#0f172a !important; }
+        .fs-btn { display:inline-flex;align-items:center;justify-content:center;width:32px;height:28px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#94a3b8;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;font-size:12px; }
+        .fs-btn.active { background:rgba(59,130,246,0.2);color:var(--accent);border-color:rgba(59,130,246,0.4); }
+        html.light .fs-btn { border-color:rgba(0,0,0,0.12) !important; color:#475569 !important; }
 
         .bg-fixed-image { position: fixed; inset: 0; background-image: url('screen.png'); background-size: cover; background-position: center; background-repeat: no-repeat; filter: saturate(0.72) brightness(0.4); z-index: -2; }
         .bg-overlay { position: fixed; inset: 0; background: radial-gradient(circle at top left, rgba(59,130,246,0.18), transparent 30%), radial-gradient(circle at bottom right, rgba(139,92,246,0.16), transparent 25%), linear-gradient(180deg, rgba(4,7,18,0.90), rgba(2,6,23,0.97)); z-index: -1; pointer-events: none; }
@@ -236,15 +307,8 @@
         .session-key { color:#64748b;font-weight:600; }
         .session-val { color:#cbd5e1;font-weight:700;text-align:right;word-break:break-all;max-width:60%; }
 
-        /* ── Appearance: accent swatches & segmented control ── */
-        .accent-swatches { display:flex; gap:10px; flex-wrap:wrap; }
-        .accent-swatch { width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,0.12);cursor:pointer;padding:0;transition:transform .15s, border-color .15s; }
-        .accent-swatch:hover { transform:scale(1.1); }
-        .accent-swatch.active { border-color:#fff; box-shadow:0 0 0 3px rgba(255,255,255,0.12); }
-
-        .seg-control { display:flex; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:3px; gap:3px; }
-        .seg-control button { flex:1; padding:8px; border:none; background:transparent; color:#94a3b8; font-size:12px; font-weight:700; border-radius:9px; cursor:pointer; font-family:inherit; transition:all .2s; }
-        .seg-control button.active { background:linear-gradient(135deg,var(--accent-from),var(--accent-to)); color:white; }
+        /* (legacy .accent-swatch / .seg-control rules removed — Appearance now
+           uses the shared #settingsPanel / .color-swatch / .fs-btn system) */
 
         /* ── Achievements / badges ── */
         .badge-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
@@ -325,6 +389,9 @@
                 <span style="font-size:13px;font-weight:700">Back to Vault</span>
             </a>
             <div class="flex items-center gap-2">
+                <button onclick="toggleSettings()" title="Display settings" aria-label="Open display settings" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
+                    <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">palette</span>
+                </button>
                 <img src="filevault%20logo.png" alt="FileVault" style="width:22px;height:22px;border-radius:6px;object-fit:contain;flex-shrink:0" onerror="this.style.display='none'"/>
                 <span style="font-weight:800;font-size:14px;color:#f1f5f9">My Profile</span>
             </div>
@@ -333,6 +400,68 @@
                 Sign out
             </button>
         </header>
+
+        <!-- ══ Display Settings Panel (shared across index.html / profile.html / upload-request.html) ══ -->
+        <div id="settingsPanel" role="dialog" aria-label="Display settings" aria-modal="true">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+                <p style="color:white;font-weight:700;font-size:14px">Display Settings</p>
+                <button onclick="toggleSettings()" aria-label="Close display settings" style="background:none;border:none;cursor:pointer;color:#64748b"><span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">close</span></button>
+            </div>
+            <!-- Theme toggle -->
+            <div class="setting-row" style="margin-bottom:12px">
+                <span class="setting-label">Theme</span>
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                    <span style="font-size:12px;color:#cbd5e1">Light / Dark mode</span>
+                    <button onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle light/dark mode"
+                        style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
+                        <span id="themeToggleIcon" class="material-symbols-outlined" style="font-size:15px" aria-hidden="true">light_mode</span> Toggle
+                    </button>
+                </div>
+            </div>
+            <!-- High Contrast -->
+            <div class="setting-row" style="margin-bottom:12px">
+                <span class="setting-label">High Contrast</span>
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                    <span style="font-size:12px;color:#cbd5e1">Accessibility mode</span>
+                    <button id="highContrastToggle" onclick="toggleHighContrast()" aria-label="Toggle high contrast mode"
+                        style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
+                        <span class="material-symbols-outlined" style="font-size:15px" aria-hidden="true">contrast</span> <span id="highContrastLabel">Off</span>
+                    </button>
+                </div>
+            </div>
+            <!-- Font Size -->
+            <div class="setting-row" style="margin-bottom:12px">
+                <span class="setting-label">Font Size</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                    <button class="fs-btn" id="fs-small" onclick="setFontSize('small')" aria-label="Small font size" aria-pressed="false">A</button>
+                    <button class="fs-btn" id="fs-medium" onclick="setFontSize('medium')" aria-label="Medium font size" aria-pressed="true" style="font-size:15px">A</button>
+                    <button class="fs-btn" id="fs-large" onclick="setFontSize('large')" aria-label="Large font size" aria-pressed="false" style="font-size:18px">A</button>
+                </div>
+            </div>
+            <!-- Accent Color -->
+            <div class="setting-row" style="margin-bottom:12px">
+                <span class="setting-label">Accent Color</span>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <div class="color-swatch active" style="background:#3b82f6" onclick="setAccent('#3b82f6','rgba(59,130,246,0.2)','rgba(59,130,246,0.4)',this)" title="Blue" role="radio" aria-label="Blue accent" aria-checked="true" tabindex="0"></div>
+                    <div class="color-swatch" style="background:#8b5cf6" onclick="setAccent('#8b5cf6','rgba(139,92,246,0.2)','rgba(139,92,246,0.4)',this)" title="Purple" role="radio" aria-label="Purple accent" aria-checked="false" tabindex="0"></div>
+                    <div class="color-swatch" style="background:#10b981" onclick="setAccent('#10b981','rgba(16,185,129,0.2)','rgba(16,185,129,0.4)',this)" title="Green" role="radio" aria-label="Green accent" aria-checked="false" tabindex="0"></div>
+                    <div class="color-swatch" style="background:#f59e0b" onclick="setAccent('#f59e0b','rgba(245,158,11,0.2)','rgba(245,158,11,0.4)',this)" title="Amber" role="radio" aria-label="Amber accent" aria-checked="false" tabindex="0"></div>
+                    <div class="color-swatch" style="background:#ef4444" onclick="setAccent('#ef4444','rgba(239,68,68,0.2)','rgba(239,68,68,0.4)',this)" title="Red" role="radio" aria-label="Red accent" aria-checked="false" tabindex="0"></div>
+                    <div class="color-swatch" style="background:#06b6d4" onclick="setAccent('#06b6d4','rgba(6,182,212,0.2)','rgba(6,182,212,0.4)',this)" title="Cyan" role="radio" aria-label="Cyan accent" aria-checked="false" tabindex="0"></div>
+                </div>
+            </div>
+            <!-- Compact View -->
+            <div class="setting-row">
+                <span class="setting-label">Compact View</span>
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                    <span style="font-size:12px;color:#cbd5e1">Reduced spacing</span>
+                    <button id="compactToggle" onclick="toggleCompactView()" aria-label="Toggle compact view"
+                        style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit">
+                        <span class="material-symbols-outlined" style="font-size:15px" aria-hidden="true">density_small</span> Off
+                    </button>
+                </div>
+            </div>
+        </div>
 
         <main class="flex-1 px-4 sm:px-6 pb-10 lg:pb-12 max-w-2xl mx-auto w-full">
             <!-- Loading -->
@@ -412,33 +541,12 @@
                 <!-- Appearance -->
                 <div class="section-card">
                     <div class="section-title"><span class="material-symbols-outlined">palette</span> Appearance</div>
-                    <p class="field-label">Accent Color</p>
-                    <div class="accent-swatches" id="accentSwatches">
-                        <button class="accent-swatch" data-from="#3b82f6" data-to="#7c3aed" style="background:linear-gradient(135deg,#3b82f6,#7c3aed)" onclick="setAccent('#3b82f6','#7c3aed',this)" title="Blue / Violet"></button>
-                        <button class="accent-swatch" data-from="#10b981" data-to="#059669" style="background:linear-gradient(135deg,#10b981,#059669)" onclick="setAccent('#10b981','#059669',this)" title="Emerald"></button>
-                        <button class="accent-swatch" data-from="#f59e0b" data-to="#ea580c" style="background:linear-gradient(135deg,#f59e0b,#ea580c)" onclick="setAccent('#f59e0b','#ea580c',this)" title="Amber"></button>
-                        <button class="accent-swatch" data-from="#ec4899" data-to="#be185d" style="background:linear-gradient(135deg,#ec4899,#be185d)" onclick="setAccent('#ec4899','#be185d',this)" title="Pink"></button>
-                        <button class="accent-swatch" data-from="#06b6d4" data-to="#0e7490" style="background:linear-gradient(135deg,#06b6d4,#0e7490)" onclick="setAccent('#06b6d4','#0e7490',this)" title="Cyan"></button>
-                    </div>
-
-                    <p class="field-label" style="margin-top:18px">Text Size</p>
-                    <div class="seg-control" id="fontSizeControl">
-                        <button data-size="small" onclick="setFontSize('small')">Small</button>
-                        <button data-size="medium" onclick="setFontSize('medium')">Medium</button>
-                        <button data-size="large" onclick="setFontSize('large')">Large</button>
-                    </div>
-
-                    <div class="toggle-row" style="margin-top:6px">
-                        <div>
-                            <p class="toggle-label">Compact mode</p>
-                            <p class="toggle-sub">Reduce spacing to fit more on screen</p>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="compactModeToggle" onchange="toggleCompactMode(this.checked)"/>
-                            <span class="toggle-track"></span>
-                            <span class="toggle-thumb"></span>
-                        </label>
-                    </div>
+                    <p style="font-size:12px;color:#94a3b8;line-height:1.6;margin:0 0 14px">
+                        Theme, contrast, font size, accent color, and compact view are shared across your Vault, Profile, and Request pages.
+                    </p>
+                    <button onclick="toggleSettings()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;border-radius:13px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#cbd5e1;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;transition:all .2s">
+                        <span class="material-symbols-outlined" style="font-size:16px">tune</span> Open Display Settings
+                    </button>
                 </div>
 
 
@@ -859,7 +967,11 @@
             _isAdminBrowsing = adminBrowseMode && (isKnownAdmin || await _checkAdminRole(session.user.id));
             populateProfile(_currentUser, _isAdminBrowsing);
             showVerifyBanner(_currentUser);
-            loadThemePrefs();
+            initTheme();
+            initHighContrast();
+            initFontSize();
+            initAccent();
+            applyCompactView();
             loadProfileStats(_currentUser);
             loadNotifPrefs();
             loadRequestHistory(_currentUser);
@@ -1864,7 +1976,11 @@
             }
             toRemove.forEach(k => localStorage.removeItem(k));
             loadNotifPrefs(); // refresh toggles to defaults
-            loadThemePrefs(); // refresh appearance toggles to defaults
+            initTheme();
+            initHighContrast();
+            initFontSize();
+            initAccent();
+            applyCompactView();
             showToast('All preferences reset to defaults', 'info');
         }
 
@@ -1981,64 +2097,162 @@
         }
 
         // ═══════════════════════════════════════════════════════════
-        // APPEARANCE — accent color, text size, compact mode
+        // DISPLAY SETTINGS — theme, contrast, font size, accent, compact view
+        // Uses the exact same fvTheme / fvHighContrast / fvFontSize / fvAccent /
+        // fvCompactView localStorage keys as index.html and upload-request.html,
+        // so changing a setting on any one user-facing page instantly applies
+        // (on next load, or immediately within the same tab) to the others.
         // ═══════════════════════════════════════════════════════════
-        const THEME_KEY = 'fvThemePrefs';
 
-        function loadThemePrefs() {
-            let prefs = {};
-            try { prefs = JSON.parse(localStorage.getItem(THEME_KEY) || '{}'); } catch (_) {}
-
-            const accentFrom = prefs.accentFrom || '#3b82f6';
-            const accentTo   = prefs.accentTo   || '#7c3aed';
-            document.documentElement.style.setProperty('--accent-from', accentFrom);
-            document.documentElement.style.setProperty('--accent-to', accentTo);
-            document.querySelectorAll('.accent-swatch').forEach(sw => {
-                sw.classList.toggle('active', sw.dataset.from.toLowerCase() === accentFrom.toLowerCase());
-            });
-
-            const fontSize = prefs.fontSize || 'medium';
-            document.body.classList.remove('fs-small', 'fs-large');
-            if (fontSize === 'small') document.body.classList.add('fs-small');
-            if (fontSize === 'large') document.body.classList.add('fs-large');
-            document.querySelectorAll('#fontSizeControl button').forEach(b => {
-                b.classList.toggle('active', b.dataset.size === fontSize);
-            });
-
-            document.body.classList.toggle('compact-mode', !!prefs.compact);
-            document.getElementById('compactModeToggle').checked = !!prefs.compact;
+        // ── Light / Dark mode ──
+        function initTheme() {
+            const saved = localStorage.getItem('fvTheme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const isLight = saved ? saved === 'light' : !prefersDark;
+            document.documentElement.classList.toggle('light', isLight);
+            _updateThemeIcon();
+        }
+        function toggleTheme() {
+            const isLight = document.documentElement.classList.toggle('light');
+            localStorage.setItem('fvTheme', isLight ? 'light' : 'dark');
+            _updateThemeIcon();
+            showToast(isLight ? 'Light mode on' : 'Dark mode on', 'info');
+        }
+        function _updateThemeIcon() {
+            const icon = document.getElementById('themeToggleIcon');
+            if (icon) icon.textContent = document.documentElement.classList.contains('light') ? 'dark_mode' : 'light_mode';
         }
 
-        function saveThemePrefs(patch) {
-            let prefs = {};
-            try { prefs = JSON.parse(localStorage.getItem(THEME_KEY) || '{}'); } catch (_) {}
-            prefs = { ...prefs, ...patch };
-            localStorage.setItem(THEME_KEY, JSON.stringify(prefs));
+        // ── High contrast ──
+        function initHighContrast() {
+            if (localStorage.getItem('fvHighContrast') === '1') {
+                document.documentElement.classList.add('high-contrast');
+                _updateHighContrastBtn(true);
+            }
+        }
+        function toggleHighContrast() {
+            const on = document.documentElement.classList.toggle('high-contrast');
+            localStorage.setItem('fvHighContrast', on ? '1' : '0');
+            _updateHighContrastBtn(on);
+            showToast('High contrast ' + (on ? 'enabled' : 'disabled'), 'info');
+        }
+        function _updateHighContrastBtn(on) {
+            const btn = document.getElementById('highContrastToggle');
+            const lbl = document.getElementById('highContrastLabel');
+            if (!btn) return;
+            if (on) {
+                btn.style.background = 'rgba(255,255,255,0.2)';
+                btn.style.color = '#fff';
+                btn.style.borderColor = 'rgba(255,255,255,0.4)';
+            } else {
+                btn.style.background = '';
+                btn.style.color = '';
+                btn.style.borderColor = '';
+            }
+            if (lbl) lbl.textContent = on ? 'On' : 'Off';
         }
 
-        function setAccent(from, to, btn) {
-            document.documentElement.style.setProperty('--accent-from', from);
-            document.documentElement.style.setProperty('--accent-to', to);
-            document.querySelectorAll('.accent-swatch').forEach(sw => sw.classList.remove('active'));
-            btn.classList.add('active');
-            saveThemePrefs({ accentFrom: from, accentTo: to });
+        // ── Font size ──
+        function setFontSize(size) {
+            document.documentElement.classList.remove('fs-small','fs-medium','fs-large');
+            document.documentElement.classList.add('fs-' + size);
+            localStorage.setItem('fvFontSize', size);
+            document.querySelectorAll('.fs-btn').forEach(b => {
+                b.classList.remove('active');
+                b.setAttribute('aria-pressed', 'false');
+            });
+            const btn = document.getElementById('fs-' + size);
+            if (btn) { btn.classList.add('active'); btn.setAttribute('aria-pressed', 'true'); }
+        }
+        function initFontSize() {
+            const saved = localStorage.getItem('fvFontSize') || 'medium';
+            setFontSize(saved);
+        }
+
+        // ── Accent color ──
+        function setAccent(color, light, border, el) {
+            document.documentElement.style.setProperty('--accent', color);
+            document.documentElement.style.setProperty('--accent-light', light);
+            document.documentElement.style.setProperty('--accent-border', border);
+            document.documentElement.style.setProperty('--accent-from', color);
+            document.documentElement.style.setProperty('--accent-to', color);
+            document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+            if (el) el.classList.add('active');
+            localStorage.setItem('fvAccent', JSON.stringify({ color, light, border }));
             showToast('Accent color updated', 'success');
         }
-
-        function setFontSize(size) {
-            document.body.classList.remove('fs-small', 'fs-large');
-            if (size === 'small') document.body.classList.add('fs-small');
-            if (size === 'large') document.body.classList.add('fs-large');
-            document.querySelectorAll('#fontSizeControl button').forEach(b => {
-                b.classList.toggle('active', b.dataset.size === size);
-            });
-            saveThemePrefs({ fontSize: size });
+        function initAccent() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('fvAccent'));
+                if (saved) {
+                    document.documentElement.style.setProperty('--accent', saved.color);
+                    document.documentElement.style.setProperty('--accent-light', saved.light);
+                    document.documentElement.style.setProperty('--accent-border', saved.border);
+                    document.documentElement.style.setProperty('--accent-from', saved.color);
+                    document.documentElement.style.setProperty('--accent-to', saved.color);
+                    document.querySelectorAll('.color-swatch').forEach(s => {
+                        s.classList.toggle('active', s.style.background === saved.color);
+                    });
+                }
+            } catch(e) {}
         }
 
-        function toggleCompactMode(on) {
-            document.body.classList.toggle('compact-mode', on);
-            saveThemePrefs({ compact: on });
+        // ── Compact view ──
+        function applyCompactView() {
+            const on = localStorage.getItem('fvCompactView') === '1';
+            document.body.classList.toggle('compact-view', on);
+            const toggle = document.getElementById('compactToggle');
+            if (toggle) {
+                if (on) {
+                    toggle.style.background = 'rgba(59,130,246,0.25)';
+                    toggle.style.color = 'var(--accent)';
+                    toggle.style.borderColor = 'rgba(59,130,246,0.4)';
+                    toggle.innerHTML = '<span class="material-symbols-outlined" style="font-size:15px">density_small</span> On';
+                } else {
+                    toggle.style.background = 'rgba(255,255,255,0.05)';
+                    toggle.style.color = '#94a3b8';
+                    toggle.style.borderColor = 'rgba(255,255,255,0.1)';
+                    toggle.innerHTML = '<span class="material-symbols-outlined" style="font-size:15px">density_small</span> Off';
+                }
+            }
         }
+        function toggleCompactView() {
+            const on = !document.body.classList.contains('compact-view');
+            localStorage.setItem('fvCompactView', on ? '1' : '0');
+            applyCompactView();
+            showToast(on ? 'Compact view on' : 'Compact view off', 'info');
+        }
+
+        // ── Settings panel open/close ──
+        function toggleSettings() {
+            document.getElementById('settingsPanel').classList.toggle('open');
+        }
+        document.addEventListener('click', e => {
+            const panel = document.getElementById('settingsPanel');
+            if (panel && panel.classList.contains('open') && !panel.contains(e.target) && !e.target.closest('[onclick="toggleSettings()"]')) {
+                panel.classList.remove('open');
+            }
+        });
+
+        // ── Cross-tab/page sync: if another tab (e.g. index.html) changes a
+        //    display setting, reflect it here immediately without a reload ──
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'fvTheme') initTheme();
+            else if (e.key === 'fvHighContrast') {
+                document.documentElement.classList.toggle('high-contrast', e.newValue === '1');
+                _updateHighContrastBtn(e.newValue === '1');
+            }
+            else if (e.key === 'fvFontSize') setFontSize(e.newValue || 'medium');
+            else if (e.key === 'fvAccent') initAccent();
+            else if (e.key === 'fvCompactView') applyCompactView();
+        });
+
+        // ── Init all display settings ──
+        initTheme();
+        initHighContrast();
+        initFontSize();
+        initAccent();
+        applyCompactView();
 
         // ═══════════════════════════════════════════════════════════
         // ACHIEVEMENTS

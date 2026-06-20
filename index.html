@@ -927,7 +927,7 @@
                             <span class="material-symbols-outlined text-primary">email</span>
                             <span>nharnharblay21@gmail.com</span>
                         </a>
-                        <a href="https://wa.me/0279944388" target="_blank" class="flex items-center gap-3 text-slate-300 hover:text-white transition">
+                        <a href="https://wa.me/+233279944388" target="_blank" class="flex items-center gap-3 text-slate-300 hover:text-white transition">
                             <span class="inline-flex w-6 h-6 items-center justify-center rounded-full bg-emerald-500 text-white">
                                 <svg viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
                                     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.272-.099-.47-.149-.67.15-.198.297-.767.967-.94 1.166-.173.198-.347.223-.644.075-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.148-.173.198-.297.297-.495.099-.198.05-.372-.025-.521-.075-.149-.67-1.612-.916-2.213-.242-.581-.487-.502-.67-.512l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.262.489 1.693.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414-.074-.124-.272-.198-.57-.347z"/>
@@ -3871,6 +3871,24 @@ window.isFolderSubscribed = function(folder) {
             icon.textContent = document.documentElement.classList.contains('light') ? 'dark_mode' : 'light_mode';
         }
         initTheme();
+
+        // ── Cross-tab/page sync: if another tab (e.g. profile.html or
+        //    upload-request.html) changes a display setting, reflect it
+        //    here immediately without a reload ──
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'fvTheme') initTheme();
+            else if (e.key === 'fvHighContrast') {
+                document.documentElement.classList.toggle('high-contrast', e.newValue === '1');
+                _updateHighContrastBtn(e.newValue === '1');
+            }
+            else if (e.key === 'fvFontSize') setFontSize(e.newValue || 'medium');
+            else if (e.key === 'fvAccent') initAccent();
+            else if (e.key === 'fvCompactView') {
+                compactView = e.newValue === '1';
+                applyCompactView();
+                renderFileList(getFilteredFiles());
+            }
+        });
 
         // ══ SEARCH EVERYWHERE (ignore active folder filter) ════
         let _searchEverywhereActive = false;
