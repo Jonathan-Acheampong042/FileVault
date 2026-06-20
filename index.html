@@ -1404,6 +1404,25 @@ window.isFolderSubscribed = function(folder) {
         async function checkAuth() {
             const { data: { session } } = await _supabase.auth.getSession();
             if (session) {
+                // ── MFA gate ────────────────────────────────────────────
+                // signInWithPassword() issues a valid aal1 session the instant
+                // the password is correct — BEFORE any TOTP/recovery challenge
+                // runs on login.html. If that modal is ever abandoned (tab
+                // closed, back button, network drop) instead of explicitly
+                // cancelled, the aal1 session is still sitting in localStorage
+                // and getSession() above returns it as "logged in". A session
+                // existing is NOT the same as the user having completed MFA —
+                // treat an unsatisfied aal2 requirement as "signed out" here.
+                try {
+                    const { data: aal } = await _supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+                    if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+                        await _supabase.auth.signOut({ scope: 'local' });
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('Could not verify MFA assurance level:', e.message);
+                }
+
                 let isAdmin = false;
                 try {
                     const { data: profile } = await _supabase

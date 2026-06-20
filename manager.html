@@ -3507,7 +3507,31 @@ create policy "Admins can read audit log"
             window.location.href = 'https://filevault.works/login.html';
             return;
         }
-        
+
+        // ── MFA gate ────────────────────────────────────────────────
+        // signInWithPassword() issues a valid aal1 session the instant the
+        // password is correct — BEFORE any TOTP/recovery challenge runs on
+        // login.html. If that modal is ever abandoned (tab closed, back
+        // button, network drop) instead of explicitly cancelled, the aal1
+        // session is still sitting in localStorage and getSession() above
+        // returns it as "logged in". A session existing is NOT the same as
+        // the user having completed MFA, so we must check the assurance
+        // level directly before granting access to the admin portal.
+        try {
+            const { data: aal } = await _supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+            if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+                await _supabase.auth.signOut({ scope: 'local' });
+                window.location.href = 'https://filevault.works/login.html';
+                return;
+            }
+        } catch (e) {
+            // If we can't determine AAL, fail closed for the admin portal.
+            console.warn('Could not verify MFA assurance level:', e.message);
+            await _supabase.auth.signOut({ scope: 'local' });
+            window.location.href = 'https://filevault.works/login.html';
+            return;
+        }
+
         // Check user role from user_profiles table
         try {
             const { data: profile } = await _supabase
