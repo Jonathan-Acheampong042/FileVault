@@ -1453,11 +1453,41 @@ window.isFolderSubscribed = function(folder) {
                 // and getSession() above returns it as "logged in". A session
                 // existing is NOT the same as the user having completed MFA —
                 // treat an unsatisfied aal2 requirement as "signed out" here.
+                //
+                // EXCEPTION: recovery code sign-in. Supabase has no public API
+                // to upgrade a session to aal2 via a custom recovery code, so
+                // after a valid recovery code the session stays aal1. The Edge
+                // Function stamps a short-lived `mfa_recovery_bypass` flag in
+                // user_profiles. We honour that flag exactly once (then clear it)
+                // so the user gets through without being bounced.
                 try {
                     const { data: aal } = await _supabase.auth.mfa.getAuthenticatorAssuranceLevel();
                     if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
-                        await _supabase.auth.signOut({ scope: 'local' });
-                        return;
+                        // Check for a valid recovery-code bypass flag before signing out
+                        let bypassed = false;
+                        try {
+                            const { data: prof } = await _supabase
+                                .from('user_profiles')
+                                .select('mfa_recovery_bypass')
+                                .eq('id', session.user.id)
+                                .single();
+                            const bypass = prof?.mfa_recovery_bypass;
+                            if (bypass && bypass.expires_at && new Date(bypass.expires_at) > new Date()) {
+                                // Valid bypass — clear it immediately (one-time use) and proceed
+                                bypassed = true;
+                                await _supabase
+                                    .from('user_profiles')
+                                    .update({ mfa_recovery_bypass: null })
+                                    .eq('id', session.user.id);
+                            }
+                        } catch(bypassErr) {
+                            console.warn('Could not check MFA recovery bypass:', bypassErr.message);
+                        }
+
+                        if (!bypassed) {
+                            await _supabase.auth.signOut({ scope: 'local' });
+                            return;
+                        }
                     }
                 } catch (e) {
                     console.warn('Could not verify MFA assurance level:', e.message);

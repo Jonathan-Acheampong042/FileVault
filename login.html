@@ -773,6 +773,7 @@
     let _mfaChallengeId = null;
     let _mfaTargetMode  = null;   // 'student' | 'admin' | null — where to route after verifying
     let _mfaPending     = false;  // true while the MFA modal is open / a challenge is in flight
+    let _mfaVerified    = false;  // true once this session has passed MFA — skip re-challenge
 
     // ═══════════════════════════════════════════════════════════════
     // INIT — check existing session + handle URL tokens
@@ -820,12 +821,14 @@
             _redirecting    = false;
             _navigating     = false;
             _mfaPending     = false;
+            _mfaVerified    = false;
             _mfaFactorId    = null;
             _mfaChallengeId = null;
             _mfaTargetMode  = null;
         }
         if (event === 'SIGNED_IN' && session) {
             if (_inRecoveryFlow && !_recoveryCompleted) return; // don't auto-route while reset is pending
+            if (_mfaPending) return; // MFA challenge is open — verifyMfaCode will call routeUser
             await routeUser(session.user);
         }
     });
@@ -1330,7 +1333,8 @@
     // code-entry modal; the caller should return immediately if this
     // returns true (the sign-in is not yet complete).
     async function checkMfaRequired(mode) {
-        if (_mfaPending) return true; // already handling a challenge from another caller
+        if (_mfaPending)  return true;  // already handling a challenge from another caller
+        if (_mfaVerified) return false; // already passed MFA this session — skip re-challenge
 
         // ── Step 1: list factors FIRST ────────────────────────────────────────
         // We do this before the AAL check because Supabase's project-level MFA
@@ -1433,7 +1437,14 @@
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${session.access_token}`,
                 },
-                body: JSON.stringify({ action: 'verify', code }),
+                // Pass factorId + challengeId so the Edge Function can upgrade
+                // the session to aal2 server-side on our behalf.
+                body: JSON.stringify({
+                    action: 'verify',
+                    code,
+                    factorId: _mfaFactorId,
+                    challengeId: _mfaChallengeId,
+                }),
             });
             result = await res.json();
         } catch(e) {
@@ -1448,8 +1459,31 @@
             return;
         }
 
+        // Warn if running low on recovery codes
+        if (result.warning) {
+            showToast('⚠️ ' + result.warning, 'info');
+        }
+
+        // If the Edge Function was able to upgrade the session to aal2 and
+        // returned new tokens, set them on the client so index.html sees aal2.
+        if (result.session) {
+            try {
+                await _supabase.auth.setSession({
+                    access_token:  result.session.access_token,
+                    refresh_token: result.session.refresh_token,
+                });
+            } catch(e) {
+                console.warn('[MFA Recovery] Could not set upgraded session:', e);
+                // Fall through — the bypass flag in user_profiles is the safety net
+            }
+        }
+
         document.getElementById('mfaChallengeModal').style.display = 'none';
-        _mfaFactorId = null; _mfaChallengeId = null; _mfaTargetMode = null; _mfaPending = false;
+        _mfaVerified    = true;
+        _mfaPending     = false;
+        _mfaFactorId    = null;
+        _mfaChallengeId = null;
+        _mfaTargetMode  = null;
         _redirecting = false;
         const { data: { user } } = await _supabase.auth.getUser();
         await routeUser(user);
@@ -1563,6 +1597,10 @@
         const code = [0,1,2,3,4,5].map(i => (document.getElementById('mfa'+i).value || '').trim()).join('');
         if (code.length !== 6) { setMsg('mfaVerifyMsg','Please enter all 6 digits.', 'error'); return; }
 
+        // Guard against double-submit (auto-fire on last digit + manual button click)
+        const verifyBtn = document.getElementById('mfaVerifyBtn');
+        if (verifyBtn && verifyBtn.disabled) return;
+
         setBtnLoading('mfaVerifyBtn','mfaVerifyText','Verifying…');
         const { data, error } = await _supabase.auth.mfa.verify({
             factorId: _mfaFactorId,
@@ -1578,8 +1616,15 @@
             return;
         }
 
+        // Mark MFA as satisfied BEFORE hiding modal and calling routeUser —
+        // prevents checkMfaRequired() re-triggering if aal2 token hasn't propagated yet.
+        _mfaVerified    = true;
+        _mfaPending     = false;
+        _mfaFactorId    = null;
+        _mfaChallengeId = null;
+        _mfaTargetMode  = null;
+
         document.getElementById('mfaChallengeModal').style.display = 'none';
-        _mfaFactorId = null; _mfaChallengeId = null; _mfaTargetMode = null; _mfaPending = false;
 
         _redirecting = false; // allow routeUser to proceed now that aal2 is satisfied
         await routeUser(data.user);
