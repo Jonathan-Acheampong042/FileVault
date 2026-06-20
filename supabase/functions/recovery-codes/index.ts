@@ -32,6 +32,9 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const ALLOWED_ORIGINS = ["https://filevault.works", "https://www.filevault.works"];
 
+// Computed once per-request (needs the Origin header), then threaded through
+// to every Response — including jsonResponse() and the OPTIONS preflight —
+// so we never accidentally reference a stale/undefined "corsHeaders" const.
 function corsHeadersFor(req: Request) {
   const origin = req.headers.get("Origin") || "";
   return {
@@ -41,10 +44,10 @@ function corsHeadersFor(req: Request) {
   };
 }
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(body: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...cors, "Content-Type": "application/json" },
   });
 }
 
@@ -102,20 +105,22 @@ async function sendRecoveryCodesEmail(email: string, codes: string[]) {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+  const cors = corsHeadersFor(req);
+
+  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405, cors);
 
   try {
     const authHeader = req.headers.get("Authorization") || "";
     const jwt = authHeader.replace("Bearer ", "");
-    if (!jwt) return jsonResponse({ error: "Missing authorization" }, 401);
+    if (!jwt) return jsonResponse({ error: "Missing authorization" }, 401, cors);
 
     // Client scoped to the caller's JWT — used only to confirm identity.
     const callerClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user }, error: userErr } = await callerClient.auth.getUser();
-    if (userErr || !user) return jsonResponse({ error: "Invalid session" }, 401);
+    if (userErr || !user) return jsonResponse({ error: "Invalid session" }, 401, cors);
 
     // Admin client for the actual reads/writes — service role bypasses RLS,
     // which is required since we're updating a security-sensitive column.
@@ -140,7 +145,7 @@ Deno.serve(async (req: Request) => {
           },
           { onConflict: "id" }
         );
-      if (dbErr) return jsonResponse({ error: "Failed to store recovery codes" }, 500);
+      if (dbErr) return jsonResponse({ error: "Failed to store recovery codes" }, 500, cors);
 
       if (user.email) {
         try {
@@ -148,16 +153,16 @@ Deno.serve(async (req: Request) => {
         } catch (emailErr) {
           // Codes are already saved — don't fail the whole request over email,
           // but tell the client so it can warn the user to save them now.
-          return jsonResponse({ codes: plaintextCodes, emailSent: false });
+          return jsonResponse({ codes: plaintextCodes, emailSent: false }, 200, cors);
         }
       }
 
-      return jsonResponse({ codes: plaintextCodes, emailSent: true });
+      return jsonResponse({ codes: plaintextCodes, emailSent: true }, 200, cors);
     }
 
     if (action === "verify") {
       const code = String(body?.code || "").trim().toLowerCase().replace(/\s+/g, "");
-      if (!code) return jsonResponse({ error: "Code required" }, 400);
+      if (!code) return jsonResponse({ error: "Code required" }, 400, cors);
 
       const { data: profile, error: fetchErr } = await admin
         .from("user_profiles")
@@ -165,15 +170,15 @@ Deno.serve(async (req: Request) => {
         .eq("id", user.id)
         .single();
       if (fetchErr || !profile?.recovery_codes_hashed) {
-        return jsonResponse({ valid: false, error: "No recovery codes on file" }, 400);
+        return jsonResponse({ valid: false, error: "No recovery codes on file" }, 400, cors);
       }
 
       const inputHash = await sha256Hex(code);
       const records: { hash: string; used: boolean }[] = profile.recovery_codes_hashed;
       const match = records.find((r) => r.hash === inputHash);
 
-      if (!match) return jsonResponse({ valid: false, error: "Invalid recovery code" }, 401);
-      if (match.used) return jsonResponse({ valid: false, error: "This recovery code has already been used" }, 401);
+      if (!match) return jsonResponse({ valid: false, error: "Invalid recovery code" }, 401, cors);
+      if (match.used) return jsonResponse({ valid: false, error: "This recovery code has already been used" }, 401, cors);
 
       // Mark used atomically by rewriting the full array — fine at this scale
       // (8 codes), and avoids needing a separate codes table / row-level lock.
@@ -182,13 +187,13 @@ Deno.serve(async (req: Request) => {
         .from("user_profiles")
         .update({ recovery_codes_hashed: updated })
         .eq("id", user.id);
-      if (updateErr) return jsonResponse({ valid: false, error: "Failed to record code usage" }, 500);
+      if (updateErr) return jsonResponse({ valid: false, error: "Failed to record code usage" }, 500, cors);
 
-      return jsonResponse({ valid: true });
+      return jsonResponse({ valid: true }, 200, cors);
     }
 
-    return jsonResponse({ error: "Unknown action" }, 400);
+    return jsonResponse({ error: "Unknown action" }, 400, cors);
   } catch (e) {
-    return jsonResponse({ error: "Unexpected error" }, 500);
+    return jsonResponse({ error: "Unexpected error" }, 500, cors);
   }
 });
