@@ -713,6 +713,10 @@
         }
     );
 
+    // Project URL for direct fetch() calls to Edge Functions (supabase-js
+    // doesn't expose a public getter for this — same value as createClient() above).
+    const _SUPABASE_URL = 'https://lvhecpvwpzmstciewziv.supabase.co';
+
     // Keep the checkbox visually in sync with the saved preference on page load
     document.addEventListener('DOMContentLoaded', () => {
         const cb = document.getElementById('sRemember');
@@ -1401,18 +1405,44 @@
         if (!_mfaFactorId || !_mfaChallengeId) { setMsg('mfaRecoveryMsg', 'Session error — please cancel and sign in again.', 'error'); return; }
 
         setBtnLoading('mfaRecoveryBtn','mfaRecoveryText','Verifying…');
-        // Supabase TOTP verify also accepts backup/recovery codes when passed
-        // as the code — the server knows from the factor type whether to treat
-        // it as a TOTP or a one-time recovery code.
-        const { data, error } = await _supabase.auth.mfa.verify({
-            factorId:    _mfaFactorId,
-            challengeId: _mfaChallengeId,
-            code
-        });
+
+        // NOTE: recovery codes are FileVault's own system (user_profiles
+        // .recovery_codes_hashed), not Supabase's built-in MFA backup codes —
+        // generateRecoveryCodes() never registers codes with auth.mfa, so
+        // auth.mfa.verify() would always check against an empty/unrelated
+        // store. Verification has to go through the same Edge Function that
+        // generation does, which hashes the input and marks the match used
+        // so it can never be replayed.
+        //
+        // The MFA challenge is still in an aal1-only state at this point, so
+        // we use the current (pre-aal2) session's JWT to call the function —
+        // the function only needs to know *which user* is asking, which an
+        // aal1 token already proves.
+        const { data: { session } } = await _supabase.auth.getSession();
+        if (!session) {
+            clearBtnLoading('mfaRecoveryBtn','mfaRecoveryText','Verify Recovery Code');
+            setMsg('mfaRecoveryMsg', 'Session error — please cancel and sign in again.', 'error');
+            return;
+        }
+
+        let result;
+        try {
+            const res = await fetch(`${_SUPABASE_URL}/functions/v1/recovery-codes`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ action: 'verify', code }),
+            });
+            result = await res.json();
+        } catch(e) {
+            result = { valid: false, error: 'Network error — please try again.' };
+        }
         clearBtnLoading('mfaRecoveryBtn','mfaRecoveryText','Verify Recovery Code');
 
-        if (error) {
-            setMsg('mfaRecoveryMsg', 'Invalid or already-used recovery code. Please try another.', 'error');
+        if (!result.valid) {
+            setMsg('mfaRecoveryMsg', result.error || 'Invalid or already-used recovery code. Please try another.', 'error');
             document.getElementById('mfaRecoveryInput').value = '';
             document.getElementById('mfaRecoveryInput').focus();
             return;
@@ -1421,39 +1451,51 @@
         document.getElementById('mfaChallengeModal').style.display = 'none';
         _mfaFactorId = null; _mfaChallengeId = null; _mfaTargetMode = null; _mfaPending = false;
         _redirecting = false;
-        await routeUser(data.user);
+        const { data: { user } } = await _supabase.auth.getUser();
+        await routeUser(user);
     }
 
-    // Generate 8 custom random recovery codes (format: xxxx-xxxx-xxxx-xxxx)
-    // and store them as a custom metadata field in the user's profile.
-    // NOTE: Supabase doesn't have a built-in recovery-codes API for TOTP —
-    // these codes are stored in your user_profiles table under recovery_codes
-    // and your app checks them server-side or via an Edge Function.
-    // For maximum security you should hash them before storing.
+    // Generate 8 cryptographically random recovery codes via the
+    // `recovery-codes` Edge Function. The function hashes each code with
+    // SHA-256 before storing it (user_profiles.recovery_codes_hashed) — the
+    // plaintext codes only ever exist here in the browser (shown once, for
+    // copy/download) and in the one email Resend sends. Generating a new
+    // batch invalidates all previous codes, since the column is overwritten.
     let _generatedRecoveryCodes = [];
     async function generateRecoveryCodes() {
         setBtnLoading('genRecoveryBtn','genRecoveryBtnText','Generating…');
         try {
-            // Generate 8 random codes client-side
-            const codes = Array.from({ length: 8 }, () => {
-                const part = () => Math.random().toString(36).slice(2,6).padStart(4,'0');
-                return `${part()}-${part()}-${part()}-${part()}`;
-            });
-            _generatedRecoveryCodes = codes;
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (!session) { showToast('Session expired — please sign in again.', 'error'); return; }
 
-            // Persist to user_profiles table (hashed ideally — here stored as JSON for demo)
-            const { data: { user } } = await _supabase.auth.getUser();
-            if (user) {
-                await _supabase.from('user_profiles')
-                    .upsert({ id: user.id, recovery_codes: JSON.stringify(codes) }, { onConflict: 'id' });
+            const res = await fetch(`${_SUPABASE_URL}/functions/v1/recovery-codes`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ action: 'generate' }),
+            });
+            const result = await res.json();
+            if (!res.ok || result.error) {
+                showToast(result.error || 'Failed to generate codes — please try again.', 'error');
+                return;
             }
+
+            _generatedRecoveryCodes = result.codes;
 
             // Render codes
             const list = document.getElementById('recoveryCodesList');
-            list.innerHTML = codes.map(c =>
+            list.innerHTML = result.codes.map(c =>
                 `<div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:7px 10px;font-family:monospace;font-size:12px;color:#93c5fd;text-align:center">${c}</div>`
             ).join('');
             document.getElementById('recoveryCodesDisplay').style.display = '';
+
+            if (result.emailSent) {
+                showToast('✓ Recovery codes generated and emailed to you.', 'success');
+            } else {
+                showToast('Codes generated, but the email failed to send — save or download them now.', 'info');
+            }
         } catch(e) {
             showToast('Failed to generate codes — please try again.', 'error');
         }
@@ -1629,37 +1671,18 @@
         // redirect is slow, a page refresh doesn't re-enter recovery mode.
         history.replaceState(null, '', window.location.pathname);
 
-        setMsg('resetMsg','✅ Password updated! Signing you in — redirecting to your vault…', 'success');
+        setMsg('resetMsg','✅ Password updated! Redirecting to your vault…', 'success');
 
-        // Sign out of the recovery-specific session, then sign back in with the
-        // new password so the user lands on index.html with a clean, normal session
-        // rather than a recovery-scoped one. This is what prevents "incorrect
-        // password" on next login — the recovery token is fully consumed and
-        // replaced with a regular session.
-        setTimeout(async () => {
-            // Get the user's email before we sign out of the recovery session
-            const { data: { user } } = await _supabase.auth.getUser();
-            const email = user?.email;
-
-            // Sign out of the recovery session so it can't linger
-            await _supabase.auth.signOut({ scope: 'local' });
-
-            if (email) {
-                // Sign back in with the new password to create a fresh normal session
-                const { error: signInErr } = await _supabase.auth.signInWithPassword({
-                    email,
-                    password: newPwd,
-                });
-                if (signInErr) {
-                    // Unlikely — but if sign-in fails, send them to login to do it manually
-                    window.location.href = 'login.html';
-                    return;
-                }
-            }
-
-            sessionStorage.removeItem('fvFilesCache');
-            window.location.href = 'index.html';
-        }, 1800);
+        // updateUser() already upgrades the recovery session into a normal,
+        // fully-valid session in current Supabase — there is no need to sign
+        // out and sign back in. The previous version did that round trip
+        // through a 1800ms setTimeout, and if the re-sign-in step failed for
+        // any reason (network blip, rate limit, etc.) the user got silently
+        // bounced back to login.html with no clear indication anything had
+        // actually succeeded. Redirecting immediately on the session we
+        // already hold removes that failure path entirely.
+        sessionStorage.removeItem('fvFilesCache');
+        window.location.href = 'index.html';
     }
 
     // Cancel an in-progress password reset: sign out of the temporary
