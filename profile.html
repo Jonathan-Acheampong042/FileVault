@@ -1963,10 +1963,12 @@
         // ═══════════════════════════════════════════════════════════
         function loadPinnedFiles() {
             const list = document.getElementById('pinnedList');
-            // fvPinned: object keyed by file URL, value = { name, folder, url }
-            let pinned = {};
-            try { pinned = JSON.parse(localStorage.getItem('fvPinned') || '{}'); } catch(_) {}
-            const entries = Object.values(pinned);
+            // Pinning happens on index.html via toggleBookmark(), which writes
+            // to localStorage key 'fvBookmarks' as an ARRAY: [{url,name,folder,ts}].
+            // This used to read a different key ('fvPinned', object-shaped) that
+            // index.html never actually wrote to, so pins never showed up here.
+            let entries = [];
+            try { entries = JSON.parse(localStorage.getItem('fvBookmarks') || '[]'); } catch(_) {}
 
             if (!entries.length) {
                 list.innerHTML = `<div class="empty-state">
@@ -1994,7 +1996,7 @@
 
         function clearPinnedFiles() {
             if (!confirm('Unpin all files on this device?')) return;
-            localStorage.removeItem('fvPinned');
+            localStorage.removeItem('fvBookmarks');
             loadPinnedFiles();
             showToast('Pinned files cleared', 'info');
         }
@@ -2037,7 +2039,7 @@
         // ═══════════════════════════════════════════════════════════
         function resetAllPrefs() {
             if (!confirm('Reset all FileVault preferences on this device? This clears notification settings, display settings, collections, and cached data. Your account and files are not affected.')) return;
-            const keep = ['fvDownloadHistory', 'fvDLHistory', 'fvPinned']; // preserve history / pins
+            const keep = ['fvDownloadHistory', 'fvDLHistory', 'fvBookmarks']; // preserve history / pins
             const toRemove = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const k = localStorage.key(i);
@@ -2068,8 +2070,8 @@
                     _supabase.from('notifications').select('type, title, body, created_at, read').eq('user_id', user.id),
                 ]);
 
-                let pinned = {};
-                try { pinned = JSON.parse(localStorage.getItem('fvPinned') || '{}'); } catch(_) {}
+                let pinned = [];
+                try { pinned = JSON.parse(localStorage.getItem('fvBookmarks') || '[]'); } catch(_) {}
                 let notifPrefs = {};
                 try { notifPrefs = JSON.parse(localStorage.getItem('fvNotifPrefs') || '{}'); } catch(_) {}
                 let themePrefs = {};
@@ -2091,7 +2093,7 @@
                     file_requests: requestsRes.status === 'fulfilled' ? (requestsRes.value.data || []) : [],
                     download_history: downloadsRes.status === 'fulfilled' ? (downloadsRes.value.data || []) : [],
                     notifications: notifsRes.status === 'fulfilled' ? (notifsRes.value.data || []) : [],
-                    pinned_files: Object.values(pinned),
+                    pinned_files: pinned,
                     preferences: { notifications: notifPrefs, appearance: themePrefs },
                 };
 
@@ -2381,9 +2383,9 @@
                 ? Math.floor((Date.now() - new Date(_currentUser.created_at)) / 86400000)
                 : 0;
 
-            let pinned = {};
-            try { pinned = JSON.parse(localStorage.getItem('fvPinned') || '{}'); } catch(_) {}
-            const pinnedCount = Object.keys(pinned).length;
+            let pinned = [];
+            try { pinned = JSON.parse(localStorage.getItem('fvBookmarks') || '[]'); } catch(_) {}
+            const pinnedCount = pinned.length;
 
             const verified = !!_currentUser.email_confirmed_at;
             const meta = _currentUser.user_metadata || {};

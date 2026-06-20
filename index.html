@@ -327,8 +327,14 @@
             #searchCollapseBtn { display:none;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);cursor:pointer;color:#94a3b8;flex-shrink:0; }
             header.search-active #searchCollapseBtn { display:flex; }
             header.search-active #searchInput { border-color:rgba(59,130,246,0.5); }
-            /* Prevent search bar from squeezing other items off-screen */
+            /* Default (inactive): leave room for icons/profile chip alongside it. */
             #searchWrapper { min-width:0; flex:1 1 80px; }
+            /* Active: headerIcons is hidden, so let the search bar claim all the
+               freed space instead of keeping the same small flex-basis — this
+               is what was causing it to look like it was contracting instead
+               of stretching when search opened. */
+            header.search-active #searchWrapper { flex:1 1 auto; }
+            header.search-active #profileChip { display:none !important; }
             header { gap:6px !important; }
         }
         @media (max-width:480px) {
@@ -801,11 +807,17 @@
                 <div id="searchSuggestions">
                     <!-- injected by JS -->
                 </div>
+                <!-- "Search across all folders" toggle — lives under the input
+                     (not in the header row) so it can't compete with the search
+                     bar for flex space and force it to contract. Only shown
+                     while a search term is active, same as before. -->
+                <div id="searchScopeRow" style="display:none;margin-top:8px">
+                    <button id="searchEverywhereBtn" onclick="toggleSearchEverywhere()" title="Search across all folders" style="display:inline-flex;align-items:center;gap:4px;padding:6px 10px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap">
+                        <span class="material-symbols-outlined" style="font-size:14px">travel_explore</span>
+                        <span id="searchEverywhereLabel">All folders</span>
+                    </button>
+                </div>
             </div>
-            <button id="searchEverywhereBtn" onclick="toggleSearchEverywhere()" title="Search across all folders" style="display:none;flex-shrink:0;align-items:center;gap:4px;padding:6px 10px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap">
-                <span class="material-symbols-outlined" style="font-size:14px">travel_explore</span>
-                <span id="searchEverywhereLabel">All folders</span>
-            </button>
             <!-- Collapse search btn (mobile only, shown when search active) -->
             <button id="searchCollapseBtn" onclick="collapseSearch()" title="Close search">
                 <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
@@ -1293,6 +1305,24 @@ window.isFolderSubscribed = function(folder) {
         const _supabase = supabase.createClient('https://lvhecpvwpzmstciewziv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI');
         // Comment/reaction/collection code reads window._supabase — make sure it's there.
         window._supabase = _supabase;
+
+        // ── OAuth identity-link redirect errors ─────────────────────────
+        // When linkIdentity() (Connect Google/Discord/GitHub on profile.html)
+        // fails — e.g. the provider isn't enabled in the Supabase dashboard —
+        // Supabase redirects back here with #error=...&error_description=...
+        // in the URL hash. Nothing previously read or cleared that hash, so
+        // it just sat visible in the browser's address bar looking like a
+        // stray/broken state. Surface it as a normal toast instead, then
+        // strip it from the URL.
+        (function handleOAuthRedirectError() {
+            const hash = window.location.hash || '';
+            if (!hash.includes('error=')) return;
+            const params = new URLSearchParams(hash.replace(/^#/, ''));
+            const errDesc = params.get('error_description') || params.get('error') || 'Sign-in connection failed.';
+            showToast(decodeURIComponent(errDesc).replace(/\+/g, ' '), 'error', 5000);
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+        })();
+
         let allFiles = [], currentFolder = null, currentSort = 'newest', viewType = 'grid', currentSearchTerm = '', selectedFiles = new Set();
         let _fileRegistry = []; // stores file objects for preview lookup
         let currentTypeFilter = null; // file-type filter state
@@ -4117,10 +4147,11 @@ window.isFolderSubscribed = function(folder) {
         const _origFilterFilesEv = filterFiles;
         filterFiles = function(term) {
             _origFilterFilesEv(term);
-            const btn = document.getElementById('searchEverywhereBtn');
-            if (btn) btn.style.display = term ? 'inline-flex' : 'none';
+            const row = document.getElementById('searchScopeRow');
+            if (row) row.style.display = term ? '' : 'none';
             if (!term && _searchEverywhereActive) {
                 _searchEverywhereActive = false;
+                const btn = document.getElementById('searchEverywhereBtn');
                 if (btn) { btn.style.background='rgba(255,255,255,0.05)'; btn.style.borderColor='rgba(255,255,255,0.12)'; btn.style.color='#94a3b8'; }
                 const lbl = document.getElementById('searchEverywhereLabel');
                 if (lbl) lbl.textContent = 'All folders';
