@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-
   <!-- Main vault — primary landing page -->
   <url>
     <loc>https://filevault.works/index.html</loc>
@@ -8,7 +7,6 @@
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
-
   <!-- Legal pages — rarely change -->
   <url>
     <loc>https://filevault.works/privacy.html</loc>
@@ -16,27 +14,17 @@
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
-
   <url>
     <loc>https://filevault.works/terms.html</loc>
     <lastmod>2026-06-07</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
-
   <!-- Student-facing request form — discoverable, medium priority -->
   <url>
     <loc>https://filevault.works/upload-request.html</loc>
     <lastmod>2026-06-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
-  </url>
-
-  <!-- User profile page — authenticated only, low search value -->
-  <url>
-    <loc>https://filevault.works/profile.html</loc>
-    <lastmod>2026-06-18</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
   </url>
 </urlset>

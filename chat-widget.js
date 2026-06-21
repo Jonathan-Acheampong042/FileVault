@@ -1,22 +1,51 @@
 // FileVault AI Chat Widget
 // Routes through your Node.js backend (server.js on Render) — keeps API key secure
 
-const CHAT_API_URL = window.location.hostname === 'localhost'
-    ? 'http://localhost:3000/api/chat'
-    : 'https://project-one-187u.onrender.com/api/chat';
+const CHAT_API_URL = window.location.hostname === 'localhost' ?
+    'http://localhost:3000/api/chat' :
+    'https://project-one-187u.onrender.com/api/chat';
 
-// ─── PUSH SECRET ACCESSOR ────────────────────────────────────
-// window.pushSecret is set by manager.html (unavoidable — it needs to come
-// from the page). We read it once here into a closure variable so that
-// chat-widget.js internals never reach back to window.pushSecret directly.
-// This doesn't prevent a determined console user from reading window.pushSecret,
-// but it does mean third-party scripts that run AFTER this file executes
-// cannot intercept the value by monkey-patching _getPushSecret.
+// ─── PUSH SECRET ACCESSOR (deprecated) ───────────────────────
+// window.pushSecret is never actually set by manager.html (see server.js's
+// requireManager comments — this was the root cause of a past bug where
+// manager-only endpoints silently failed from the chat widget). Kept as a
+// no-op fallback only so any endpoint that hasn't migrated to Bearer auth
+// yet doesn't throw on an undefined reference; the real auth now happens
+// via _getAuthHeader() below.
 const _getPushSecret = (function() {
-    // Defer the read to call time rather than module load time, because
-    // manager.html may set window.pushSecret after this script is parsed.
-    return function() { return window.pushSecret || ''; };
+    return function() {
+        return window.pushSecret || '';
+    };
 })();
+
+// ─── MANAGER AUTH HEADER ──────────────────────────────────────
+// Mirrors manager.html's own fvManagerFetch() helper: manager-only
+// server.js endpoints (requireManager) verify a real Supabase session
+// token, not a static secret embedded in browser JS (which can never
+// actually be secret). manager.html exposes its live _supabase client on
+// window._supabase for exactly this purpose — see the comment there.
+// Returns { 'Authorization': 'Bearer <token>' } or {} if there's no
+// session (e.g. widget loaded on a non-manager page, or session expired —
+// in that case the server's requireManager will correctly 401, same as if
+// a manager.html button were clicked while signed out).
+async function _getAuthHeader() {
+    try {
+        if (!window._supabase) return {};
+        const {
+            data: {
+                session
+            }
+        } = await window._supabase.auth.getSession();
+        if (session && session.access_token) {
+            return {
+                'Authorization': 'Bearer ' + session.access_token
+            };
+        }
+    } catch (e) {
+        console.warn('[chat-widget] could not get session for auth header:', e.message);
+    }
+    return {};
+}
 // login.html is for admins/managers only — after signing in they land on
 // manager.html, so there is no meaningful login-page context to support.
 // The widget is intentionally excluded from login.html.
@@ -56,17 +85,17 @@ function _getFileData() {
         try {
             const result = _fvFileProvider();
             return {
-                files:  Array.isArray(result && result.files)  ? result.files  : [],
+                files: Array.isArray(result && result.files) ? result.files : [],
                 folder: (result && typeof result.folder === 'string') ? result.folder : null,
             };
-        } catch(e) {}
+        } catch (e) {}
     }
     // Legacy fallback: read globals directly (backwards-compatible)
     return {
-        files:  (typeof window.allFiles    !== 'undefined' && Array.isArray(window.allFiles))
-                    ? window.allFiles : [],
-        folder: (typeof window.currentFolder !== 'undefined' && window.currentFolder)
-                    ? window.currentFolder : null,
+        files: (typeof window.allFiles !== 'undefined' && Array.isArray(window.allFiles)) ?
+            window.allFiles : [],
+        folder: (typeof window.currentFolder !== 'undefined' && window.currentFolder) ?
+            window.currentFolder : null,
     };
 }
 
@@ -287,7 +316,6 @@ OFFLINE SUPPORT:
 
 IMPORTANT: Users do NOT log in or create accounts on the main vault page. The vault (index.html) is for browsing and downloading only. Account creation happens automatically via Google sign-in when accessing the profile page.`;
 
-
 const SYSTEM_PROMPT_MANAGER = `You are the FileVault AI assistant helping an admin or manager on the MANAGER PAGE (manager.html).
 
 STRICT RULES:
@@ -450,7 +478,6 @@ Library Tabs:
 - Scheduled file not going live: the server cron job (api/cron/expiry-check) must be running. You can also publish manually via the Scheduled tab.
 - Broken links in Link Checker: the file exists in the DB but is missing from Storage. Use the Delete button to clean up the DB record, then re-upload.`;
 
-
 // ─── PICK PROMPT FOR CURRENT PAGE ───────────────────────────
 function getSystemPrompt() {
     if (CURRENT_PAGE === 'manager') return SYSTEM_PROMPT_MANAGER;
@@ -480,14 +507,14 @@ const MESSAGES_IN_MEMORY_MAX = 60;
 // ─── HISTORY PERSISTENCE ─────────────────────────────────────
 // Stores the last N message pairs in localStorage so context
 // survives page refreshes and new sessions.
-const HISTORY_KEY    = 'fvChatHistory_' + detectPage(); // page-scoped
-const HISTORY_MAX    = 20; // max messages to persist (10 exchanges)
+const HISTORY_KEY = 'fvChatHistory_' + detectPage(); // page-scoped
+const HISTORY_MAX = 20; // max messages to persist (10 exchanges)
 
 function saveHistory() {
     try {
         const tail = chatMessages.slice(-HISTORY_MAX);
         localStorage.setItem(HISTORY_KEY, JSON.stringify(tail));
-    } catch(e) {}
+    } catch (e) {}
 }
 
 function loadHistory() {
@@ -497,11 +524,15 @@ function loadHistory() {
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
         return parsed.filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string');
-    } catch(e) { return []; }
+    } catch (e) {
+        return [];
+    }
 }
 
 function clearHistory() {
-    try { localStorage.removeItem(HISTORY_KEY); } catch(e) {}
+    try {
+        localStorage.removeItem(HISTORY_KEY);
+    } catch (e) {}
     chatMessages = [];
 }
 
@@ -521,9 +552,12 @@ const OFFLINE_QUEUE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 function _queueOfflineMessage(text) {
     try {
         const q = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
-        q.push({ text, ts: Date.now() });
+        q.push({
+            text,
+            ts: Date.now()
+        });
         localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q));
-    } catch(e) {}
+    } catch (e) {}
     _watchForReconnect();
 }
 
@@ -532,9 +566,9 @@ function _queueOfflineMessage(text) {
 // so stale replays never surface to the user.
 function _dequeueOfflineMessage() {
     try {
-        const q    = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+        const q = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
         if (!q.length) return null;
-        const now  = Date.now();
+        const now = Date.now();
         // Drop stale entries from the front before returning the next live one
         while (q.length && (now - (q[0].ts || 0)) > OFFLINE_QUEUE_MAX_AGE_MS) {
             q.shift(); // expired — silently discard
@@ -546,7 +580,9 @@ function _dequeueOfflineMessage() {
         const item = q.shift();
         localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q));
         return item ? item.text : null;
-    } catch(e) { return null; }
+    } catch (e) {
+        return null;
+    }
 }
 
 function _pendingOfflineCount() {
@@ -555,10 +591,13 @@ function _pendingOfflineCount() {
         return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]')
             .filter(item => (now - (item.ts || 0)) <= OFFLINE_QUEUE_MAX_AGE_MS)
             .length;
-    } catch(e) { return 0; }
+    } catch (e) {
+        return 0;
+    }
 }
 
 let _reconnectWatcherActive = false;
+
 function _watchForReconnect() {
     if (_reconnectWatcherActive) return;
     _reconnectWatcherActive = true;
@@ -566,7 +605,10 @@ function _watchForReconnect() {
     async function _tryFlush() {
         if (!navigator.onLine) return;
         const text = _dequeueOfflineMessage();
-        if (!text) { _reconnectWatcherActive = false; return; }
+        if (!text) {
+            _reconnectWatcherActive = false;
+            return;
+        }
 
         // Brief banner so the student knows the queued message is being sent
         const container = document.getElementById('chatMessages');
@@ -594,10 +636,16 @@ function _watchForReconnect() {
         }
     }
 
-    window.addEventListener('online', _tryFlush, { once: false });
+    window.addEventListener('online', _tryFlush, {
+        once: false
+    });
     // Also poll every 15 s in case the 'online' event misfires (some browsers)
     const poll = setInterval(() => {
-        if (_pendingOfflineCount() === 0) { clearInterval(poll); _reconnectWatcherActive = false; return; }
+        if (_pendingOfflineCount() === 0) {
+            clearInterval(poll);
+            _reconnectWatcherActive = false;
+            return;
+        }
         if (navigator.onLine) _tryFlush();
     }, 15_000);
 }
@@ -610,6 +658,7 @@ function _watchForReconnect() {
     } else {
         setTimeout(_initOfflineFlush, 1500); // wait for widget to initialise
     }
+
     function _initOfflineFlush() {
         if (_pendingOfflineCount() > 0 && navigator.onLine) {
             _watchForReconnect();
@@ -651,25 +700,26 @@ if ('serviceWorker' in navigator) {
 (function _registerPeriodicSync() {
     if (!('serviceWorker' in navigator) || !('periodicSync' in ServiceWorkerRegistration.prototype)) return;
     navigator.serviceWorker.ready.then(reg => {
-        reg.periodicSync.register('cache-prewarm', { minInterval: 12 * 60 * 60 * 1000 })
+        reg.periodicSync.register('cache-prewarm', {
+                minInterval: 12 * 60 * 60 * 1000
+            })
             .catch(() => {
                 // Permission not granted or API not available — silently skip.
             });
     }).catch(() => {});
 })();
 
-
 // ═══════════════════════════════════════════════════════════════
 // FEATURE 9 — SCHEDULED ANNOUNCEMENTS (manager chat commands)
 // ═══════════════════════════════════════════════════════════════
 
-const ANNOUNCE_URL = window.location.hostname === 'localhost'
-    ? 'http://localhost:3000/api/announcements'
-    : 'https://project-one-187u.onrender.com/api/announcements';
+const ANNOUNCE_URL = window.location.hostname === 'localhost' ?
+    'http://localhost:3000/api/announcements' :
+    'https://project-one-187u.onrender.com/api/announcements';
 
-const FILE_REQ_URL = window.location.hostname === 'localhost'
-    ? 'http://localhost:3000/api/file-requests'
-    : 'https://project-one-187u.onrender.com/api/file-requests';
+const FILE_REQ_URL = window.location.hostname === 'localhost' ?
+    'http://localhost:3000/api/file-requests' :
+    'https://project-one-187u.onrender.com/api/file-requests';
 
 // Intercepts manager chat commands for announcements + file requests.
 // Returns true if it handled the message (so sendChatMessage can return early).
@@ -731,9 +781,13 @@ async function _postAnnouncement(message, expiresStr) {
     // rather than being interpolated into onclick strings, which avoids injection risks
     // when message or expires_at contain quotes, braces, or special characters.
     const previewId = 'fvAnnounce_' + Date.now();
-    const expLabel = expires_at
-        ? new Date(expires_at).toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' })
-        : 'Never (permanent)';
+    const expLabel = expires_at ?
+        new Date(expires_at).toLocaleDateString(undefined, {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+        }) :
+        'Never (permanent)';
     const wrap = document.createElement('div');
     wrap.id = previewId;
     wrap.style.cssText = 'display:flex;justify-content:flex-start;margin:4px 0';
@@ -781,7 +835,10 @@ async function _postAnnouncement(message, expiresStr) {
     wrap.appendChild(card);
 
     const container = document.getElementById('chatMessages');
-    if (container) { container.appendChild(wrap); container.scrollTop = container.scrollHeight; }
+    if (container) {
+        container.appendChild(wrap);
+        container.scrollTop = container.scrollHeight;
+    }
 }
 
 async function _confirmAnnouncement(previewId, message, expires_at, secret) {
@@ -790,10 +847,17 @@ async function _confirmAnnouncement(previewId, message, expires_at, secret) {
     if (btnRow) btnRow.innerHTML = '<span style="font-size:12px;color:#94a3b8">Posting…</span>';
 
     try {
+        const authHeader = await _getAuthHeader();
         const res = await fetch(ANNOUNCE_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, expires_at, secret })
+            headers: Object.assign({
+                'Content-Type': 'application/json'
+            }, authHeader),
+            body: JSON.stringify({
+                message,
+                expires_at,
+                secret
+            })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Server error');
@@ -803,7 +867,7 @@ async function _confirmAnnouncement(previewId, message, expires_at, secret) {
             <p style="color:#94a3b8;font-size:12px;margin:0 0 2px">Students will see it on the vault immediately.</p>
             <p style="color:#475569;font-size:10px;margin:0">ID: ${escapeHtml(id)}</p>
         </div>`;
-    } catch(err) {
+    } catch (err) {
         if (card) card.innerHTML = `<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:14px;padding:12px 16px;font-size:13px">
             <p style="color:#fca5a5;font-weight:700;margin:0 0 4px">❌ Failed to post</p>
             <p style="color:#94a3b8;font-size:12px;margin:0">${escapeHtml(err.message)}</p>
@@ -817,15 +881,20 @@ async function _deleteAnnouncement(id) {
     const secret = _getPushSecret();
     const bubble = appendBubble('assistant', `🗑 Deleting announcement <code style="font-size:11px;opacity:0.6">${escapeHtml(id)}</code>…`);
     try {
+        const authHeader = await _getAuthHeader();
         const res = await fetch(ANNOUNCE_URL + '/' + encodeURIComponent(id), {
             method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ secret })
+            headers: Object.assign({
+                'Content-Type': 'application/json'
+            }, authHeader),
+            body: JSON.stringify({
+                secret
+            })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Server error');
         if (bubble) bubble.innerHTML = '✅ <strong>Announcement deleted.</strong> Students will no longer see it.';
-    } catch(err) {
+    } catch (err) {
         if (bubble) bubble.innerHTML = `❌ <strong>Delete failed:</strong> ${escapeHtml(err.message)}`;
     }
     const msgs = document.getElementById('chatMessages');
@@ -848,16 +917,18 @@ async function _showNeverDownloadedFiles() {
     // fvRegisterFileProvider() or set window.allFiles.
     let files = [];
 
-    const { files: providerFiles } = _getFileData();
+    const {
+        files: providerFiles
+    } = _getFileData();
     if (providerFiles.length) {
         files = providerFiles;
     } else {
         // No files available — the panel on manager.html is the reliable
         // entry point (mgrNeverDownloadedSection). Prompt the manager to use it
         // or to wait for the library to finish loading.
-        if (bubble) bubble.innerHTML = '⚠️ <strong>File list not loaded yet.</strong><br>'
-            + '<span style="font-size:12px;color:#94a3b8">Scroll down to the <strong>Never Downloaded</strong> panel on the Manager Portal, '
-            + 'or wait for the Library to finish loading and try again.</span>';
+        if (bubble) bubble.innerHTML = '⚠️ <strong>File list not loaded yet.</strong><br>' +
+            '<span style="font-size:12px;color:#94a3b8">Scroll down to the <strong>Never Downloaded</strong> panel on the Manager Portal, ' +
+            'or wait for the Library to finish loading and try again.</span>';
         if (msgs) msgs.scrollTop = msgs.scrollHeight;
         return;
     }
@@ -881,9 +952,13 @@ async function _showNeverDownloadedFiles() {
     const sorted = [...unused].sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
 
     const rows = sorted.map(f => {
-        const name   = escapeHtml(f.name || f.file_name || 'Unnamed');
+        const name = escapeHtml(f.name || f.file_name || 'Unnamed');
         const folder = f.folder ? `<span style="font-size:10px;color:#475569"> · ${escapeHtml(f.folder)}</span>` : '';
-        const d      = f.created_at ? new Date(f.created_at).toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' }) : '—';
+        const d = f.created_at ? new Date(f.created_at).toLocaleDateString(undefined, {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+        }) : '—';
         const expiry = f.expires_at ? `<span style="color:#f87171;font-size:10px"> · Exp ${new Date(f.expires_at).toLocaleDateString(undefined,{day:'numeric',month:'short'})}</span>` : '';
         return `<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
             <span style="font-size:16px;flex-shrink:0">📄</span>
@@ -903,13 +978,14 @@ async function _showNeverDownloadedFiles() {
 }
 
 async function _showAllFileRequests() {
-    const secret = _getPushSecret();
     const bubble = appendBubble('assistant', '📋 Loading file requests…');
     try {
-        // Pass secret in X-Manager-Secret header — not as a query param, which
-        // would appear in server access logs. Mirrors the server.js fix.
+        // Manager listing requires Authorization: Bearer <token> — server.js
+        // no longer accepts X-Manager-Secret (see its own comment on this
+        // route: same browser-exposure flaw as the old PUSH_SECRET pattern).
+        const authHeader = await _getAuthHeader();
         const res = await fetch(FILE_REQ_URL, {
-            headers: { 'X-Manager-Secret': secret }
+            headers: authHeader
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Server error');
@@ -920,8 +996,11 @@ async function _showAllFileRequests() {
         }
         const rows = reqs.map(r => {
             const statusColor = r.status === 'fulfilled' ? '#4ade80' : r.status === 'declined' ? '#f87171' : '#fbbf24';
-            const statusIcon  = r.status === 'fulfilled' ? '✅' : r.status === 'declined' ? '❌' : '⏳';
-            const d = new Date(r.created_at).toLocaleDateString(undefined, { day:'numeric', month:'short' });
+            const statusIcon = r.status === 'fulfilled' ? '✅' : r.status === 'declined' ? '❌' : '⏳';
+            const d = new Date(r.created_at).toLocaleDateString(undefined, {
+                day: 'numeric',
+                month: 'short'
+            });
             const note = r.note ? `<br><span style="font-size:10px;color:#64748b">Note: ${escapeHtml(r.note)}</span>` : '';
             return `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
                 <div style="display:flex;align-items:flex-start;gap:8px">
@@ -940,7 +1019,7 @@ async function _showAllFileRequests() {
             </div>`;
         }).join('');
         if (bubble) bubble.innerHTML = `<p style="font-weight:700;color:white;margin:0 0 8px">📋 File Requests (${reqs.length})</p><div style="max-height:260px;overflow-y:auto;scrollbar-width:thin">${rows}</div>`;
-    } catch(err) {
+    } catch (err) {
         if (bubble) bubble.innerHTML = `❌ <strong>Failed to load requests:</strong> ${escapeHtml(err.message)}`;
     }
     const msgs = document.getElementById('chatMessages');
@@ -951,16 +1030,23 @@ async function _updateFileRequest(id, status, note) {
     const secret = _getPushSecret();
     const bubble = appendBubble('assistant', `⏳ Updating request…`);
     try {
+        const authHeader = await _getAuthHeader();
         const res = await fetch(FILE_REQ_URL + '/' + encodeURIComponent(id), {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status, note, secret })
+            headers: Object.assign({
+                'Content-Type': 'application/json'
+            }, authHeader),
+            body: JSON.stringify({
+                status,
+                note,
+                secret
+            })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Server error');
         const icon = status === 'fulfilled' ? '✅' : '❌';
         if (bubble) bubble.innerHTML = `${icon} Request marked as <strong>${status}</strong>.`;
-    } catch(err) {
+    } catch (err) {
         if (bubble) bubble.innerHTML = `❌ <strong>Update failed:</strong> ${escapeHtml(err.message)}`;
     }
     const msgs = document.getElementById('chatMessages');
@@ -978,7 +1064,7 @@ function _htmlToMarkdown(html) {
         .replace(/<strong>(.*?)<\/strong>/gi, '**$1**')
         .replace(/<br\s*\/?>/gi, '\n')
         .replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`')
-        .replace(/<[^>]+>/g, '')          // strip remaining tags
+        .replace(/<[^>]+>/g, '') // strip remaining tags
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
@@ -995,18 +1081,29 @@ function _addCopyMarkdownBtn(bubble) {
     btn.title = 'Copy as Markdown';
     btn.style.cssText = 'display:block;margin-top:6px;padding:2px 7px;background:none;border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:rgba(255,255,255,0.3);font-size:9px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:0.03em;transition:color 0.15s,border-color 0.15s';
     btn.textContent = '⎘ MD';
-    btn.onmouseover = () => { btn.style.color = 'rgba(255,255,255,0.7)'; btn.style.borderColor = 'rgba(255,255,255,0.3)'; };
-    btn.onmouseout  = () => { btn.style.color = 'rgba(255,255,255,0.3)'; btn.style.borderColor = 'rgba(255,255,255,0.1)'; };
+    btn.onmouseover = () => {
+        btn.style.color = 'rgba(255,255,255,0.7)';
+        btn.style.borderColor = 'rgba(255,255,255,0.3)';
+    };
+    btn.onmouseout = () => {
+        btn.style.color = 'rgba(255,255,255,0.3)';
+        btn.style.borderColor = 'rgba(255,255,255,0.1)';
+    };
     btn.onclick = async () => {
         const md = _htmlToMarkdown(bubble.innerHTML);
         try {
             await navigator.clipboard.writeText(md);
             btn.textContent = '✓ Copied!';
             btn.style.color = '#4ade80';
-            setTimeout(() => { btn.textContent = '⎘ MD'; btn.style.color = 'rgba(255,255,255,0.3)'; }, 1800);
-        } catch(e) {
+            setTimeout(() => {
+                btn.textContent = '⎘ MD';
+                btn.style.color = 'rgba(255,255,255,0.3)';
+            }, 1800);
+        } catch (e) {
             btn.textContent = '✗ Failed';
-            setTimeout(() => { btn.textContent = '⎘ MD'; }, 1800);
+            setTimeout(() => {
+                btn.textContent = '⎘ MD';
+            }, 1800);
         }
     };
     bubble.appendChild(btn);
@@ -1023,32 +1120,32 @@ const FV_THEME_KEY = 'fvTheme'; // 'dark' | 'light'
 
 const FV_THEMES = {
     dark: {
-        '--fv-bg':          '#020617',
-        '--fv-surface':     '#0f172a',
-        '--fv-surface2':    '#1e293b',
-        '--fv-border':      'rgba(255,255,255,0.09)',
-        '--fv-text':        '#e2e8f0',
-        '--fv-text-muted':  '#94a3b8',
-        '--fv-chat-bg':     'rgba(10,15,30,0.95)',
-        '--fv-bubble-ai':   'rgba(255,255,255,0.05)',
+        '--fv-bg': '#020617',
+        '--fv-surface': '#0f172a',
+        '--fv-surface2': '#1e293b',
+        '--fv-border': 'rgba(255,255,255,0.09)',
+        '--fv-text': '#e2e8f0',
+        '--fv-text-muted': '#94a3b8',
+        '--fv-chat-bg': 'rgba(10,15,30,0.95)',
+        '--fv-bubble-ai': 'rgba(255,255,255,0.05)',
         '--fv-bubble-ai-border': 'rgba(255,255,255,0.09)',
         '--fv-bubble-user': 'rgba(59,130,246,0.22)',
-        '--fv-input-bg':    'rgba(255,255,255,0.06)',
-        '--fv-footer-bg':   'rgba(0,0,0,0.25)',
+        '--fv-input-bg': 'rgba(255,255,255,0.06)',
+        '--fv-footer-bg': 'rgba(0,0,0,0.25)',
     },
     light: {
-        '--fv-bg':          '#f1f5f9',
-        '--fv-surface':     '#ffffff',
-        '--fv-surface2':    '#e2e8f0',
-        '--fv-border':      'rgba(0,0,0,0.1)',
-        '--fv-text':        '#0f172a',
-        '--fv-text-muted':  '#475569',
-        '--fv-chat-bg':     'rgba(248,250,252,0.98)',
-        '--fv-bubble-ai':   'rgba(0,0,0,0.04)',
+        '--fv-bg': '#f1f5f9',
+        '--fv-surface': '#ffffff',
+        '--fv-surface2': '#e2e8f0',
+        '--fv-border': 'rgba(0,0,0,0.1)',
+        '--fv-text': '#0f172a',
+        '--fv-text-muted': '#475569',
+        '--fv-chat-bg': 'rgba(248,250,252,0.98)',
+        '--fv-bubble-ai': 'rgba(0,0,0,0.04)',
         '--fv-bubble-ai-border': 'rgba(0,0,0,0.08)',
         '--fv-bubble-user': 'rgba(59,130,246,0.14)',
-        '--fv-input-bg':    'rgba(0,0,0,0.04)',
-        '--fv-footer-bg':   'rgba(241,245,249,0.9)',
+        '--fv-input-bg': 'rgba(0,0,0,0.04)',
+        '--fv-footer-bg': 'rgba(241,245,249,0.9)',
     }
 };
 
@@ -1093,13 +1190,19 @@ function _applyTheme(theme) {
 
     // Notify the main page (index/manager) so it can react if needed
     document.documentElement.setAttribute('data-fv-theme', theme);
-    window.dispatchEvent(new CustomEvent('fvThemeChange', { detail: { theme } }));
+    window.dispatchEvent(new CustomEvent('fvThemeChange', {
+        detail: {
+            theme
+        }
+    }));
 }
 
 function _toggleTheme() {
     const current = localStorage.getItem(FV_THEME_KEY) || 'dark';
     const next = current === 'dark' ? 'light' : 'dark';
-    try { localStorage.setItem(FV_THEME_KEY, next); } catch(e) {}
+    try {
+        localStorage.setItem(FV_THEME_KEY, next);
+    } catch (e) {}
     _applyTheme(next);
     const btn = document.getElementById('fvThemeToggleBtn');
     if (btn) {
@@ -1140,7 +1243,7 @@ function checkMyRequestStatus() {
             const ids = JSON.parse(localStorage.getItem('fv_request_ids') || '[]');
             if (Array.isArray(ids) && ids.length) token = ids[0];
         }
-    } catch(e) {}
+    } catch (e) {}
     _showRequestStatusModal(token);
 }
 
@@ -1171,7 +1274,10 @@ function _showRequestStatusModal(prefillToken) {
 async function _lookupRequestStatus() {
     const token = (document.getElementById('fvReqToken')?.value || '').trim();
     const result = document.getElementById('fvReqResult');
-    if (!token) { if (result) result.innerHTML = '<p style="color:#fca5a5;font-size:12px">Please enter your token.</p>'; return; }
+    if (!token) {
+        if (result) result.innerHTML = '<p style="color:#fca5a5;font-size:12px">Please enter your token.</p>';
+        return;
+    }
     if (result) result.innerHTML = '<p style="color:#64748b;font-size:12px">Looking up…</p>';
 
     try {
@@ -1181,12 +1287,16 @@ async function _lookupRequestStatus() {
 
         const req = data.request;
         const statusColor = req.status === 'fulfilled' ? '#4ade80' : req.status === 'declined' ? '#f87171' : '#fbbf24';
-        const statusIcon  = req.status === 'fulfilled' ? '✅' : req.status === 'declined' ? '❌' : '⏳';
-        const d = new Date(req.created_at).toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' });
-        const updated = req.updated_at !== req.created_at
-            ? `<p style="font-size:10px;color:#475569;margin:2px 0 0">Updated: ${new Date(req.updated_at).toLocaleDateString(undefined, { day:'numeric', month:'short' })}</p>` : '';
-        const note = req.note
-            ? `<div style="margin-top:10px;padding:10px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.08)"><p style="font-size:11px;color:#94a3b8;margin:0 0 2px;font-weight:700">Manager note</p><p style="font-size:12px;color:#cbd5e1;margin:0">${escapeHtml(req.note)}</p></div>` : '';
+        const statusIcon = req.status === 'fulfilled' ? '✅' : req.status === 'declined' ? '❌' : '⏳';
+        const d = new Date(req.created_at).toLocaleDateString(undefined, {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+        });
+        const updated = req.updated_at !== req.created_at ?
+            `<p style="font-size:10px;color:#475569;margin:2px 0 0">Updated: ${new Date(req.updated_at).toLocaleDateString(undefined, { day:'numeric', month:'short' })}</p>` : '';
+        const note = req.note ?
+            `<div style="margin-top:10px;padding:10px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(255,255,255,0.08)"><p style="font-size:11px;color:#94a3b8;margin:0 0 2px;font-weight:700">Manager note</p><p style="font-size:12px;color:#cbd5e1;margin:0">${escapeHtml(req.note)}</p></div>` : '';
 
         if (result) result.innerHTML = `
             <div style="padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px">
@@ -1204,8 +1314,10 @@ async function _lookupRequestStatus() {
             </div>`;
 
         // Save token for next time
-        try { localStorage.setItem(FV_REQUEST_TOKEN_KEY, token); } catch(e) {}
-    } catch(err) {
+        try {
+            localStorage.setItem(FV_REQUEST_TOKEN_KEY, token);
+        } catch (e) {}
+    } catch (err) {
         if (result) result.innerHTML = `<p style="color:#fca5a5;font-size:12px">❌ ${escapeHtml(err.message)}</p>`;
     }
 }
@@ -1279,7 +1391,9 @@ function openChatSearch() {
     // Close on backdrop click
     modal.addEventListener('click', function(e) {
         if (e.target === modal) modal.style.display = 'none';
-    }, { once: false });
+    }, {
+        once: false
+    });
 }
 
 function _filterChatHistory(query) {
@@ -1288,9 +1402,9 @@ function _filterChatHistory(query) {
     const pairs = window._fvChatSearchPairs || [];
     const q = query.trim().toLowerCase();
 
-    const matched = q
-        ? pairs.filter(p => p.q.toLowerCase().includes(q) || p.a.toLowerCase().includes(q))
-        : pairs;
+    const matched = q ?
+        pairs.filter(p => p.q.toLowerCase().includes(q) || p.a.toLowerCase().includes(q)) :
+        pairs;
 
     if (!matched.length) {
         results.innerHTML = '<p style="color:#64748b;font-size:12px;text-align:center;padding:24px 0">No matches found.</p>';
@@ -1334,6 +1448,31 @@ function _isChatWindowVisible() {
 }
 
 async function _sendProfileMessageNotification(userMessage, aiReply) {
+    // ⚠️ KNOWN BROKEN — architectural mismatch, not just a missing-header bug.
+    // /api/push/notify-one (server.js) is gated by requireManager, so only a
+    // signed-in admin/manager can ever call it successfully. This function
+    // runs on profile.html, where the caller is an ordinary student replying
+    // to the AI chat — they will never have a manager role, so this request
+    // will always be rejected (403) regardless of what auth header is sent.
+    // Sending a real Bearer token here (as the other fixed call sites in
+    // this file now do) would still fail for the same reason a manager-only
+    // button would fail for a student — the endpoint itself isn't meant for
+    // self-service use.
+    //
+    // To actually support "notify me on my own device when I get a reply,"
+    // server.js needs a separate route (e.g. POST /api/push/notify-self)
+    // that verifies the caller's own session and only ever pushes to a
+    // subscription endpoint that row-level-matches that same user — mirroring
+    // how /api/delete-account derives identity from the verified token rather
+    // than trusting a client-supplied id. Until that route exists, this
+    // function will keep failing silently (it already swallows errors below
+    // as non-critical), so this is a feature gap, not an active incident.
+    //
+    // Left as-is rather than partially patched, so it doesn't look "fixed"
+    // while still being non-functional. Removing window.pushSecret since
+    // it's dead either way; not adding a fake Authorization header that
+    // would still 403.
+
     // Only fire if push is supported and a service worker subscription exists
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
     try {
@@ -1342,9 +1481,9 @@ async function _sendProfileMessageNotification(userMessage, aiReply) {
         const sub = await reg.pushManager.getSubscription();
         if (!sub) return; // user hasn't enabled push — skip silently
 
-        const _PUSH_API = window.location.hostname === 'localhost'
-            ? 'http://localhost:3000'
-            : 'https://project-one-187u.onrender.com';
+        const _PUSH_API = window.location.hostname === 'localhost' ?
+            'http://localhost:3000' :
+            'https://project-one-187u.onrender.com';
 
         // Truncate the AI reply to a notification-friendly length
         const snippet = aiReply.replace(/\*\*/g, '').slice(0, 80) + (aiReply.length > 80 ? '…' : '');
@@ -1352,17 +1491,18 @@ async function _sendProfileMessageNotification(userMessage, aiReply) {
 
         await fetch(_PUSH_API + '/api/push/notify-one', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({
                 endpoint: subJson.endpoint,
                 keys: subJson.keys || undefined,
                 title: '💬 FileVault — New Reply',
                 body: snippet,
-                url: '/profile.html',
-                secret: window.pushSecret || ''
+                url: '/profile.html'
             })
         });
-    } catch(e) {
+    } catch (e) {
         // Non-critical — never surface push errors to the user
         console.warn('[profile] message notification failed (non-critical):', e.message);
     }
@@ -1442,9 +1582,15 @@ function initChatWidget() {
     (function() {
         var w = document.getElementById('aiChatWidget');
         if (!w) return;
+
         function hasCustomPos() {
-            try { return !!JSON.parse(localStorage.getItem('fvChatPos') || 'null'); } catch(e) { return false; }
+            try {
+                return !!JSON.parse(localStorage.getItem('fvChatPos') || 'null');
+            } catch (e) {
+                return false;
+            }
         }
+
         function setPos() {
             if (hasCustomPos()) return; // user dragged the widget — leave it where they put it
             w.classList.remove('fv-dragged');
@@ -1464,11 +1610,13 @@ function initChatWidget() {
             // Keep --mobile-nav-height in sync for backToTop / share button too
             document.documentElement.style.setProperty('--mobile-nav-height', navH + 'px');
             w.style.setProperty('bottom', (navH + 12) + 'px', 'important');
-            w.style.setProperty('right',  '16px', 'important');
+            w.style.setProperty('right', '16px', 'important');
         }
         setPos();
         window.addEventListener('resize', setPos);
-        window.addEventListener('orientationchange', function(){ setTimeout(setPos, 150); });
+        window.addEventListener('orientationchange', function() {
+            setTimeout(setPos, 150);
+        });
     })();
 
     // ── Draggable widget: drag the floating button anywhere on screen ──
@@ -1477,15 +1625,21 @@ function initChatWidget() {
         var handle = document.getElementById('chatToggleBtn');
         if (!w || !handle) return;
         var DRAG_KEY = 'fvChatPos'; // localStorage — persists across tabs/sessions,
-                                    // consistent with high-contrast and chat history
-        var dragging = false, moved = false, startX, startY, startLeft, startTop;
+        // consistent with high-contrast and chat history
+        var dragging = false,
+            moved = false,
+            startX, startY, startLeft, startTop;
 
         function clampPos(left, top) {
             var rect = w.getBoundingClientRect();
             var maxLeft = Math.max(4, window.innerWidth - rect.width - 4);
-            var maxTop  = Math.max(4, window.innerHeight - rect.height - 4);
-            return { left: Math.min(Math.max(4, left), maxLeft), top: Math.min(Math.max(4, top), maxTop) };
+            var maxTop = Math.max(4, window.innerHeight - rect.height - 4);
+            return {
+                left: Math.min(Math.max(4, left), maxLeft),
+                top: Math.min(Math.max(4, top), maxTop)
+            };
         }
+
         function applyPosition(left, top) {
             var p = clampPos(left, top);
             w.style.setProperty('--fv-drag-left', p.left + 'px');
@@ -1497,8 +1651,11 @@ function initChatWidget() {
             w.classList.add('fv-dragged');
             return p;
         }
+
         function savePosition(p) {
-            try { localStorage.setItem(DRAG_KEY, JSON.stringify(p)); } catch(e) {}
+            try {
+                localStorage.setItem(DRAG_KEY, JSON.stringify(p));
+            } catch (e) {}
         }
 
         // Restore a previously dragged position
@@ -1507,26 +1664,33 @@ function initChatWidget() {
             if (saved && typeof saved.left === 'number' && typeof saved.top === 'number') {
                 applyPosition(saved.left, saved.top);
             }
-        } catch(e) {}
+        } catch (e) {}
 
         handle.style.cursor = 'grab';
         handle.style.touchAction = 'none';
 
         handle.addEventListener('pointerdown', function(e) {
-            dragging = true; moved = false;
+            dragging = true;
+            moved = false;
             var rect = w.getBoundingClientRect();
-            startX = e.clientX; startY = e.clientY;
-            startLeft = rect.left; startTop = rect.top;
-            try { handle.setPointerCapture(e.pointerId); } catch(err) {}
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = rect.left;
+            startTop = rect.top;
+            try {
+                handle.setPointerCapture(e.pointerId);
+            } catch (err) {}
         });
         handle.addEventListener('pointermove', function(e) {
             if (!dragging) return;
-            var dx = e.clientX - startX, dy = e.clientY - startY;
+            var dx = e.clientX - startX,
+                dy = e.clientY - startY;
             if (!moved && Math.hypot(dx, dy) < 6) return;
             moved = true;
             handle.style.cursor = 'grabbing';
             applyPosition(startLeft + dx, startTop + dy);
         });
+
         function endDrag() {
             if (!dragging) return;
             dragging = false;
@@ -1543,7 +1707,11 @@ function initChatWidget() {
 
         // A drag-release shouldn't also fire the toggleChat() click handler
         handle.addEventListener('click', function(e) {
-            if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; }
+            if (moved) {
+                e.preventDefault();
+                e.stopPropagation();
+                moved = false;
+            }
         }, true);
 
         // ── Double-tap/click to reset to default corner position ──
@@ -1554,9 +1722,13 @@ function initChatWidget() {
             var now = Date.now();
             if (now - _lastTap < 400) {
                 // Second tap within 400 ms — snap back to default
-                try { localStorage.removeItem(DRAG_KEY); } catch(err) {}
+                try {
+                    localStorage.removeItem(DRAG_KEY);
+                } catch (err) {}
                 w.classList.remove('fv-dragged');
-                ['left','top','right','bottom'].forEach(function(p) { w.style.removeProperty(p); });
+                ['left', 'top', 'right', 'bottom'].forEach(function(p) {
+                    w.style.removeProperty(p);
+                });
                 window.dispatchEvent(new Event('resize')); // re-run default placement
                 // Brief "Position reset" toast anchored to the widget
                 var flash = document.createElement('div');
@@ -1564,7 +1736,12 @@ function initChatWidget() {
                 flash.textContent = 'Position reset';
                 w.style.position = w.style.position || 'fixed'; // ensure flash is contained
                 w.appendChild(flash);
-                setTimeout(function() { flash.style.opacity = '0'; setTimeout(function(){ flash.remove(); }, 400); }, 1200);
+                setTimeout(function() {
+                    flash.style.opacity = '0';
+                    setTimeout(function() {
+                        flash.remove();
+                    }, 400);
+                }, 1200);
                 _lastTap = 0;
             } else {
                 _lastTap = now;
@@ -1580,7 +1757,7 @@ function initChatWidget() {
                     applyPosition(p.left, p.top);
                     savePosition(p);
                 }
-            } catch(e) {}
+            } catch (e) {}
         });
     })();
 
@@ -1588,7 +1765,10 @@ function initChatWidget() {
     if (sessionStorage.getItem('fvChatOpen') === '1') {
         const _win = document.getElementById('chatWindow');
         const _ico = document.getElementById('chatBtnIcon');
-        if (_win && _ico) { _win.style.display = 'flex'; _ico.textContent = 'close'; }
+        if (_win && _ico) {
+            _win.style.display = 'flex';
+            _ico.textContent = 'close';
+        }
     }
 
     // ── Restore persisted conversation history ──────────────────
@@ -1666,12 +1846,12 @@ function initChatWidget() {
 
 // ─── UI HELPERS ──────────────────────────────────────────────
 function toggleChat() {
-    const win  = document.getElementById('chatWindow');
+    const win = document.getElementById('chatWindow');
     const icon = document.getElementById('chatBtnIcon');
-    const btn  = document.getElementById('chatToggleBtn');
+    const btn = document.getElementById('chatToggleBtn');
     const isOpen = win.style.display === 'flex';
     win.style.display = isOpen ? 'none' : 'flex';
-    icon.textContent  = isOpen ? 'smart_toy' : 'close';
+    icon.textContent = isOpen ? 'smart_toy' : 'close';
     if (btn) {
         btn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
         btn.setAttribute('aria-label', isOpen ? 'Open FileVault AI chat' : 'Close FileVault AI chat');
@@ -1728,7 +1908,7 @@ function appendTyping() {
 }
 
 function setOnlineStatus(online) {
-    const dot   = document.getElementById('statusDot');
+    const dot = document.getElementById('statusDot');
     const label = document.getElementById('statusLabel');
     if (!dot) return;
     dot.style.background = online ? '#22c55e' : '#f59e0b';
@@ -1738,8 +1918,8 @@ function setOnlineStatus(online) {
 // ─── SEND MESSAGE ─────────────────────────────────────────────
 async function sendChatMessage() {
     const input = document.getElementById('chatInput');
-    const btn   = document.getElementById('chatSendBtn');
-    const text  = input.value.trim();
+    const btn = document.getElementById('chatSendBtn');
+    const text = input.value.trim();
     if (!text) return;
 
     // Clear + disable
@@ -1749,7 +1929,10 @@ async function sendChatMessage() {
     btn.style.opacity = '0.45';
 
     appendBubble('user', escapeHtml(text));
-    chatMessages.push({ role: 'user', content: text });
+    chatMessages.push({
+        role: 'user',
+        content: text
+    });
     // Trim in-memory array so a very long session doesn't bloat the tab
     if (chatMessages.length > MESSAGES_IN_MEMORY_MAX) {
         chatMessages = chatMessages.slice(-MESSAGES_IN_MEMORY_MAX);
@@ -1783,19 +1966,23 @@ async function sendChatMessage() {
         const CONTEXT_WINDOW = 20;
         const history = chatMessages.slice(-(CONTEXT_WINDOW + 1), -1).map(m => ({
             role: m.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: m.content }]
+            parts: [{
+                text: m.content
+            }]
         }));
 
         // 30-second timeout: if the backend hangs (not an error, just silent),
         // the typing bubble would spin forever without this.
         const controller = new AbortController();
-        const timeoutId  = setTimeout(() => controller.abort(), 30_000);
+        const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
         const res = await fetch(CHAT_API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({
-                message:      text,
+                message: text,
                 history,
                 systemPrompt: getSystemPrompt()
             }),
@@ -1806,10 +1993,13 @@ async function sendChatMessage() {
         typing.remove();
 
         if (!res.ok) throw new Error(`Server error ${res.status}`);
-        const data  = await res.json();
+        const data = await res.json();
         const reply = data.text || 'No response received.';
 
-        chatMessages.push({ role: 'assistant', content: reply });
+        chatMessages.push({
+            role: 'assistant',
+            content: reply
+        });
         const aiBubble = appendBubble('assistant', formatAssistantText(reply));
         _addCopyMarkdownBtn(aiBubble);
         saveHistory();
@@ -1851,14 +2041,13 @@ function showChatWidget() {
     // kept for backward compatibility — no longer needed
 }
 
-
 // ─── MANAGER BROADCAST VIA CHAT ───────────────────────────────
 // Called when a manager types "Notify all students about X".
 // Shows an inline confirmation card in the chat before sending.
 
-const PUSH_NOTIFY_URL = window.location.hostname === 'localhost'
-    ? 'http://localhost:3000/api/push/notify'
-    : 'https://project-one-187u.onrender.com/api/push/notify';
+const PUSH_NOTIFY_URL = window.location.hostname === 'localhost' ?
+    'http://localhost:3000/api/push/notify' :
+    'https://project-one-187u.onrender.com/api/push/notify';
 
 function _showBroadcastConfirm(message) {
     const container = document.getElementById('chatMessages');
@@ -1895,14 +2084,15 @@ async function _sendBroadcast(cardId, message) {
     const btnRow = card.querySelector('div[style*="display:flex"]');
     if (btnRow) btnRow.innerHTML = '<span style="font-size:12px;color:#94a3b8">Sending…</span>';
 
-    // Retrieve the PUSH_SECRET stored by the manager page (if any).
-    // manager.html stores it as pushSecret on window, or falls back to empty.
-    const secret = _getPushSecret();
+    const secret = _getPushSecret(); // legacy field, server no longer checks it
 
     try {
+        const authHeader = await _getAuthHeader();
         const res = await fetch(PUSH_NOTIFY_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: Object.assign({
+                'Content-Type': 'application/json'
+            }, authHeader),
             body: JSON.stringify({
                 title: '📢 FileVault Announcement',
                 body: message,
@@ -1935,7 +2125,7 @@ async function _sendTestNotification() {
     try {
         const reg = await navigator.serviceWorker.ready;
         sub = await reg.pushManager.getSubscription();
-    } catch(e) {}
+    } catch (e) {}
 
     if (!sub) {
         appendBubble('assistant', '⚠️ <strong>No push subscription found.</strong><br>Enable notifications first via the 🔔 bell icon on the student page, then try again.');
@@ -1944,10 +2134,9 @@ async function _sendTestNotification() {
         return;
     }
 
-    const secret = _getPushSecret();
-    const NOTIFY_ONE_URL = window.location.hostname === 'localhost'
-        ? 'http://localhost:3000/api/push/notify-one'
-        : 'https://project-one-187u.onrender.com/api/push/notify-one';
+    const NOTIFY_ONE_URL = window.location.hostname === 'localhost' ?
+        'http://localhost:3000/api/push/notify-one' :
+        'https://project-one-187u.onrender.com/api/push/notify-one';
 
     // Show a sending bubble
     const bubble = appendBubble('assistant', '🔔 Sending test notification to your browser…');
@@ -1955,23 +2144,25 @@ async function _sendTestNotification() {
     if (msgs) msgs.scrollTop = msgs.scrollHeight;
 
     try {
+        const authHeader = await _getAuthHeader();
         const res = await fetch(NOTIFY_ONE_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: Object.assign({
+                'Content-Type': 'application/json'
+            }, authHeader),
             body: JSON.stringify({
                 endpoint: sub.endpoint,
                 keys: sub.toJSON().keys,
                 title: '🔔 FileVault Test Notification',
                 body: 'Push notifications are working correctly on your device!',
-                url: '/manager.html',
-                secret
+                url: '/manager.html'
             })
         });
         const data = await res.json();
-        if (bubble) bubble.innerHTML = res.ok
-            ? '✅ <strong>Test notification sent!</strong><br>Check your browser or device notifications — it should arrive within a few seconds.'
-            : `❌ <strong>Failed:</strong> ${escapeHtml(data.error || 'Unknown error')}`;
-    } catch(err) {
+        if (bubble) bubble.innerHTML = res.ok ?
+            '✅ <strong>Test notification sent!</strong><br>Check your browser or device notifications — it should arrive within a few seconds.' :
+            `❌ <strong>Failed:</strong> ${escapeHtml(data.error || 'Unknown error')}`;
+    } catch (err) {
         if (bubble) bubble.innerHTML = `❌ <strong>Network error:</strong> ${escapeHtml(err.message)}`;
     }
     if (msgs) msgs.scrollTop = msgs.scrollHeight;
@@ -1985,7 +2176,7 @@ function askAboutFile(file) {
     if (!file || !file.name) return;
 
     // Open the widget if it's closed
-    const win  = document.getElementById('chatWindow');
+    const win = document.getElementById('chatWindow');
     const icon = document.getElementById('chatBtnIcon');
     if (win && win.style.display !== 'flex') {
         win.style.display = 'flex';
@@ -1995,7 +2186,7 @@ function askAboutFile(file) {
 
     // Build a natural question from file metadata
     const folder = file.folder && file.folder !== 'Root' ? ' in the ' + file.folder + ' folder' : '';
-    const desc   = file.description ? ' (' + file.description + ')' : '';
+    const desc = file.description ? ' (' + file.description + ')' : '';
     const prompt = 'Can you tell me what the file "' + file.name + '"' + folder + desc + ' is likely about, and how it might help me as a student?';
 
     // Drop it into the input and send
@@ -2021,7 +2212,7 @@ function quizAboutFile(file) {
     if (CURRENT_PAGE !== 'user') return;
 
     // Open widget if closed (so the quiz modal has context)
-    const win  = document.getElementById('chatWindow');
+    const win = document.getElementById('chatWindow');
     const icon = document.getElementById('chatBtnIcon');
     if (win && win.style.display !== 'flex') {
         win.style.display = 'flex';
@@ -2050,24 +2241,35 @@ function _saveQuizResult(title, score, total, missed) {
     // missed: array of { q, answer, explanation, yourAnswer }
     try {
         var history = JSON.parse(localStorage.getItem(QUIZ_HISTORY_KEY) || '[]');
-        history.unshift({ title, score, total, pct: Math.round(score/total*100), date: new Date().toISOString(), missed: missed || [] });
+        history.unshift({
+            title,
+            score,
+            total,
+            pct: Math.round(score / total * 100),
+            date: new Date().toISOString(),
+            missed: missed || []
+        });
         if (history.length > QUIZ_HISTORY_MAX) history = history.slice(0, QUIZ_HISTORY_MAX);
         localStorage.setItem(QUIZ_HISTORY_KEY, JSON.stringify(history));
-    } catch(e) {}
+    } catch (e) {}
 }
 
 function _loadQuizHistory() {
-    try { return JSON.parse(localStorage.getItem(QUIZ_HISTORY_KEY) || '[]'); } catch(e) { return []; }
+    try {
+        return JSON.parse(localStorage.getItem(QUIZ_HISTORY_KEY) || '[]');
+    } catch (e) {
+        return [];
+    }
 }
 
 function openQuizHistory() {
     if (CURRENT_PAGE !== 'user') return;
     const history = _loadQuizHistory();
     _showQuizModal();
-    const titleEl    = document.getElementById('fvQuizTitle');
+    const titleEl = document.getElementById('fvQuizTitle');
     const progressEl = document.getElementById('fvQuizProgress');
-    const content    = document.getElementById('fvQuizContent');
-    const actions    = document.getElementById('fvQuizActions');
+    const content = document.getElementById('fvQuizContent');
+    const actions = document.getElementById('fvQuizActions');
     if (titleEl) titleEl.textContent = '📋 Quiz History';
     if (progressEl) progressEl.textContent = history.length ? 'Your last ' + history.length + ' quiz' + (history.length > 1 ? 'zes' : '') : '';
     if (!history.length) {
@@ -2077,13 +2279,16 @@ function openQuizHistory() {
     }
 
     const rows = history.map(function(h, i) {
-        const d    = new Date(h.date);
-        const date = d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
-        const color= h.pct >= 80 ? '#4ade80' : h.pct >= 60 ? '#fbbf24' : '#f87171';
+        const d = new Date(h.date);
+        const date = d.toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric'
+        });
+        const color = h.pct >= 80 ? '#4ade80' : h.pct >= 60 ? '#fbbf24' : '#f87171';
         const icon = h.pct >= 80 ? '🏆' : h.pct >= 60 ? '🎉' : '📚';
-        const missedBadge = h.missed && h.missed.length
-            ? `<button onclick="_showMissedReview(${i})" style="font-size:10px;padding:2px 7px;border:1px solid rgba(239,68,68,0.3);border-radius:6px;background:rgba(239,68,68,0.08);color:#fca5a5;cursor:pointer;font-family:inherit;font-weight:700">Review ${h.missed.length} missed</button>`
-            : '<span style="font-size:10px;color:#4ade80;font-weight:700">Perfect! ✓</span>';
+        const missedBadge = h.missed && h.missed.length ?
+            `<button onclick="_showMissedReview(${i})" style="font-size:10px;padding:2px 7px;border:1px solid rgba(239,68,68,0.3);border-radius:6px;background:rgba(239,68,68,0.08);color:#fca5a5;cursor:pointer;font-family:inherit;font-weight:700">Review ${h.missed.length} missed</button>` :
+            '<span style="font-size:10px;color:#4ade80;font-weight:700">Perfect! ✓</span>';
         return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
             <span style="font-size:18px">${icon}</span>
             <div style="flex:1;min-width:0">
@@ -2106,22 +2311,29 @@ function openQuizHistory() {
 function _showMissedReviewDirect() {
     // Review missed questions from the most recently completed quiz (still in _quizState)
     if (!_quizState || !_quizState.missed) return;
-    const { title, missed } = _quizState;
-    _renderMissedReviewUI(title, missed, function() { _renderQuizResults(); });
+    const {
+        title,
+        missed
+    } = _quizState;
+    _renderMissedReviewUI(title, missed, function() {
+        _renderQuizResults();
+    });
 }
 
 function _showMissedReview(historyIdx) {
     const history = _loadQuizHistory();
     const entry = history[historyIdx];
     if (!entry || !entry.missed || !entry.missed.length) return;
-    _renderMissedReviewUI(entry.title, entry.missed, function() { openQuizHistory(); });
+    _renderMissedReviewUI(entry.title, entry.missed, function() {
+        openQuizHistory();
+    });
 }
 
 function _renderMissedReviewUI(title, missed, onBack) {
-    const titleEl    = document.getElementById('fvQuizTitle');
+    const titleEl = document.getElementById('fvQuizTitle');
     const progressEl = document.getElementById('fvQuizProgress');
-    const content    = document.getElementById('fvQuizContent');
-    const actions    = document.getElementById('fvQuizActions');
+    const content = document.getElementById('fvQuizContent');
+    const actions = document.getElementById('fvQuizActions');
     if (titleEl) titleEl.textContent = '📖 Missed Questions';
     if (progressEl) progressEl.textContent = escapeHtml(title) + ' · ' + missed.length + ' to review';
 
@@ -2137,7 +2349,10 @@ function _renderMissedReviewUI(title, missed, onBack) {
     if (content) content.innerHTML = `<div style="max-height:340px;overflow-y:auto;scrollbar-width:thin">${html}</div>`;
     if (actions) {
         const backFn = '_fvMissedBack_' + Date.now();
-        window[backFn] = function() { delete window[backFn]; onBack(); };
+        window[backFn] = function() {
+            delete window[backFn];
+            onBack();
+        };
         actions.innerHTML = `<button onclick="${backFn}()" style="padding:10px 18px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#94a3b8;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">← Back</button>`;
     }
 }
@@ -2152,7 +2367,10 @@ function openQuiz() {
         showToast('Quiz is available on the main FileVault page.', 'info', 2500);
         return;
     }
-    const { files, folder: activeFolder } = _getFileData();
+    const {
+        files,
+        folder: activeFolder
+    } = _getFileData();
 
     // files may still be loading asynchronously when the user opens the quiz.
     // Detect this by checking whether the list is empty AND the page appears to
@@ -2164,13 +2382,13 @@ function openQuiz() {
         if (!pageFullyLoaded || providerMissing) {
             // Page or file data not ready yet — show a waiting state and retry
             _showQuizModal();
-            const titleEl    = document.getElementById('fvQuizTitle');
+            const titleEl = document.getElementById('fvQuizTitle');
             const progressEl = document.getElementById('fvQuizProgress');
-            const content    = document.getElementById('fvQuizContent');
-            const actions    = document.getElementById('fvQuizActions');
-            if (titleEl)    titleEl.textContent    = 'Loading files…';
+            const content = document.getElementById('fvQuizContent');
+            const actions = document.getElementById('fvQuizActions');
+            if (titleEl) titleEl.textContent = 'Loading files…';
             if (progressEl) progressEl.textContent = 'Just a moment';
-            if (content)    content.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;padding:32px 0;gap:14px">
+            if (content) content.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;padding:32px 0;gap:14px">
                 <div style="display:flex;gap:6px">
                     <span style="width:10px;height:10px;border-radius:50%;background:rgba(59,130,246,0.7);animation:fvBounce 1.2s ease-in-out infinite"></span>
                     <span style="width:10px;height:10px;border-radius:50%;background:rgba(59,130,246,0.7);animation:fvBounce 1.2s ease-in-out 0.2s infinite"></span>
@@ -2178,12 +2396,14 @@ function openQuiz() {
                 </div>
                 <p style="color:#64748b;font-size:13px">Waiting for the file list to load…</p>
             </div>`;
-            if (actions)    actions.innerHTML = `<button onclick="closeQuiz()" style="padding:10px 18px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#94a3b8;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Cancel</button>`;
+            if (actions) actions.innerHTML = `<button onclick="closeQuiz()" style="padding:10px 18px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#94a3b8;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Cancel</button>`;
             // Poll for up to 5 s then give up with a clear message
             var _quizRetries = 0;
             var _quizPoll = setInterval(function() {
                 _quizRetries++;
-                const { files: polledFiles } = _getFileData();
+                const {
+                    files: polledFiles
+                } = _getFileData();
                 if (polledFiles.length) {
                     clearInterval(_quizPoll);
                     openQuiz(); // retry now that files are ready
@@ -2208,10 +2428,10 @@ function openQuiz() {
 
 function _showQuizScopePicker(folder, files) {
     _showQuizModal();
-    const titleEl    = document.getElementById('fvQuizTitle');
+    const titleEl = document.getElementById('fvQuizTitle');
     const progressEl = document.getElementById('fvQuizProgress');
-    const content    = document.getElementById('fvQuizContent');
-    const actions    = document.getElementById('fvQuizActions');
+    const content = document.getElementById('fvQuizContent');
+    const actions = document.getElementById('fvQuizActions');
     const folderCount = files.filter(f => f.folder === folder).length;
     if (titleEl) titleEl.textContent = '🎯 Quiz me on…';
     if (progressEl) progressEl.textContent = 'Choose your scope';
@@ -2246,16 +2466,16 @@ function _runQuiz(files, folder, isFileScoped) {
     function _sanitizeField(str, maxLen) {
         return String(str || '')
             .replace(/[\x00-\x1F\x7F`]/g, ' ') // strip control chars + backticks
-            .replace(/\s+/g, ' ')               // collapse whitespace
+            .replace(/\s+/g, ' ') // collapse whitespace
             .trim()
             .slice(0, maxLen);
     }
     const sample = visible.slice(0, 20).map(f => {
-        const name        = _sanitizeField(f.name,        120);
-        const description = _sanitizeField(f.description,  80);
-        const folderName  = _sanitizeField(f.folder,        40);
-        return name + (description ? ' — ' + description : '')
-                    + (folderName  ? ' ['  + folderName  + ']' : '');
+        const name = _sanitizeField(f.name, 120);
+        const description = _sanitizeField(f.description, 80);
+        const folderName = _sanitizeField(f.folder, 40);
+        return name + (description ? ' — ' + description : '') +
+            (folderName ? ' [' + folderName + ']' : '');
     }).join('\n');
 
     // Show quiz modal / loading state
@@ -2323,30 +2543,46 @@ JSON FORMAT:
 }`;
 
     fetch(CHAT_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: prompt, history: [], systemPrompt: 'You are a JSON-only quiz generator. Output only valid JSON.' })
-    })
-    .then(r => r.json())
-    .then(data => {
-        _setQuizLoading(false);
-        const raw = (data.text || '').replace(/```json|```/g, '').trim();
-        let parsed;
-        try { parsed = JSON.parse(raw); } catch(e) {
-            _setQuizError('Could not parse quiz. Try again!');
-            return;
-        }
-        if (!parsed.questions || !parsed.questions.length) {
-            _setQuizError('Quiz returned empty. Try again!');
-            return;
-        }
-        _quizState = { title: parsed.title || 'FileVault Quiz', questions: parsed.questions, idx: 0, score: 0, answered: false, selectedOption: null, missed: [] };
-        _renderQuizQuestion();
-    })
-    .catch(err => {
-        _setQuizLoading(false);
-        _setQuizError('Network error: ' + err.message);
-    });
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: prompt,
+                history: [],
+                systemPrompt: 'You are a JSON-only quiz generator. Output only valid JSON.'
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            _setQuizLoading(false);
+            const raw = (data.text || '').replace(/```json|```/g, '').trim();
+            let parsed;
+            try {
+                parsed = JSON.parse(raw);
+            } catch (e) {
+                _setQuizError('Could not parse quiz. Try again!');
+                return;
+            }
+            if (!parsed.questions || !parsed.questions.length) {
+                _setQuizError('Quiz returned empty. Try again!');
+                return;
+            }
+            _quizState = {
+                title: parsed.title || 'FileVault Quiz',
+                questions: parsed.questions,
+                idx: 0,
+                score: 0,
+                answered: false,
+                selectedOption: null,
+                missed: []
+            };
+            _renderQuizQuestion();
+        })
+        .catch(err => {
+            _setQuizLoading(false);
+            _setQuizError('Network error: ' + err.message);
+        });
 }
 
 function _showQuizModal() {
@@ -2409,7 +2645,12 @@ function _setQuizError(msg) {
 
 function _renderQuizQuestion() {
     if (!_quizState) return;
-    const { title, questions, idx, score } = _quizState;
+    const {
+        title,
+        questions,
+        idx,
+        score
+    } = _quizState;
     const q = questions[idx];
     const total = questions.length;
     const titleEl = document.getElementById('fvQuizTitle');
@@ -2444,7 +2685,12 @@ function _quizSelectOption(opt) {
     const q = _quizState.questions[_quizState.idx];
     const correct = opt === q.answer;
     if (correct) _quizState.score++;
-    else _quizState.missed.push({ q: q.q, answer: q.answer, explanation: q.explanation || '', yourAnswer: (q.options && q.options[opt]) || opt });
+    else _quizState.missed.push({
+        q: q.q,
+        answer: q.answer,
+        explanation: q.explanation || '',
+        yourAnswer: (q.options && q.options[opt]) || opt
+    });
     // Style option buttons
     document.querySelectorAll('#fvQuizOptions button').forEach(btn => {
         const k = btn.dataset.opt;
@@ -2487,7 +2733,12 @@ function _quizNext() {
 
 function _renderQuizResults() {
     if (!_quizState) return;
-    const { score, questions, title, missed } = _quizState;
+    const {
+        score,
+        questions,
+        title,
+        missed
+    } = _quizState;
     const total = questions.length;
     const pct = Math.round((score / total) * 100);
     const grade = pct >= 80 ? '🏆 Excellent!' : pct >= 60 ? '👍 Good effort!' : '📚 Keep studying!';
@@ -2515,9 +2766,9 @@ function _renderQuizResults() {
     const progressEl = document.getElementById('fvQuizProgress');
     if (progressEl) progressEl.textContent = 'Saved to history';
     if (actions) {
-        const reviewBtn = missed.length
-            ? `<button onclick="_showMissedReviewDirect()" style="padding:10px 14px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);border-radius:12px;color:#fca5a5;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Review ${missed.length} missed</button>`
-            : '';
+        const reviewBtn = missed.length ?
+            `<button onclick="_showMissedReviewDirect()" style="padding:10px 14px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);border-radius:12px;color:#fca5a5;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Review ${missed.length} missed</button>` :
+            '';
         actions.innerHTML = `
         ${reviewBtn}
         <button onclick="_exportQuizResult()" title="Download your quiz result as a text file" aria-label="Export quiz result"
@@ -2530,10 +2781,19 @@ function _renderQuizResults() {
 // ── Feature 14: Export quiz result as a plain-text download ──
 function _exportQuizResult() {
     if (!_quizState) return;
-    const { title, score, questions, missed } = _quizState;
+    const {
+        title,
+        score,
+        questions,
+        missed
+    } = _quizState;
     const total = questions.length;
-    const pct   = Math.round((score / total) * 100);
-    const date  = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+    const pct = Math.round((score / total) * 100);
+    const date = new Date().toLocaleDateString(undefined, {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    });
     const grade = pct >= 80 ? 'Excellent' : pct >= 60 ? 'Good effort' : 'Keep studying';
 
     let lines = [
@@ -2564,14 +2824,19 @@ function _exportQuizResult() {
     lines.push('════════════════════════════════════');
     lines.push('Generated by FileVault · filevault.works');
 
-    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
+    const blob = new Blob([lines.join('\n')], {
+        type: 'text/plain'
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
     a.download = `FileVault_Quiz_${date.replace(/\s/g, '_')}.txt`;
     document.body.appendChild(a);
     a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+    setTimeout(() => {
+        URL.revokeObjectURL(url);
+        a.remove();
+    }, 1000);
 }
 
 if (document.readyState === 'loading') {
@@ -2579,6 +2844,7 @@ if (document.readyState === 'loading') {
 } else {
     initChatWidget();
 }
+
 function enableFullDragging() {
     const container = document.getElementById('aiChatWidget'); // The main wrapper
     const toggleBtn = document.getElementById('chatToggleBtn'); // The closed bubble
@@ -2586,11 +2852,12 @@ function enableFullDragging() {
 
     if (!container) return;
 
-    let isDragging = false, startX, startY, initX, initY;
+    let isDragging = false,
+        startX, startY, initX, initY;
 
     function attachDrag(handle) {
         if (!handle) return;
-        
+
         // Show a grab hand cursor so users know they can move it
         handle.style.cursor = 'grab';
 
@@ -2652,5 +2919,8 @@ function enableFullDragging() {
             enableFullDragging();
         }
     });
-    observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+    observer.observe(document.body || document.documentElement, {
+        childList: true,
+        subtree: true
+    });
 })();

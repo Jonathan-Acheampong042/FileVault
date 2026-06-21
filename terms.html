@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
   script-src 'self' 'unsafe-inline'
     https://cdn.jsdelivr.net
@@ -26,280 +26,346 @@
   manifest-src 'self';
   object-src 'self' https://*.supabase.co blob:;
   base-uri 'self';
-  "/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Terms of Service | FileVault</title>
-  <link rel="icon" href="/filevault%20logo.png" media="(prefers-color-scheme: light)" />
-  <link rel="icon" href="/filevault%20logo.png" media="(prefers-color-scheme: dark)" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  " />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Terms of Service | FileVault</title>
+        <link rel="icon" href="/filevault%20logo.png" media="(prefers-color-scheme: light)" />
+        <link rel="icon" href="/filevault%20logo.png" media="(prefers-color-scheme: dark)" />
+        <style>
+            *,
+            *::before,
+            *::after {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
 
-    :root {
-      --bg: #020617;
-      --surface: #0f172a;
-      --border: #1e293b;
-      --text: #e2e8f0;
-      --muted: #94a3b8;
-      --accent: #6366f1;
-    }
+            :root {
+                --bg: #020617;
+                --surface: #0f172a;
+                --border: #1e293b;
+                --text: #e2e8f0;
+                --muted: #94a3b8;
+                --accent: #6366f1;
+            }
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Inter', system-ui, sans-serif;
-      font-size: 1rem;
-      line-height: 1.75;
-      min-height: 100vh;
-    }
+            body {
+                background: var(--bg);
+                color: var(--text);
+                font-family: 'Inter', system-ui, sans-serif;
+                font-size: 1rem;
+                line-height: 1.75;
+                min-height: 100vh;
+            }
 
-    header {
-      border-bottom: 1px solid var(--border);
-      padding: 1.25rem 2rem;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
+            header {
+                border-bottom: 1px solid var(--border);
+                padding: 1.25rem 2rem;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+            }
 
-    header img {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-    }
+            header img {
+                width: 32px;
+                height: 32px;
+                border-radius: 8px;
+            }
 
-    header a {
-      font-weight: 700;
-      font-size: 1.1rem;
-      color: var(--text);
-      text-decoration: none;
-      letter-spacing: -0.01em;
-    }
+            header a {
+                font-weight: 700;
+                font-size: 1.1rem;
+                color: var(--text);
+                text-decoration: none;
+                letter-spacing: -0.01em;
+            }
 
-    header span {
-      color: var(--muted);
-      font-size: 0.85rem;
-      margin-left: auto;
-    }
+            header span {
+                color: var(--muted);
+                font-size: 0.85rem;
+                margin-left: auto;
+            }
 
-    main {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 3rem 2rem 5rem;
-    }
+            main {
+                max-width: 720px;
+                margin: 0 auto;
+                padding: 3rem 2rem 5rem;
+            }
 
-    .eyebrow {
-      font-size: 0.75rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 0.75rem;
-    }
+            .eyebrow {
+                font-size: 0.75rem;
+                font-weight: 600;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                color: var(--accent);
+                margin-bottom: 0.75rem;
+            }
 
-    h1 {
-      font-size: 2rem;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      line-height: 1.2;
-      margin-bottom: 0.5rem;
-    }
+            h1 {
+                font-size: 2rem;
+                font-weight: 800;
+                letter-spacing: -0.03em;
+                line-height: 1.2;
+                margin-bottom: 0.5rem;
+            }
 
-    .meta {
-      color: var(--muted);
-      font-size: 0.875rem;
-      margin-bottom: 2.5rem;
-      padding-bottom: 2.5rem;
-      border-bottom: 1px solid var(--border);
-    }
+            .meta {
+                color: var(--muted);
+                font-size: 0.875rem;
+                margin-bottom: 2.5rem;
+                padding-bottom: 2.5rem;
+                border-bottom: 1px solid var(--border);
+            }
 
-    h2 {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--text);
-      margin: 2.25rem 0 0.75rem;
-      letter-spacing: -0.01em;
-    }
+            h2 {
+                font-size: 1.1rem;
+                font-weight: 700;
+                color: var(--text);
+                margin: 2.25rem 0 0.75rem;
+                letter-spacing: -0.01em;
+            }
 
-    p {
-      color: var(--muted);
-      margin-bottom: 1rem;
-    }
+            p {
+                color: var(--muted);
+                margin-bottom: 1rem;
+            }
 
-    ul {
-      color: var(--muted);
-      padding-left: 1.25rem;
-      margin-bottom: 1rem;
-    }
+            ul {
+                color: var(--muted);
+                padding-left: 1.25rem;
+                margin-bottom: 1rem;
+            }
 
-    ul li { margin-bottom: 0.4rem; }
+            ul li {
+                margin-bottom: 0.4rem;
+            }
 
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
+            a {
+                color: var(--accent);
+                text-decoration: none;
+            }
 
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.25rem 1.5rem;
-      margin-top: 2.5rem;
-    }
+            a:hover {
+                text-decoration: underline;
+            }
 
-    .card p { margin: 0; font-size: 0.9rem; }
+            .card {
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 1.25rem 1.5rem;
+                margin-top: 2.5rem;
+            }
 
-    footer {
-      text-align: center;
-      color: var(--muted);
-      font-size: 0.8rem;
-      padding: 2rem;
-      border-top: 1px solid var(--border);
-    }
+            .card p {
+                margin: 0;
+                font-size: 0.9rem;
+            }
 
-    #consent-banner {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      padding: 1rem 2rem;
-      display: flex;
-      align-items: center;
-      gap: 1.25rem;
-      flex-wrap: wrap;
-      z-index: 999;
-      font-size: 0.85rem;
-      color: var(--muted);
-    }
+            footer {
+                text-align: center;
+                color: var(--muted);
+                font-size: 0.8rem;
+                padding: 2rem;
+                border-top: 1px solid var(--border);
+            }
 
-    #consent-banner p { margin: 0; flex: 1; min-width: 200px; color: var(--muted); }
+            #consent-banner {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: var(--surface);
+                border-top: 1px solid var(--border);
+                padding: 1rem 2rem;
+                display: flex;
+                align-items: center;
+                gap: 1.25rem;
+                flex-wrap: wrap;
+                z-index: 999;
+                font-size: 0.85rem;
+                color: var(--muted);
+            }
 
-    #consent-banner button {
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      padding: 0.45rem 1.1rem;
-      font-size: 0.85rem;
-      font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
-    }
+            #consent-banner p {
+                margin: 0;
+                flex: 1;
+                min-width: 200px;
+                color: var(--muted);
+            }
 
-    #consent-banner button:hover { opacity: 0.88; }
+            #consent-banner button {
+                background: var(--accent);
+                color: #fff;
+                border: none;
+                border-radius: 8px;
+                padding: 0.45rem 1.1rem;
+                font-size: 0.85rem;
+                font-weight: 600;
+                cursor: pointer;
+                white-space: nowrap;
+            }
 
-    @media print {
-      header, footer, #consent-banner { display: none !important; }
-      body { background: #fff !important; color: #000 !important; font-size: 11pt; }
-      main { max-width: 100%; padding: 0; }
-      h1 { font-size: 18pt; color: #000; }
-      h2 { font-size: 12pt; color: #000; margin-top: 1.5rem; }
-      p, ul, li { color: #222 !important; }
-      a { color: #000 !important; text-decoration: underline; }
-      .card { border: 1px solid #ccc; background: #f9f9f9; }
-      .eyebrow { color: #555; }
-      .meta { border-bottom: 1px solid #ccc; }
-    }
-  </style>
-</head>
-<body>
+            #consent-banner button:hover {
+                opacity: 0.88;
+            }
 
-<header>
-  <img src="/filevault%20logo.png" alt="FileVault logo" />
-  <a href="index.html">FileVault</a>
-  <span>Terms of Service</span>
-</header>
+            @media print {
 
-<main>
-  <p class="eyebrow">Legal</p>
-  <h1>Terms of Service</h1>
-  <!-- UPDATE DATE ON EDIT -->
-  <p class="meta">Last updated: <span id="last-updated"></span> &nbsp;·&nbsp; Applies to filevault.works</p>
+                header,
+                footer,
+                #consent-banner {
+                    display: none !important;
+                }
 
-  <p>These Terms of Service govern your use of FileVault at <a href="https://filevault.works">filevault.works</a>. By using FileVault, you agree to these terms. If you don't agree, please don't use the service.</p>
+                body {
+                    background: #fff !important;
+                    color: #000 !important;
+                    font-size: 11pt;
+                }
 
-  <h2>1. What FileVault Is</h2>
-  <p>FileVault is a platform for sharing academic files — lecture slides, notes, and course materials — with a group of students or users. It is not a general-purpose cloud storage service.</p>
+                main {
+                    max-width: 100%;
+                    padding: 0;
+                }
 
-  <h2>2. Your Account</h2>
-  <p>You sign in using your Google account. You are responsible for any activity that occurs under your account. Do not share your login or allow others to use your account. Your role (student, manager, or admin) is assigned by the platform and determines what features you can access.</p>
+                h1 {
+                    font-size: 18pt;
+                    color: #000;
+                }
 
-  <h2>3. Acceptable Use</h2>
-  <p>You agree to use FileVault only for lawful purposes. You must not:</p>
-  <ul>
-    <li>Upload content that infringes on copyright or intellectual property rights</li>
-    <li>Share files containing malware, viruses, or harmful code</li>
-    <li>Use FileVault to distribute illegal, harmful, or offensive material</li>
-    <li>Attempt to gain unauthorised access to other users' data or the platform's systems</li>
-    <li>Reverse engineer, scrape, or abuse the platform's APIs or backend endpoints</li>
-    <li>Use the AI assistant to generate harmful, deceptive, or abusive content</li>
-    <li>Submit false or spam file requests</li>
-  </ul>
+                h2 {
+                    font-size: 12pt;
+                    color: #000;
+                    margin-top: 1.5rem;
+                }
 
-  <h2>4. Content You Upload</h2>
-  <p>You retain ownership of files you upload. By uploading to FileVault, you grant us a limited licence to store and serve those files to authorised users of the platform. You are solely responsible for ensuring you have the right to share any content you upload.</p>
+                p,
+                ul,
+                li {
+                    color: #222 !important;
+                }
 
-  <h2>5. Content We May Remove</h2>
-  <p>We reserve the right to remove any content that violates these terms, or that we determine in our sole discretion to be inappropriate, harmful, or illegal — without prior notice.</p>
+                a {
+                    color: #000 !important;
+                    text-decoration: underline;
+                }
 
-  <h2>6. File Expiry</h2>
-  <p>Managers may set expiry dates on uploaded files. Expired files are automatically removed from the vault. We are not responsible for any loss resulting from file expiry. You will receive a push notification warning before files you care about expire, if you have notifications enabled.</p>
+                .card {
+                    border: 1px solid #ccc;
+                    background: #f9f9f9;
+                }
 
-  <h2>7. AI Assistant</h2>
-  <p>FileVault includes an AI chat assistant powered by Groq. The assistant is provided as a convenience to help you find files, understand features, and answer general questions. It may make mistakes — do not rely on it for important decisions. We are not responsible for the accuracy of AI-generated responses. Your messages are forwarded to Groq's API; see our <a href="privacy.html">Privacy Policy</a> for details.</p>
+                .eyebrow {
+                    color: #555;
+                }
 
-  <h2>8. Reactions &amp; Ratings</h2>
-  <p>You can add emoji reactions and likes (👍) to files. These are stored against an anonymous local identifier in your browser and are visible as aggregate counts to other users. By reacting to a file, you agree that your reaction (but not your identity) may be visible to others.</p>
+                .meta {
+                    border-bottom: 1px solid #ccc;
+                }
+            }
+        </style>
+    </head>
+    <body>
 
-  <h2>9. Push Notifications</h2>
-  <p>Push notifications are optional. You can enable or disable them at any time from your browser settings or your profile page. We will only send notifications related to FileVault activity (new uploads, fulfilled requests, files expiring soon).</p>
+        <header>
+            <img src="/filevault%20logo.png" alt="FileVault logo" />
+            <a href="index.html">FileVault</a>
+            <span>Terms of Service</span>
+        </header>
 
-  <h2>10. Profile &amp; Account Deletion</h2>
-  <p>Your profile page lets you view your account details and permanently delete your account. Account deletion is irreversible — your auth record, file requests, download history, and uploaded avatars will be removed. If you want to use FileVault again after deletion, you will need to sign in fresh with Google.</p>
+        <main>
+            <p class="eyebrow">Legal</p>
+            <h1>Terms of Service</h1>
+            <!-- UPDATE DATE ON EDIT -->
+            <p class="meta">Last updated: <span id="last-updated"></span> &nbsp;·&nbsp; Applies to filevault.works</p>
 
-  <h2>11. Availability</h2>
-  <p>We aim to keep FileVault available at all times but cannot guarantee uninterrupted access. We may perform maintenance, updates, or experience downtime without notice. We are not liable for any losses caused by service interruptions.</p>
+            <p>These Terms of Service govern your use of FileVault at <a href="https://filevault.works">filevault.works</a>. By using FileVault, you agree to these terms. If you don't agree, please don't use the service.</p>
 
-  <h2>12. Disclaimer of Warranties</h2>
-  <p>FileVault is provided "as is" without warranties of any kind, express or implied. We do not warrant that the service will be error-free, secure, or always available. The AI assistant in particular may produce inaccurate or incomplete information.</p>
+            <h2>1. What FileVault Is</h2>
+            <p>FileVault is a platform for sharing academic files — lecture slides, notes, and course materials — with a group of students or users. It is not a general-purpose cloud storage service.</p>
 
-  <h2>13. Limitation of Liability</h2>
-  <p>To the fullest extent permitted by law, FileVault and its creators shall not be liable for any indirect, incidental, or consequential damages arising from your use of the platform, including loss of data or reliance on AI-generated content.</p>
+            <h2>2. Your Account</h2>
+            <p>You sign in using your Google account. You are responsible for any activity that occurs under your account. Do not share your login or allow others to use your account. Your role (student, manager, or admin) is assigned by the platform and determines what features you can access.</p>
 
-  <h2>14. Changes to These Terms</h2>
-  <p>We may update these terms from time to time. Continued use of FileVault after changes are posted means you accept the updated terms.</p>
+            <h2>3. Acceptable Use</h2>
+            <p>You agree to use FileVault only for lawful purposes. You must not:</p>
+            <ul>
+                <li>Upload content that infringes on copyright or intellectual property rights</li>
+                <li>Share files containing malware, viruses, or harmful code</li>
+                <li>Use FileVault to distribute illegal, harmful, or offensive material</li>
+                <li>Attempt to gain unauthorised access to other users' data or the platform's systems</li>
+                <li>Reverse engineer, scrape, or abuse the platform's APIs or backend endpoints</li>
+                <li>Use the AI assistant to generate harmful, deceptive, or abusive content</li>
+                <li>Submit false or spam file requests</li>
+            </ul>
 
-  <h2>15. Governing Law</h2>
-  <p>These terms are governed by the laws of Ghana. Any disputes shall be subject to the exclusive jurisdiction of the courts of Ghana.</p>
+            <h2>4. Content You Upload</h2>
+            <p>You retain ownership of files you upload. By uploading to FileVault, you grant us a limited licence to store and serve those files to authorised users of the platform. You are solely responsible for ensuring you have the right to share any content you upload.</p>
 
-  <div class="card">
-    <p>Questions about these terms? Contact us at <a href="mailto:nharnharblay21@gmail.com">nharnharblay21@gmail.com</a></p>
-    <p style="color:#334155;font-size:12px;margin-top:12px">FileVault · Built by <span style="color:#475569;font-weight:600">Jonathan Acheampong</span></p>
-  </div>
-</main>
+            <h2>5. Content We May Remove</h2>
+            <p>We reserve the right to remove any content that violates these terms, or that we determine in our sole discretion to be inappropriate, harmful, or illegal — without prior notice.</p>
 
-<footer>
-  &copy; <span id="yr"></span> FileVault &nbsp;·&nbsp; <a href="privacy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="index.html">Back to Vault</a>
-</footer>
+            <h2>6. File Expiry</h2>
+            <p>Managers may set expiry dates on uploaded files. Expired files are automatically removed from the vault. We are not responsible for any loss resulting from file expiry. You will receive a push notification warning before files you care about expire, if you have notifications enabled.</p>
 
-<div id="consent-banner" role="region" aria-label="Storage notice" style="display:none">
-  <p>FileVault uses browser local storage to keep you signed in and save your preferences. No third-party tracking cookies are used. <a href="privacy.html#5-cookies--local-storage">Learn more</a></p>
-  <button id="consent-ok" aria-label="Dismiss storage notice">Got it</button>
-</div>
+            <h2>7. AI Assistant</h2>
+            <p>FileVault includes an AI chat assistant powered by Groq. The assistant is provided as a convenience to help you find files, understand features, and answer general questions. It may make mistakes — do not rely on it for important decisions. We are not responsible for the accuracy of AI-generated responses. Your messages are forwarded to Groq's API; see our <a href="privacy.html">Privacy Policy</a> for details.</p>
 
-<script>
-  // UPDATE THIS DATE WHEN THE TERMS CHANGE <!-- UPDATE DATE ON EDIT -->
-  const lastUpdated = 'June 2026';
-  document.getElementById('last-updated').textContent = lastUpdated;
-  document.getElementById('yr').textContent = new Date().getFullYear();
+            <h2>8. Reactions &amp; Ratings</h2>
+            <p>You can add emoji reactions and likes (👍) to files. These are stored against an anonymous local identifier in your browser and are visible as aggregate counts to other users. By reacting to a file, you agree that your reaction (but not your identity) may be visible to others.</p>
 
-  const banner = document.getElementById('consent-banner');
-  if (!localStorage.getItem('fv_consent')) {
-    banner.style.display = 'flex';
-  }
-  document.getElementById('consent-ok').addEventListener('click', () => {
-    localStorage.setItem('fv_consent', '1');
-    banner.style.display = 'none';
-  });
-</script>
+            <h2>9. Push Notifications</h2>
+            <p>Push notifications are optional. You can enable or disable them at any time from your browser settings or your profile page. We will only send notifications related to FileVault activity (new uploads, fulfilled requests, files expiring soon).</p>
 
-</body>
+            <h2>10. Profile &amp; Account Deletion</h2>
+            <p>Your profile page lets you view your account details and permanently delete your account. Account deletion is irreversible — your auth record, file requests, download history, and uploaded avatars will be removed. If you want to use FileVault again after deletion, you will need to sign in fresh with Google.</p>
+
+            <h2>11. Availability</h2>
+            <p>We aim to keep FileVault available at all times but cannot guarantee uninterrupted access. We may perform maintenance, updates, or experience downtime without notice. We are not liable for any losses caused by service interruptions.</p>
+
+            <h2>12. Disclaimer of Warranties</h2>
+            <p>FileVault is provided "as is" without warranties of any kind, express or implied. We do not warrant that the service will be error-free, secure, or always available. The AI assistant in particular may produce inaccurate or incomplete information.</p>
+
+            <h2>13. Limitation of Liability</h2>
+            <p>To the fullest extent permitted by law, FileVault and its creators shall not be liable for any indirect, incidental, or consequential damages arising from your use of the platform, including loss of data or reliance on AI-generated content.</p>
+
+            <h2>14. Changes to These Terms</h2>
+            <p>We may update these terms from time to time. Continued use of FileVault after changes are posted means you accept the updated terms.</p>
+
+            <h2>15. Governing Law</h2>
+            <p>These terms are governed by the laws of Ghana. Any disputes shall be subject to the exclusive jurisdiction of the courts of Ghana.</p>
+
+            <div class="card">
+                <p>Questions about these terms? Contact us at <a href="mailto:nharnharblay21@gmail.com">nharnharblay21@gmail.com</a></p>
+                <p style="color:#334155;font-size:12px;margin-top:12px">FileVault · Built by <span style="color:#475569;font-weight:600">Jonathan Acheampong</span></p>
+            </div>
+        </main>
+
+        <footer>
+            &copy; <span id="yr"></span> FileVault &nbsp;·&nbsp; <a href="privacy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="index.html">Back to Vault</a>
+        </footer>
+
+        <div id="consent-banner" role="region" aria-label="Storage notice" style="display:none">
+            <p>FileVault uses browser local storage to keep you signed in and save your preferences. No third-party tracking cookies are used. <a href="privacy.html#5-cookies--local-storage">Learn more</a></p>
+            <button id="consent-ok" aria-label="Dismiss storage notice">Got it</button>
+        </div>
+
+        <script>
+            // UPDATE THIS DATE WHEN THE TERMS CHANGE <!-- UPDATE DATE ON EDIT -->
+            const lastUpdated = 'June 2026';
+            document.getElementById('last-updated').textContent = lastUpdated;
+            document.getElementById('yr').textContent = new Date().getFullYear();
+
+            const banner = document.getElementById('consent-banner');
+            if (!localStorage.getItem('fv_consent')) {
+                banner.style.display = 'flex';
+            }
+            document.getElementById('consent-ok').addEventListener('click', () => {
+                localStorage.setItem('fv_consent', '1');
+                banner.style.display = 'none';
+            });
+        </script>
+
+    </body>
 </html>

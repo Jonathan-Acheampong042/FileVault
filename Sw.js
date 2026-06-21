@@ -28,7 +28,7 @@
 const ASSET_VERSION = 1; // ← bump this when precached file contents change
 
 const PRECACHE_URLS = [
-    '/index.html',            // offline fallback page — must be cached on install
+    '/index.html', // offline fallback page — must be cached on install
     '/filevault%20logo.png',
     '/screen.png'
     // chat-widget.js is intentionally excluded from precache: it changes
@@ -39,7 +39,8 @@ const PRECACHE_URLS = [
 // Simple djb2 hash → 8-char hex string, stable across SW restarts.
 const _cacheHash = (function(urls) {
     let h = 5381;
-    for (const s of urls) for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
+    for (const s of urls)
+        for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
     return (h >>> 0).toString(16).padStart(8, '0');
 })(PRECACHE_URLS);
 
@@ -63,7 +64,10 @@ self.addEventListener('install', event => {
             // Tabs that were opened before any SW was registered have
             // self.clients.matchAll returning an empty list, so a brand-new
             // installation (first visit) still activates immediately as expected.
-            return self.clients.matchAll({ type: 'window', includeUncontrolled: false })
+            return self.clients.matchAll({
+                    type: 'window',
+                    includeUncontrolled: false
+                })
                 .then(clients => {
                     if (clients.length === 0) self.skipWaiting();
                     // If clients exist, the SW sits in 'waiting' until all tabs
@@ -100,8 +104,19 @@ self.addEventListener('message', event => {
 
 // ── Push Notifications ──
 self.addEventListener('push', event => {
-    let data = { title: 'FileVault', body: 'New files available!', url: '/', icon: '/filevault%20logo.png', badge: '/filevault%20logo.png' };
-    try { if (event.data) data = { ...data, ...event.data.json() }; } catch(e) {}
+    let data = {
+        title: 'FileVault',
+        body: 'New files available!',
+        url: '/',
+        icon: '/filevault%20logo.png',
+        badge: '/filevault%20logo.png'
+    };
+    try {
+        if (event.data) data = {
+            ...data,
+            ...event.data.json()
+        };
+    } catch (e) {}
     event.waitUntil(
         self.registration.showNotification(data.title, {
             body: data.body,
@@ -109,7 +124,9 @@ self.addEventListener('push', event => {
             badge: data.badge,
             tag: 'filevault-push',
             renotify: true,
-            data: { url: data.url }
+            data: {
+                url: data.url
+            }
         })
     );
 });
@@ -118,7 +135,10 @@ self.addEventListener('notificationclick', event => {
     event.notification.close();
     const url = (event.notification.data && event.notification.data.url) || '/';
     event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+        clients.matchAll({
+            type: 'window',
+            includeUncontrolled: true
+        }).then(list => {
             for (const client of list) {
                 if (client.url.includes(self.location.origin) && 'focus' in client) {
                     client.navigate(url);
@@ -197,8 +217,13 @@ self.addEventListener('fetch', event => {
 self.addEventListener('sync', event => {
     if (event.tag === 'chat-message-sync') {
         event.waitUntil(
-            self.clients.matchAll({ type: 'window', includeUncontrolled: false }).then(clients => {
-                clients.forEach(client => client.postMessage({ type: 'SW_SYNC_CHAT' }));
+            self.clients.matchAll({
+                type: 'window',
+                includeUncontrolled: false
+            }).then(clients => {
+                clients.forEach(client => client.postMessage({
+                    type: 'SW_SYNC_CHAT'
+                }));
             })
         );
     }
@@ -213,11 +238,14 @@ self.addEventListener('sync', event => {
 self.addEventListener('periodicsync', event => {
     if (event.tag === 'cache-prewarm') {
         event.waitUntil(
-            fetch('/index.html', { cache: 'no-store' }).then(response => {
+            fetch('/index.html', {
+                cache: 'no-store'
+            }).then(response => {
                 if (response && response.status === 200) {
                     return caches.open(CACHE_NAME).then(cache => cache.put('/index.html', response));
                 }
-            }).catch(() => { /* network unavailable — skip silently */ })
+            }).catch(() => {
+                /* network unavailable — skip silently */ })
         );
     }
 });
