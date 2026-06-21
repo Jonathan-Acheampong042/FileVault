@@ -70,10 +70,19 @@ self.addEventListener('install', event => {
                 })
                 .then(clients => {
                     if (clients.length === 0) self.skipWaiting();
-                    // If clients exist, the SW sits in 'waiting' until all tabs
-                    // are closed/refreshed. The page can optionally listen for
-                    // the 'waiting' state via navigator.serviceWorker and show
-                    // a "reload to update" prompt to the user.
+                    // ── WHY THE UPDATE BANNER MAY NOT APPEAR ──────────────────
+                    // If the user has FileVault open in more than one tab when a
+                    // new SW installs, the new SW enters 'waiting' and will NOT
+                    // activate (or show the update banner) until every open tab
+                    // is closed or refreshed. This is intentional — it prevents
+                    // a mid-session cache switch from breaking active Supabase
+                    // realtime subscriptions or in-flight uploads.
+                    //
+                    // The user can bypass this immediately by clicking the update
+                    // banner in any tab — that posts SKIP_WAITING (see the message
+                    // handler below), which activates the new SW right away and
+                    // reloads all controlled tabs. If no banner appears, the update
+                    // will take effect automatically once all tabs are closed.
                 });
         })
     );

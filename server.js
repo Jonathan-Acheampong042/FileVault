@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const Groq = require('groq-sdk');
 const webpush = require('web-push');
 const {
@@ -8,6 +9,13 @@ const {
 } = require('@supabase/supabase-js');
 
 const app = express();
+
+// Sets a sensible set of HTTP security headers automatically:
+// X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security,
+// X-XSS-Protection, Referrer-Policy, and more. Applied before all routes.
+// helmet's default CSP is disabled because each HTML page already defines
+// its own via <meta http-equiv="Content-Security-Policy">.
+app.use(helmet({ contentSecurityPolicy: false }));
 
 // ── Startup environment checks ───────────────────────────────────────────────
 if (!process.env.SUPABASE_ANON_KEY) {
@@ -117,22 +125,55 @@ const _supa = (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
 // the full user list and matches client-side. Capped at 2000 users total,
 // which comfortably covers a single class/cohort; revisit if FileVault
 // ever serves a much larger user base.
-async function _listAllUserIds() {
-    const ids = [];
-    if (!_supa) return ids;
-    for (let page = 1; page <= 20; page++) {
-        const {
-            data,
-            error
-        } = await _supa.auth.admin.listUsers({
-            page,
-            perPage: 100
-        });
-        if (error || !data || !data.users || !data.users.length) break;
-        data.users.forEach(u => ids.push(u.id));
-        if (data.users.length < 100) break; // last page
+// _listAllUserIds() replaced by _fanOutNotification() below.
+// Previously this paged through up to 2000 auth users client-side — O(users)
+// API calls, a silent 2000-user cap, and state lost on every server restart.
+// The new approach uses a single Supabase RPC (fan_out_notification) that runs
+// an INSERT ... SELECT directly in Postgres: no row cap, no round-trips
+// proportional to user count. Falls back to the old paging path automatically
+// if the RPC hasn't been created yet, so existing deployments keep working.
+//
+// Run this once in the Supabase SQL editor to enable the fast path:
+//
+//   create or replace function fan_out_notification(
+//     p_type text, p_title text, p_body text
+//   ) returns int language plpgsql security definer as $$
+//   declare inserted int;
+//   begin
+//     insert into public.notifications (user_id, type, title, body)
+//     select id, p_type, p_title, p_body from auth.users;
+//     get diagnostics inserted = row_count;
+//     return inserted;
+//   end;
+//   $$;
+async function _fanOutNotification(type, title, body) {
+    if (!_supa) return 0;
+
+    // Fast path: single SQL round-trip via RPC
+    const { data: count, error: rpcErr } = await _supa.rpc('fan_out_notification', {
+        p_type: type,
+        p_title: title,
+        p_body: body,
+    });
+    if (!rpcErr) {
+        console.log(`[fan-out] Notified ${count} user(s) via RPC`);
+        return count || 0;
     }
-    return ids;
+
+    // Fallback: page through auth.users (works without the RPC)
+    console.warn('[fan-out] RPC unavailable, falling back to paged insert:', rpcErr.message);
+    const ids = [];
+    for (let page = 1; page <= 20; page++) {
+        const { data, error } = await _supa.auth.admin.listUsers({ page, perPage: 100 });
+        if (error || !data?.users?.length) break;
+        data.users.forEach(u => ids.push(u.id));
+        if (data.users.length < 100) break;
+    }
+    if (!ids.length) return 0;
+    const rows = ids.map(id => ({ user_id: id, type, title, body }));
+    const { error: insertErr } = await _supa.from('notifications').insert(rows);
+    if (insertErr) throw insertErr;
+    return rows.length;
 }
 
 async function _findUserIdByEmail(email) {
@@ -1039,20 +1080,9 @@ app.post('/api/announcements', requireManager, async (req, res) => {
     //    since the announcement itself was already created successfully.
     if (resolvedStatus === 'published' && _supa) {
         try {
-            const userIds = await _listAllUserIds();
-            if (userIds.length) {
-                const rows = userIds.map(id => ({
-                    user_id: id,
-                    type: 'announcement',
-                    title: 'New announcement',
-                    body: data.message.length > 120 ? data.message.slice(0, 117) + '…' : data.message,
-                }));
-                const {
-                    error: notifErr
-                } = await _supa.from('notifications').insert(rows);
-                if (notifErr) throw notifErr;
-                console.log(`[announcements] Notified ${rows.length} user(s) via inbox`);
-            }
+            const body = data.message.length > 120 ? data.message.slice(0, 117) + '…' : data.message;
+            const notified = await _fanOutNotification('announcement', 'New announcement', body);
+            console.log(`[announcements] Notified ${notified} user(s) via inbox`);
         } catch (notifyErr) {
             console.warn('[announcements] Inbox fan-out failed (non-fatal):', notifyErr.message);
         }
@@ -1085,28 +1115,10 @@ app.post('/api/notify-announcement', requireManager, async (req, res) => {
         });
 
     try {
-        const userIds = await _listAllUserIds();
-        if (!userIds.length) return res.json({
-            ok: true,
-            notified: 0
-        });
         const trimmed = message.trim();
-        const rows = userIds.map(id => ({
-            user_id: id,
-            type: 'announcement',
-            title: 'New announcement',
-            body: trimmed.length > 120 ? trimmed.slice(0, 117) + '…' : trimmed,
-        }));
-        const {
-            error: notifErr
-        } = await _supa.from('notifications').insert(rows);
-        if (notifErr) return res.status(500).json({
-            error: notifErr.message
-        });
-        res.json({
-            ok: true,
-            notified: rows.length
-        });
+        const body = trimmed.length > 120 ? trimmed.slice(0, 117) + '…' : trimmed;
+        const notified = await _fanOutNotification('announcement', 'New announcement', body);
+        res.json({ ok: true, notified });
     } catch (e) {
         res.status(500).json({
             error: e.message
@@ -1178,86 +1190,45 @@ app.get('/api/cron/announcement-cleanup', async (req, res) => {
 // Existing columns used: id, filename, description, reason, folder, status,
 //   requester_email, subscriber_endpoint, subscriber_keys, created_at.
 
-// GET /api/file-requests?token=<id>
-// Public student lookup — no secret required.
-// Returns only safe fields; never exposes requester_email, subscriber keys, etc.
-app.get('/api/file-requests', async (req, res) => {
-    // ── Student branch: token query param present ─────────────────────────────
-    if (req.query.token) {
-        if (!_supa) return res.status(503).json({
-            error: 'Supabase not configured'
-        });
-        const id = req.query.token.trim();
-        // Validate it looks like a UUID to avoid sending arbitrary strings to Supabase
-        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
-            return res.status(400).json({
-                error: 'Invalid token format'
-            });
-        }
-        const {
-            data,
-            error
-        } = await _supa
-            .from('upload_requests')
-            .select('id, status, manager_note, description, folder, created_at, updated_at')
-            .eq('id', id)
-            .maybeSingle();
-        if (error) return res.status(500).json({
-            error: error.message
-        });
-        if (!data) return res.status(404).json({
-            error: 'Request not found'
-        });
-        return res.json({
-            request: data
-        });
-    }
-
-    // ── Manager branch: full listing, requires manager auth ──────────────────
-    // GET /api/file-requests (no token param)
-    // Manager listing: pass the user's Supabase access token in the
-    // Authorization header (same as every other manager endpoint — see
-    // requireManager). This used to accept a static X-Manager-Secret header,
-    // which has the same browser-exposure flaw as the old PUSH_SECRET
-    // pattern elsewhere in this file.
-
+// GET /api/file-requests?token=<uuid>
+// Public student status lookup — no auth required.
+// Returns only safe fields; never exposes requester_email or subscriber keys.
+app.get('/api/file-requests', async (req, res, next) => {
+    if (!req.query.token) return next(); // no token → fall through to manager branch
     if (!_supa) return res.status(503).json({
         error: 'Supabase not configured'
     });
-
-    const authHeader = req.headers.authorization || '';
-    const accessToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    if (!accessToken) return res.status(401).json({
-        error: 'Missing access token'
-    });
-
-    const {
-        data: userData,
-        error: userErr
-    } = await _supa.auth.getUser(accessToken);
-    if (userErr || !userData?.user) {
-        return res.status(401).json({
-            error: 'Invalid or expired session. Please sign in again.'
+    const id = req.query.token.trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+        return res.status(400).json({
+            error: 'Invalid token format'
         });
     }
     const {
-        data: profile,
-        error: profileErr
+        data,
+        error
     } = await _supa
-        .from('user_profiles').select('role').eq('id', userData.user.id).single();
-    if (profileErr) {
-        return res.status(403).json({
-            error: 'Could not verify manager access.'
-        });
-    }
-    const isManager = profile?.role === 'admin' || profile?.role === 'manager' ||
-        MANAGER_EMAIL_ALLOWLIST.includes(userData.user.email || '');
-    if (!isManager) {
-        return res.status(403).json({
-            error: 'Manager access required.'
-        });
-    }
+        .from('upload_requests')
+        .select('id, status, manager_note, description, folder, created_at, updated_at')
+        .eq('id', id)
+        .maybeSingle();
+    if (error) return res.status(500).json({
+        error: error.message
+    });
+    if (!data) return res.status(404).json({
+        error: 'Request not found'
+    });
+    return res.json({
+        request: data
+    });
+});
 
+// GET /api/file-requests (no token param) — full manager listing.
+// requireManager handles all auth — no duplicated logic needed here.
+app.get('/api/file-requests', requireManager, async (req, res) => {
+    if (!_supa) return res.status(503).json({
+        error: 'Supabase not configured'
+    });
     const {
         data,
         error

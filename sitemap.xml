@@ -3,14 +3,14 @@
   <!-- Main vault — primary landing page -->
   <url>
     <loc>https://filevault.works/index.html</loc>
-    <lastmod>2026-06-07</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <!-- Legal pages — rarely change -->
   <url>
     <loc>https://filevault.works/privacy.html</loc>
-    <lastmod>2026-06-07</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
@@ -23,7 +23,7 @@
   <!-- Student-facing request form — discoverable, medium priority -->
   <url>
     <loc>https://filevault.works/upload-request.html</loc>
-    <lastmod>2026-06-18</lastmod>
+    <lastmod>2026-06-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>

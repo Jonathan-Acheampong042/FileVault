@@ -1200,7 +1200,7 @@
                     </div>
                     <div style="position:relative">
                         <span class="auth-input-icon material-symbols-outlined">password</span>
-                        <input type="text" id="mfaRecoveryInput" class="auth-input" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" style="font-family:monospace;letter-spacing:0.08em" onkeydown="if(event.key==='Enter')verifyMfaRecovery()" />
+                        <input type="text" id="mfaRecoveryInput" class="auth-input" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" style="font-family:monospace;letter-spacing:0.08em" onkeydown="if(event.key==='Enter')verifyMfaRecovery()" oninput="fmtRecoveryCode(this)" />
                     </div>
                     <p style="font-size:11px;color:#475569;margin:8px 2px 0">Each recovery code can only be used once.</p>
                     <button class="btn-primary" id="mfaRecoveryBtn" onclick="verifyMfaRecovery()" style="margin-top:16px;background:linear-gradient(135deg,#d97706,#b45309)">
@@ -2311,6 +2311,25 @@
                     if (tab === 'recovery') setTimeout(() => document.getElementById('mfaRecoveryInput')?.focus(), 50);
                     if (tab === 'totp') setTimeout(() => document.getElementById('mfa0')?.focus(), 50);
                 }
+
+                // Auto-inserts hyphens after every 4 chars as the user types
+                // (e.g. "abcd" → "abcd-"), but leaves pasted values untouched
+                // so a full "xxxx-xxxx-xxxx-xxxx" paste works without duplication.
+                function fmtRecoveryCode(input) {
+                    const start = input.selectionStart;
+                    const before = input.value;
+                    // Strip all hyphens, keep only the raw chars
+                    const raw = before.replace(/-/g, '');
+                    // Re-insert hyphens after every 4th char
+                    const formatted = raw.match(/.{1,4}/g)?.join('-') ?? raw;
+                    if (formatted !== before) {
+                        input.value = formatted;
+                        // Restore cursor: account for any hyphen that was just inserted
+                        const added = formatted.length - before.length;
+                        input.setSelectionRange(start + added, start + added);
+                    }
+                }
+                window.fmtRecoveryCode = fmtRecoveryCode;
 
                 async function verifyMfaRecovery() {
                     const code = (document.getElementById('mfaRecoveryInput').value || '').trim().replace(/\s+/g, '');

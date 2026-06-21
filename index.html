@@ -216,6 +216,101 @@
                 box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.3);
             }
 
+            /* ── Notification drawer (slide-in from right) ── */
+            #notifDrawerOverlay {
+                position: fixed;
+                inset: 0;
+                z-index: 1100;
+                background: rgba(2, 6, 23, 0.55);
+                backdrop-filter: blur(4px);
+                -webkit-backdrop-filter: blur(4px);
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.25s ease;
+            }
+            #notifDrawerOverlay.open {
+                opacity: 1;
+                pointer-events: auto;
+            }
+            #notifDrawer {
+                position: fixed;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 1101;
+                width: 100%;
+                max-width: 380px;
+                background: #0b1220;
+                border-left: 1px solid rgba(255,255,255,0.08);
+                box-shadow: -12px 0 48px rgba(0,0,0,0.5);
+                transform: translateX(100%);
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+            #notifDrawer.open {
+                transform: translateX(0);
+            }
+            #notifDrawerHeader {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 18px 18px 14px;
+                border-bottom: 1px solid rgba(255,255,255,0.07);
+                flex-shrink: 0;
+            }
+            #notifDrawerHeader .drawer-title {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 14px;
+                font-weight: 800;
+                color: #f1f5f9;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+            }
+            #notifDrawerHeader .drawer-nav-links {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            #notifDrawerHeader .drawer-nav-links a {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                padding: 5px 10px;
+                border-radius: 10px;
+                font-size: 11px;
+                font-weight: 700;
+                color: #94a3b8;
+                text-decoration: none;
+                background: rgba(255,255,255,0.04);
+                border: 1px solid rgba(255,255,255,0.07);
+                transition: all 0.15s;
+            }
+            #notifDrawerHeader .drawer-nav-links a:hover {
+                color: #e2e8f0;
+                background: rgba(255,255,255,0.08);
+            }
+            #notifDrawerHeader .drawer-close-btn {
+                background: none;
+                border: none;
+                cursor: pointer;
+                color: #64748b;
+                display: flex;
+                align-items: center;
+                padding: 4px;
+                border-radius: 8px;
+                transition: color 0.15s;
+            }
+            #notifDrawerHeader .drawer-close-btn:hover { color: #e2e8f0; }
+            #notifDrawerBody {
+                flex: 1;
+                overflow-y: auto;
+                padding: 12px;
+            }
+
             /* ── Notifications inbox (shared visual language with profile.html) ── */
             .unread-pill {
                 background: rgba(59, 130, 246, 0.18);
@@ -3508,7 +3603,7 @@
                     <div id="headerIcons">
                         <button id="pushBellBtn" onclick="openNotifInbox()" title="Notifications" aria-label="Open notifications" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center relative">
                             <span id="pushBellIcon" class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">notifications</span>
-                            <span id="pushBellDot" style="display:none;position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#3b82f6;border:1.5px solid rgba(2,6,23,0.9)"></span>
+                            <span id="pushBellDot" style="display:none;position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#ef4444;border:1.5px solid rgba(2,6,23,0.9)"></span>
                         </button>
                         <button id="themeToggleBtn" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle light/dark mode" class="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-slate-400 hover:text-primary transition flex items-center justify-center">
                             <span id="themeToggleIcon" class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">light_mode</span>
@@ -3639,44 +3734,7 @@
                 </section>
 
                 <!-- Folders Section — always visible, hidden only when truly empty -->
-                <!-- Notifications inbox — toggled open via the header bell button.
-                 Mirrors profile.html's notifInboxSection (same classes/markup
-                 shape) so the experience is consistent across pages; the read
-                 logic (loadNotifications etc.) is duplicated here in index.html's
-                 own script scope since the two pages don't share a JS file. -->
-                <section id="notifInboxSection" class="glass-card p-4 sm:p-5 rounded-3xl mb-6" style="display:none">
-                    <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-                        <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-blue-400" style="font-size:20px">mark_email_unread</span>
-                            <h3 class="text-sm font-bold text-white uppercase tracking-wide">Notifications</h3>
-                            <span class="unread-pill" id="notifUnreadPill" style="display:none">0 new</span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <button class="btn-text-link" id="markAllReadBtn" onclick="markAllNotificationsRead()" style="display:none">Mark all read</button>
-                            <button onclick="closeNotifInbox()" title="Close" aria-label="Close notifications" style="background:none;border:none;cursor:pointer;color:#64748b;display:flex;align-items:center"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
-                        </div>
-                    </div>
-                    <!-- Push-toggle row lives inside the inbox per design: the bell
-                     now opens this panel, so the push on/off control moved here
-                     rather than being the bell's only action. -->
-                    <div class="flex items-center justify-between p-3 mb-3 rounded-2xl" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)">
-                        <div class="flex items-center gap-2.5">
-                            <span class="material-symbols-outlined text-slate-400" style="font-size:18px" id="notifPushRowIcon">notifications</span>
-                            <div>
-                                <p style="font-size:12px;font-weight:700;color:#e2e8f0;margin:0">Push notifications</p>
-                                <p style="font-size:10.5px;color:#64748b;margin:0" id="notifPushRowSub">Get alerts on this device for new uploads</p>
-                            </div>
-                        </div>
-                        <button id="notifPushRowBtn" onclick="togglePushSubscription()" class="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors" style="background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);color:#93c5fd">Enable</button>
-                    </div>
-                    <div id="notifInboxList">
-                        <div class="nb-empty-state">
-                            <div class="nb-empty-state-icon"><span class="material-symbols-outlined">notifications</span></div>
-                            <p class="nb-empty-state-title">No notifications yet</p>
-                            <p class="nb-empty-state-sub">Announcements, new uploads, and request updates will show up here.</p>
-                        </div>
-                    </div>
-                </section>
+                <!-- Notifications inbox moved to #notifDrawer slide-in panel (added before </body>) -->
 
                 <section id="foldersSection" class="mb-6 glass-card p-4 sm:p-5 rounded-3xl">
                     <div class="flex items-center gap-2 mb-3">
@@ -6234,6 +6292,7 @@
                     closePreview();
                     closeShortcuts();
                     closeSuggestions();
+                    closeNotifInbox();
                     return;
                 }
 
@@ -7309,23 +7368,22 @@
             }
 
             function openNotifInbox() {
-                const sec = document.getElementById('notifInboxSection');
-                if (!sec) return;
-                const opening = sec.style.display === 'none';
-                sec.style.display = opening ? '' : 'none';
-                if (opening) {
-                    sec.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                    if (window._currentUserId) loadNotifications();
-                }
+                const drawer = document.getElementById('notifDrawer');
+                const overlay = document.getElementById('notifDrawerOverlay');
+                if (!drawer) return;
+                drawer.classList.add('open');
+                overlay.classList.add('open');
+                document.body.style.overflow = 'hidden';
+                if (window._currentUserId) loadNotifications();
             }
             window.openNotifInbox = openNotifInbox;
 
             function closeNotifInbox() {
-                const sec = document.getElementById('notifInboxSection');
-                if (sec) sec.style.display = 'none';
+                const drawer = document.getElementById('notifDrawer');
+                const overlay = document.getElementById('notifDrawerOverlay');
+                if (drawer) drawer.classList.remove('open');
+                if (overlay) overlay.classList.remove('open');
+                document.body.style.overflow = '';
             }
             window.closeNotifInbox = closeNotifInbox;
 
@@ -11020,5 +11078,53 @@
 
             })();
         </script>
+
+        <!-- ── Notification drawer (slide-in from right) ── -->
+        <div id="notifDrawerOverlay" onclick="closeNotifInbox()" aria-hidden="true"></div>
+        <aside id="notifDrawer" role="dialog" aria-modal="true" aria-label="Notifications">
+            <div id="notifDrawerHeader">
+                <div class="drawer-title">
+                    <span class="material-symbols-outlined" style="font-size:18px;color:#60a5fa">mark_email_unread</span>
+                    Notifications
+                    <span class="unread-pill" id="notifUnreadPill" style="display:none">0 new</span>
+                </div>
+                <div class="drawer-nav-links">
+                    <a href="profile.html" title="My Profile">
+                        <span class="material-symbols-outlined" style="font-size:14px">manage_accounts</span>
+                        Profile
+                    </a>
+                    <a href="upload-request.html" title="Request a file">
+                        <span class="material-symbols-outlined" style="font-size:14px">upload_file</span>
+                        Request
+                    </a>
+                    <button class="drawer-close-btn" onclick="closeNotifInbox()" aria-label="Close notifications">
+                        <span class="material-symbols-outlined" style="font-size:20px">close</span>
+                    </button>
+                </div>
+            </div>
+            <div id="notifDrawerBody">
+                <!-- Push-toggle row -->
+                <div class="flex items-center justify-between p-3 mb-3 rounded-2xl" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)">
+                    <div class="flex items-center gap-2.5">
+                        <span class="material-symbols-outlined text-slate-400" style="font-size:18px" id="notifPushRowIcon">notifications</span>
+                        <div>
+                            <p style="font-size:12px;font-weight:700;color:#e2e8f0;margin:0">Push notifications</p>
+                            <p style="font-size:10.5px;color:#64748b;margin:0" id="notifPushRowSub">Get alerts on this device for new uploads</p>
+                        </div>
+                    </div>
+                    <button id="notifPushRowBtn" onclick="togglePushSubscription()" class="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors" style="background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);color:#93c5fd">Enable</button>
+                </div>
+                <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+                    <button class="btn-text-link" id="markAllReadBtn" onclick="markAllNotificationsRead()" style="display:none;font-size:11px">Mark all read</button>
+                </div>
+                <div id="notifInboxList">
+                    <div class="nb-empty-state">
+                        <div class="nb-empty-state-icon"><span class="material-symbols-outlined">notifications</span></div>
+                        <p class="nb-empty-state-title">No notifications yet</p>
+                        <p class="nb-empty-state-sub">Announcements, new uploads, and request updates will show up here.</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
     </body>
 </html>

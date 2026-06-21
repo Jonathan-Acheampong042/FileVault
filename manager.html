@@ -1871,6 +1871,12 @@ create policy "Admins can read audit log"
                 'https://lvhecpvwpzmstciewziv.supabase.co',
                 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI'
             );
+            // Exposed on window so chat-widget.js can reach the live session via
+            // the same window.* convention it already uses for window.allFiles /
+            // window.fvRegisterFileProvider, rather than relying on implicit
+            // cross-<script> lexical scoping (which breaks if this script is
+            // ever wrapped in an IIFE or converted to type="module").
+            window._supabase = _supabase;
             const ADMIN_EMAIL_ALLOWLIST = ['nharnharblay21@gmail.com'];
 
             const FV_API_BASE = window.location.hostname === 'localhost' ?
@@ -2494,7 +2500,15 @@ create policy "Admins can read audit log"
                 };
                 if (note) update.manager_note = note;
 
-                // Fetch subscriber info before updating so we can notify the user
+                // Fetch subscriber info before updating so we can notify the user.
+                // NOTE: deliberately NOT using the single-PATCH-does-everything
+                // pattern here (a prior version of this code called
+                // PATCH /api/file-requests/:id and relied on it to also fire the
+                // inbox notification server-side) — that endpoint's notification
+                // logic only fires for status==='fulfilled', but this app never
+                // actually uses that value; the real statuses are 'approved' and
+                // 'dismissed' (see manager.html's own status-color map). Relying
+                // on it here would silently skip dismissed-request notifications.
                 const {
                     data: reqRow
                 } = await _supabase
@@ -5041,6 +5055,17 @@ create policy "Admins can read audit log"
                     // forget: this shouldn't block or fail the approval flow, and the
                     // endpoint itself is a no-op if requester_email has no matching
                     // account (e.g. an anonymous requester).
+                    //
+                    // NOTE: deliberately NOT calling PATCH /api/file-requests/:id here
+                    // (a prior version of this code did, to "consolidate" the status
+                    // update and notification into one call) — that endpoint only
+                    // accepts status values 'pending' | 'fulfilled' | 'dismissed', but
+                    // this app's actual approve flow already sets status:'approved'
+                    // directly via Supabase at the call site above. Calling the PATCH
+                    // endpoint with status:'fulfilled' here would silently overwrite
+                    // that correct value with one the rest of the app doesn't
+                    // recognize. The status update and the notification are kept as
+                    // two independent steps for that reason.
                     if (reqRow && reqRow.requester_email) {
                         fvManagerFetch('/api/notify-request-status', {
                             method: 'POST',
