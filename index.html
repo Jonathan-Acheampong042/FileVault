@@ -4539,6 +4539,10 @@
                     _currentUserId = session.user.id || null;
                     window._currentUserId = _currentUserId;
                     populateProfileUI(session.user, isAdmin && adminBrowseMode);
+                    // ── Bug 4 fix: load notifications now that we have a userId ──
+                    if (typeof loadNotifications === 'function') {
+                        setTimeout(loadNotifications, 400);
+                    }
                     // NOTE: syncBookmarksOnLogin() is intentionally NOT called here.
                     // It's defined in a later <script> block (the bookmarks IIFE),
                     // which has not executed yet at this point in document order —
@@ -7237,6 +7241,8 @@
                 const rowBtn = document.getElementById('notifPushRowBtn');
                 const rowIcon = document.getElementById('notifPushRowIcon');
                 const rowSub = document.getElementById('notifPushRowSub');
+                // ── Bug 2 fix: hide the entire push row once subscribed ──
+                const pushRow = document.getElementById('notifPushRow');
                 if (!rowBtn) return;
                 if (subscribed) {
                     rowBtn.textContent = 'Enabled';
@@ -7248,6 +7254,8 @@
                         rowIcon.style.color = '#4ade80';
                     }
                     if (rowSub) rowSub.textContent = 'You\'ll get alerts on this device for new uploads';
+                    // Hide row after a brief moment so user sees the "Enabled" confirmation
+                    if (pushRow) setTimeout(() => { pushRow.style.display = 'none'; }, 1200);
                 } else {
                     rowBtn.textContent = 'Enable';
                     rowBtn.style.background = 'rgba(59,130,246,0.15)';
@@ -7258,6 +7266,7 @@
                         rowIcon.style.color = '';
                     }
                     if (rowSub) rowSub.textContent = 'Get alerts on this device for new uploads';
+                    if (pushRow) pushRow.style.display = '';
                 }
             }
 
@@ -7324,6 +7333,10 @@
                         _pushSubscription = sub;
                         _updatePushBell(true);
                         showToast('🔔 Push notifications enabled!', 'success', 2500);
+                        // ── Bug 1 fix: immediately hide the enable-notifications banner ──
+                        if (typeof window._hideFvBanner === 'function') {
+                            window._hideFvBanner('notifBanner', 'fv_notif_banner_dismissed');
+                        }
                     }
                 } catch (err) {
                     showToast('Push setup failed: ' + err.message, 'error', 3500);
@@ -7780,13 +7793,18 @@
                         }
                     )
                     // ── New notification for this user ──
+                    // NOTE: We intentionally omit the server-side filter here because the
+                    // channel is set up before auth resolves and _currentUserId would be ''.
+                    // We filter client-side in the callback instead.
                     .on('postgres_changes', {
                             event: 'INSERT',
                             schema: 'public',
-                            table: 'notifications',
-                            filter: 'user_id=eq.' + (window._currentUserId || '')
+                            table: 'notifications'
                         },
-                        function() {
+                        function(payload) {
+                            const row = payload.new || {};
+                            // Only reload for the currently logged-in user's notifications
+                            if (row.user_id && window._currentUserId && row.user_id !== window._currentUserId) return;
                             if (typeof loadNotifications === 'function') loadNotifications();
                         }
                     )
@@ -11243,7 +11261,7 @@
             </div>
             <div id="notifDrawerBody">
                 <!-- Push-toggle row -->
-                <div class="flex items-center justify-between p-3 mb-3 rounded-2xl" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)">
+                <div id="notifPushRow" class="flex items-center justify-between p-3 mb-3 rounded-2xl" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)">
                     <div class="flex items-center gap-2.5">
                         <span class="material-symbols-outlined text-slate-400" style="font-size:18px" id="notifPushRowIcon">notifications</span>
                         <div>

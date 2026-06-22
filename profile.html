@@ -307,7 +307,7 @@
                 width: 300px;
                 height: 300px;
                 overflow: hidden;
-                background: #000;
+                background: #1e293b;
                 border-radius: 16px;
                 cursor: grab;
                 user-select: none;
@@ -398,6 +398,11 @@
                 color: #fff;
             }
             #cropSaveBtn:hover { opacity: .88; }
+
+            html.light header.profile-header {
+                background: rgba(248, 250, 252, 0.88);
+                border-bottom-color: rgba(0,0,0,0.08);
+            }
 
             html.light header.profile-header a,
             html.light .header-signout {
@@ -1747,6 +1752,13 @@
                 padding-top: max(0.75rem, var(--sat));
                 padding-left: max(1rem, var(--sal));
                 padding-right: max(1rem, var(--sar));
+                /* ── Bug 5 fix: sticky header ── */
+                position: sticky;
+                top: 0;
+                z-index: 200;
+                background: rgba(2, 6, 23, 0.85);
+                backdrop-filter: blur(14px);
+                -webkit-backdrop-filter: blur(14px);
             }
 
             @media (display-mode: standalone) {
@@ -1876,8 +1888,9 @@
         </div>
 
         <div class="min-h-screen flex flex-col">
-            <!-- Header -->
-            <header class="profile-header flex items-center justify-between pb-3 max-w-2xl mx-auto w-full">
+            <!-- Header — sticky, follows user while scrolling -->
+            <div class="profile-header">
+            <header class="flex items-center justify-between pb-3 max-w-2xl mx-auto w-full">
                 <a href="index.html" class="flex items-center gap-2 text-slate-400 hover:text-white transition" style="text-decoration:none">
                     <span class="material-symbols-outlined" style="font-size:20px">arrow_back</span>
                     <span style="font-size:13px;font-weight:700">Back to Vault</span>
@@ -1894,6 +1907,7 @@
                     Sign out
                 </button>
             </header>
+            </div>
 
             <!-- ══ Display Settings Panel (shared across index.html / profile.html / upload-request.html) ══ -->
             <div id="settingsPanel" role="dialog" aria-label="Display settings" aria-modal="true">
@@ -3046,8 +3060,9 @@
                     _cropState.imgW  = img.naturalWidth;
                     _cropState.imgH  = img.naturalHeight;
                     _cropState.zoom  = 1;
-                    // Centre the image initially
-                    const scale = Math.max(200 / img.naturalWidth, 200 / img.naturalHeight);
+                    // Scale image to cover the full 300×300 container (not just the 200px circle)
+                    // so no dark background is ever visible behind the photo
+                    const scale = Math.max(_cropState.cW / img.naturalWidth, _cropState.cH / img.naturalHeight);
                     _cropState.zoom = Math.max(1, scale);
                     document.getElementById('cropZoom').value = _cropState.zoom;
                     document.getElementById('cropZoom').max   = Math.max(4, _cropState.zoom * 4);
