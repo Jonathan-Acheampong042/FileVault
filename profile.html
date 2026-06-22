@@ -1398,6 +1398,21 @@
                 background: rgba(59, 130, 246, 0.06);
             }
 
+            .notif-item.read {
+                background: rgba(255, 255, 255, 0.015);
+                border-color: rgba(255, 255, 255, 0.04);
+                opacity: 0.72;
+            }
+
+            .notif-item.read .notif-title {
+                color: #94a3b8;
+                font-weight: 600;
+            }
+
+            .notif-item.read .notif-text {
+                color: #475569;
+            }
+
             .notif-icon-dot {
                 width: 32px;
                 height: 32px;
@@ -3621,12 +3636,12 @@
                         error
                     } = await _supabase
                         .from('notifications')
-                        .select('id, type, title, body, created_at, read')
+                        .select('id, type, title, body, created_at, read, link_url, metadata')
                         .eq('user_id', user.id)
                         .order('created_at', {
                             ascending: false
                         })
-                        .limit(15);
+                        .limit(30);
 
                     if (error) throw error;
 
@@ -3656,7 +3671,20 @@
                             color: '#94a3b8'
                         };
                         const unread = !n.read;
-                        return `<div class="notif-item ${unread ? 'unread' : ''}" onclick="markNotificationRead('${n.id}')" style="margin-bottom:8px">
+                        // Resolve deep-link
+                        let navTarget = n.link_url || null;
+                        if (!navTarget) {
+                            if (n.type === 'request_approved' || n.type === 'request_dismissed') {
+                                navTarget = 'upload-request.html';
+                            } else if (n.type === 'new_file' || n.type === 'file_expiring') {
+                                navTarget = 'index.html';
+                            }
+                        }
+                        return `<div class="notif-item ${unread ? 'unread' : 'read'}"
+                            data-notif-id="${n.id}"
+                            data-nav="${navTarget ? navTarget.replace(/"/g,'&quot;') : ''}"
+                            onclick="handleNotifClick(this)"
+                            style="margin-bottom:8px">
                         <div class="notif-icon-dot" style="background:${meta.bg}">
                             <span class="material-symbols-outlined" style="font-size:16px;color:${meta.color}">${meta.icon}</span>
                         </div>
@@ -3673,6 +3701,41 @@
                     document.getElementById('notifInboxSection').style.display = 'none';
                 }
             }
+
+            window.handleNotifClick = async function(el) {
+                const id      = el.dataset.notifId;
+                const nav     = el.dataset.nav;
+                const wasUnread = el.classList.contains('unread');
+
+                // 1. Optimistic visual
+                if (wasUnread) {
+                    el.classList.remove('unread');
+                    el.classList.add('read');
+                    const dot = el.querySelector('.notif-dot');
+                    if (dot) dot.remove();
+                    const remaining = document.querySelectorAll('#notifInboxList .notif-item.unread').length;
+                    const pill = document.getElementById('notifUnreadPill');
+                    const markAllBtn = document.getElementById('markAllReadBtn');
+                    if (remaining > 0) {
+                        if (pill) pill.textContent = remaining + ' new';
+                    } else {
+                        if (pill) pill.style.display = 'none';
+                        if (markAllBtn) markAllBtn.style.display = 'none';
+                    }
+                }
+
+                // 2. Persist
+                if (wasUnread) {
+                    try {
+                        await _supabase.from('notifications').update({ read: true }).eq('id', id);
+                    } catch(_) {}
+                }
+
+                // 3. Navigate
+                if (nav) {
+                    setTimeout(() => { window.location.href = nav; }, 150);
+                }
+            };
 
             async function markNotificationRead(id) {
                 try {

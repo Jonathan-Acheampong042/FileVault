@@ -346,6 +346,21 @@
                 border-color: rgba(59, 130, 246, 0.18);
             }
 
+            .notif-item.read {
+                background: rgba(255, 255, 255, 0.015);
+                border-color: rgba(255, 255, 255, 0.04);
+                opacity: 0.72;
+            }
+
+            .notif-item.read .notif-title {
+                color: #94a3b8;
+                font-weight: 600;
+            }
+
+            .notif-item.read .notif-text {
+                color: #475569;
+            }
+
             .notif-icon-dot {
                 width: 32px;
                 height: 32px;
@@ -7404,12 +7419,12 @@
                         error
                     } = await _supabase
                         .from('notifications')
-                        .select('id, type, title, body, created_at, read')
+                        .select('id, type, title, body, created_at, read, link_url, metadata')
                         .eq('user_id', window._currentUserId)
                         .order('created_at', {
                             ascending: false
                         })
-                        .limit(15);
+                        .limit(30);
 
                     if (error) throw error;
 
@@ -7443,7 +7458,36 @@
                             color: '#94a3b8'
                         };
                         const unread = !n.read;
-                        return `<div class="notif-item ${unread ? 'unread' : ''}" onclick="markNotificationRead('${n.id}')" style="margin-bottom:8px">
+                        // ── Resolve deep-link destination ──
+                        // Priority: explicit link_url column > type-based inference
+                        let navTarget = n.link_url || null;
+                        if (!navTarget) {
+                            if (n.type === 'request_approved' || n.type === 'request_dismissed') {
+                                navTarget = 'upload-request.html';
+                            } else if (n.type === 'announcement') {
+                                navTarget = '#announcement';
+                            }
+                            // new_file and file_expiring are handled client-side (open preview)
+                        }
+                        const isFileType = n.type === 'new_file' || n.type === 'file_expiring';
+                        // Extract file name hint from metadata or body for file-type notifications
+                        let fileNameHint = '';
+                        if (isFileType) {
+                            try { fileNameHint = (n.metadata && JSON.parse(n.metadata).file_name) || ''; } catch(_) {}
+                            if (!fileNameHint && n.body) {
+                                // Try to parse a quoted filename from body e.g. '"Week 3 Notes.pdf"'
+                                const m = n.body.match(/["""]([^"""]+\.[a-zA-Z0-9]{2,5})["""]/);
+                                if (m) fileNameHint = m[1];
+                            }
+                        }
+                        // Encode nav info into data attributes; handled by handleNotifClick
+                        return `<div class="notif-item ${unread ? 'unread' : 'read'}"
+                            data-notif-id="${n.id}"
+                            data-nav="${navTarget ? navTarget.replace(/"/g,'&quot;') : ''}"
+                            data-file-hint="${fileNameHint.replace(/"/g,'&quot;')}"
+                            data-type="${n.type}"
+                            onclick="handleNotifClick(this)"
+                            style="margin-bottom:8px">
                         <div class="notif-icon-dot" style="background:${meta.bg}">
                             <span class="material-symbols-outlined" style="font-size:16px;color:${meta.color}">${meta.icon}</span>
                         </div>
@@ -7464,6 +7508,86 @@
                 }
             }
             window.loadNotifications = loadNotifications;
+
+            // ── handleNotifClick: marks as read (optimistically), then navigates ──
+            window.handleNotifClick = async function(el) {
+                const id       = el.dataset.notifId;
+                const nav      = el.dataset.nav;
+                const fileHint = el.dataset.fileHint;
+                const type     = el.dataset.type;
+                const wasUnread = el.classList.contains('unread');
+
+                // 1. Optimistic visual: immediately dim the card to "read" state
+                if (wasUnread) {
+                    el.classList.remove('unread');
+                    el.classList.add('read');
+                    const dot = el.querySelector('.notif-dot');
+                    if (dot) dot.remove();
+                    // Recount and update bell + pill without a full reload
+                    const remaining = document.querySelectorAll('#notifInboxList .notif-item.unread').length;
+                    const pill = document.getElementById('notifUnreadPill');
+                    const bellDot = document.getElementById('pushBellDot');
+                    const markAllBtn = document.getElementById('markAllReadBtn');
+                    if (remaining > 0) {
+                        if (pill) { pill.textContent = remaining + ' new'; }
+                    } else {
+                        if (pill) pill.style.display = 'none';
+                        if (bellDot) bellDot.style.display = 'none';
+                        if (markAllBtn) markAllBtn.style.display = 'none';
+                    }
+                }
+
+                // 2. Persist read state to Supabase (fire-and-forget)
+                if (wasUnread) {
+                    try {
+                        await _supabase.from('notifications').update({ read: true }).eq('id', id);
+                    } catch(_) {}
+                }
+
+                // 3. Navigate to the relevant destination
+                closeNotifInbox();
+
+                // Small delay so the drawer close animation starts first
+                setTimeout(function() {
+                    // A. Explicit URL (e.g. upload-request.html)
+                    if (nav && !nav.startsWith('#')) {
+                        window.location.href = nav;
+                        return;
+                    }
+
+                    // B. Anchor on this page (announcements)
+                    if (nav === '#announcement') {
+                        const banner = document.getElementById('announcementContainer') ||
+                                       document.getElementById('announcementBanner');
+                        if (banner) {
+                            banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            banner.style.outline = '2px solid rgba(59,130,246,0.6)';
+                            setTimeout(() => { banner.style.outline = ''; }, 2200);
+                        }
+                        return;
+                    }
+
+                    // C. File-type notifications: open the file preview directly
+                    if (type === 'new_file' || type === 'file_expiring') {
+                        if (fileHint && typeof allFiles !== 'undefined') {
+                            const match = allFiles.find(f =>
+                                f.name === fileHint ||
+                                f.name.toLowerCase() === fileHint.toLowerCase()
+                            );
+                            if (match) {
+                                // If a folder filter is hiding it, clear the filter first
+                                if (typeof filterByFolder === 'function') filterByFolder(null, null);
+                                setTimeout(() => openPreview(match.url, match.name, match.folder, match.file_size), 120);
+                                return;
+                            }
+                        }
+                        // Fallback: just scroll to the files grid
+                        const grid = document.getElementById('fileGrid') || document.getElementById('filesSection');
+                        if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        return;
+                    }
+                }, 180);
+            };
 
             async function markNotificationRead(id) {
                 try {
@@ -7653,6 +7777,17 @@
                             var reqName = row.filename || row.file_name || 'Your requested file';
                             var reqFolder = (row.folder && row.folder !== 'Root') ? ' in ' + row.folder : '';
                             showToast('✅ Your request for "' + reqName + '"' + reqFolder + ' has been approved and uploaded!', 'success', 8000);
+                        }
+                    )
+                    // ── New notification for this user ──
+                    .on('postgres_changes', {
+                            event: 'INSERT',
+                            schema: 'public',
+                            table: 'notifications',
+                            filter: 'user_id=eq.' + (window._currentUserId || '')
+                        },
+                        function() {
+                            if (typeof loadNotifications === 'function') loadNotifications();
                         }
                     )
                     .subscribe(function(status) {
