@@ -28,6 +28,15 @@ FileVault is a lightweight, installable web app for sharing and managing files (
 - **File requests**: users submit requests via `upload-request.html`; managers review them in `manager.html`, upload the matching file(s), and the requester is notified via push once approved.
 - **Account deletion**: `profile.html` calls `POST /api/delete-account` on the backend. The server validates the user's access token, cleans up associated rows, and calls `supabase.auth.admin.deleteUser()` — the anon key held by the browser cannot do this.
 
+## Development Process
+
+FileVault was built using an AI-assisted development workflow. The core ideas, system architecture, and user experience were designed and directed by the author; the codebase was generated and iterated upon using AI tools.
+
+- **Conceptualisation & design** — Defining the core problem, mapping user flows, and scoping features for both the student vault and the manager dashboard.
+- **Database structuring** — Designing the relational schema and Row Level Security policies across all Supabase tables (from `files_list` to `push_subscriptions`) to ensure a solid, scalable data foundation.
+- **Prompt engineering** — Decomposing the application into logical components and writing precise, context-rich instructions to guide the AI in producing the HTML, JavaScript, and Express backend code.
+- **Integration & refinement** — Orchestrating the generated modules, manually configuring complex integrations (Google OAuth, Web Push VAPID keys, Supabase Realtime), and tuning the PWA service worker into a cohesive, installable product.
+
 ## Tech stack
 
 - HTML, vanilla JavaScript, Tailwind CSS

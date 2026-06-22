@@ -1832,19 +1832,111 @@ function initChatWidget() {
 }
 
 // ─── UI HELPERS ──────────────────────────────────────────────
+function _showChatAuthGate() {
+    const win = document.getElementById('chatWindow');
+    if (!win) return;
+    // Remove any previous gate so we don't double-inject
+    const prev = win.querySelector('#fvChatAuthGate');
+    if (prev) prev.remove();
+
+    const currentPath = window.location.pathname.split('/').pop() || 'index.html';
+    const loginBase = 'login.html?next=' + encodeURIComponent(currentPath);
+
+    const gate = document.createElement('div');
+    gate.id = 'fvChatAuthGate';
+    gate.style.cssText = 'position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:rgba(10,15,30,0.97);border-radius:20px;text-align:center;gap:0';
+    gate.innerHTML = `
+        <div style="width:52px;height:52px;background:linear-gradient(135deg,rgba(59,130,246,0.2),rgba(139,92,246,0.2));border:1px solid rgba(99,102,241,0.35);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:16px;flex-shrink:0">
+            <span class="material-symbols-outlined" style="color:#818cf8;font-size:26px">lock</span>
+        </div>
+        <h3 style="color:white;font-size:15px;font-weight:700;margin:0 0 8px;line-height:1.3">Sign in to use the AI chat</h3>
+        <p style="color:rgba(255,255,255,0.5);font-size:12px;line-height:1.55;margin:0 0 20px">You need a FileVault account to chat with the AI assistant. It's free and only takes a moment.</p>
+        <a href="${loginBase}" style="display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:11px 16px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:12px;color:white;font-size:13px;font-weight:600;text-decoration:none;margin-bottom:10px">
+            <span class="material-symbols-outlined" style="font-size:16px">login</span>Sign In
+        </a>
+        <div style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:10px">
+            <span style="flex:1;height:1px;background:rgba(255,255,255,0.08)"></span>
+            <span style="color:rgba(255,255,255,0.3);font-size:11px">or</span>
+            <span style="flex:1;height:1px;background:rgba(255,255,255,0.08)"></span>
+        </div>
+        <a href="${loginBase.replace('?next=', '?tab=signup&next=')}" style="display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:11px 16px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:rgba(255,255,255,0.8);font-size:13px;font-weight:600;text-decoration:none">
+            <span class="material-symbols-outlined" style="font-size:16px">person_add</span>Create a Free Account
+        </a>
+        <div style="margin-top:18px;display:flex;flex-direction:column;gap:8px;width:100%;text-align:left">
+            <div style="display:flex;align-items:flex-start;gap:9px">
+                <span class="material-symbols-outlined" style="font-size:16px;color:#818cf8;flex-shrink:0;margin-top:1px">auto_awesome</span>
+                <span style="color:rgba(255,255,255,0.45);font-size:11px;line-height:1.5">Ask questions about any file in the vault</span>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:9px">
+                <span class="material-symbols-outlined" style="font-size:16px;color:#818cf8;flex-shrink:0;margin-top:1px">quiz</span>
+                <span style="color:rgba(255,255,255,0.45);font-size:11px;line-height:1.5">Generate quizzes to test your knowledge</span>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:9px">
+                <span class="material-symbols-outlined" style="font-size:16px;color:#818cf8;flex-shrink:0;margin-top:1px">history</span>
+                <span style="color:rgba(255,255,255,0.45);font-size:11px;line-height:1.5">Your chat history is saved across sessions</span>
+            </div>
+        </div>`;
+
+    // chatWindow uses overflow:hidden so we need relative positioning on it
+    win.style.position = 'relative';
+    win.appendChild(gate);
+}
+
 function toggleChat() {
     const win = document.getElementById('chatWindow');
     const icon = document.getElementById('chatBtnIcon');
     const btn = document.getElementById('chatToggleBtn');
     const isOpen = win.style.display === 'flex';
-    win.style.display = isOpen ? 'none' : 'flex';
-    icon.textContent = isOpen ? 'smart_toy' : 'close';
-    if (btn) {
-        btn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
-        btn.setAttribute('aria-label', isOpen ? 'Open FileVault AI chat' : 'Close FileVault AI chat');
+
+    if (isOpen) {
+        // Closing — always allowed
+        win.style.display = 'none';
+        icon.textContent = 'smart_toy';
+        if (btn) {
+            btn.setAttribute('aria-expanded', 'false');
+            btn.setAttribute('aria-label', 'Open FileVault AI chat');
+        }
+        sessionStorage.setItem('fvChatOpen', '0');
+        return;
     }
-    sessionStorage.setItem('fvChatOpen', isOpen ? '0' : '1');
-    if (!isOpen) setTimeout(() => document.getElementById('chatInput')?.focus(), 120);
+
+    // Opening — check session first
+    const _supa = window._supabase;
+    if (_supa) {
+        _supa.auth.getSession().then(({ data }) => {
+            win.style.display = 'flex';
+            icon.textContent = 'close';
+            if (btn) {
+                btn.setAttribute('aria-expanded', 'true');
+                btn.setAttribute('aria-label', 'Close FileVault AI chat');
+            }
+            sessionStorage.setItem('fvChatOpen', '1');
+
+            if (!data?.session) {
+                _showChatAuthGate();
+            } else {
+                // Signed in — remove gate if it was showing (e.g. user just logged in)
+                const gate = win.querySelector('#fvChatAuthGate');
+                if (gate) gate.remove();
+                setTimeout(() => document.getElementById('chatInput')?.focus(), 120);
+            }
+        }).catch(() => {
+            // getSession failed — open without gate rather than blocking the widget
+            win.style.display = 'flex';
+            icon.textContent = 'close';
+            sessionStorage.setItem('fvChatOpen', '1');
+        });
+    } else {
+        // No Supabase on this page — open normally (graceful degradation)
+        win.style.display = 'flex';
+        icon.textContent = 'close';
+        if (btn) {
+            btn.setAttribute('aria-expanded', 'true');
+            btn.setAttribute('aria-label', 'Close FileVault AI chat');
+        }
+        sessionStorage.setItem('fvChatOpen', '1');
+        setTimeout(() => document.getElementById('chatInput')?.focus(), 120);
+    }
 }
 
 function escapeHtml(t) {
