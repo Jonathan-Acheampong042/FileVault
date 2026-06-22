@@ -4096,6 +4096,7 @@
                 clearTimeout(_fvPopupTimer);
             }
             window.fvHideNotifPopup = fvHideNotifPopup;
+            window.showFvNotifPopup = showFvNotifPopup;
 
             // Fix 19 — mobile share folder link
             function shareFolderLink() {
@@ -4647,6 +4648,9 @@
                     _currentUserEmail = session.user.email || null;
                     _currentUserId = session.user.id || null;
                     window._currentUserId = _currentUserId;
+                    if (session.access_token && _supabase.realtime) {
+                        _supabase.realtime.setAuth(session.access_token);
+                    }
                     populateProfileUI(session.user, isAdmin && adminBrowseMode);
                     // ── Bug 4 fix: load notifications now that we have a userId ──
                     // Use window.loadNotifications (not the bare name) because this checkAuth()
@@ -4824,18 +4828,29 @@
             // ── Auth state fallback: catches session even if getSession() was called
             // before the session cookie was written after login redirect.
             _supabase.auth.onAuthStateChange(function(event, session) {
-                if (session && session.user && !_currentUserEmail) {
-                    _currentUserEmail = session.user.email || null;
-                    _currentUserId = session.user.id || null;
-                    window._currentUserId = _currentUserId;
-                    populateProfileUI(session.user, false);
+                if (session && session.user) {
+                    if (!_currentUserEmail) {
+                        _currentUserEmail = session.user.email || null;
+                        _currentUserId = session.user.id || null;
+                        window._currentUserId = _currentUserId;
+                        populateProfileUI(session.user, false);
+                    }
+                    // Attach JWT to Realtime on sign-in and token refresh so
+                    // RLS-protected tables (notifications) deliver live events.
+                    if (session.access_token && _supabase.realtime) {
+                        _supabase.realtime.setAuth(session.access_token);
+                    }
+                    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                        if (typeof window._reinitRealtime === 'function') window._reinitRealtime();
+                    }
                     // See note in checkAuth() above — sync is deferred to window 'load'.
                     if (document.readyState === 'complete') {
                         if (typeof syncBookmarksOnLogin === 'function') syncBookmarksOnLogin();
                         if (typeof loadNotifications === 'function') loadNotifications();
                         if (typeof syncFolderSubsOnLogin === 'function') syncFolderSubsOnLogin();
-                        if (typeof window._reinitRealtime === 'function') window._reinitRealtime();
                     }
+                } else if (event === 'SIGNED_OUT' && _supabase.realtime) {
+                    _supabase.realtime.setAuth(null);
                 }
             });
 
@@ -7851,7 +7866,21 @@
             // No page refresh required — files grid reloads automatically
             // once the user is idle (so it never interrupts what they're doing).
             var _realtimeChannel = null;
-            function initRealtime() {
+
+            async function _applyRealtimeAuth() {
+                try {
+                    var sessRes = await _supabase.auth.getSession();
+                    var token = sessRes.data && sessRes.data.session && sessRes.data.session.access_token;
+                    if (token && _supabase.realtime) {
+                        _supabase.realtime.setAuth(token);
+                    }
+                } catch (e) {
+                    console.warn('[FileVault] Could not attach Realtime auth:', e.message);
+                }
+            }
+
+            async function initRealtime() {
+                await _applyRealtimeAuth();
                 // Debounce rapid back-to-back inserts (e.g. multi-file upload)
                 var _realtimeReloadTimer = null;
 
@@ -7881,9 +7910,11 @@
                                         month: 'short',
                                         day: 'numeric'
                                     });
+                                    showFvNotifPopup('🕐', 'Coming soon', fname + sfolder + ' — available ' + dateStr, 7000);
                                     showToast('🕐 ' + fname + sfolder + ' will be available on ' + dateStr, 'info', 7000);
                                     return;
                                 }
+                                showFvNotifPopup('📁', 'New file added', fname + folder, 7000);
                                 showToast("📁 " + fname + folder + " was just added!", "info", 5000);
                                 _refreshFilesWhenIdle();
                             }, 800); // 800ms debounce — handles multi-file batch uploads
@@ -7929,6 +7960,8 @@
                             const newRow = payload.new || {};
                             loadAnnouncement();
                             if ((oldRow.status === 'draft') && (newRow.status === 'published')) {
+                                var pubMsg = newRow.message || 'The manager posted a new announcement.';
+                                showFvNotifPopup('📢', 'New Announcement', pubMsg, 7000);
                                 showToast('📢 A new announcement was posted!', 'info', 5000);
                                 setTimeout(loadNotifications, 2000);
                                 setTimeout(loadNotifications, 5000);
@@ -7943,6 +7976,30 @@
                         },
                         function() {
                             loadAnnouncement();
+                            if (typeof loadNotifications === 'function') loadNotifications();
+                        }
+                    )
+                    // ── Notification updated/deleted for this user ──
+                    .on('postgres_changes', {
+                            event: 'UPDATE',
+                            schema: 'public',
+                            table: 'notifications'
+                        },
+                        function(payload) {
+                            var row = payload.new || {};
+                            if (row.user_id && window._currentUserId && row.user_id !== window._currentUserId) return;
+                            if (typeof loadNotifications === 'function') loadNotifications();
+                        }
+                    )
+                    .on('postgres_changes', {
+                            event: 'DELETE',
+                            schema: 'public',
+                            table: 'notifications'
+                        },
+                        function(payload) {
+                            var row = payload.old || {};
+                            if (row.user_id && window._currentUserId && row.user_id !== window._currentUserId) return;
+                            if (typeof loadNotifications === 'function') loadNotifications();
                         }
                     )
                     // ── File request approved — in-app fallback for when push didn't fire ──
@@ -7961,6 +8018,7 @@
                             if (requester && requester !== _currentUserEmail) return;
                             var reqName = row.filename || row.file_name || 'Your requested file';
                             var reqFolder = (row.folder && row.folder !== 'Root') ? ' in ' + row.folder : '';
+                            showFvNotifPopup('✅', 'Request approved', reqName + reqFolder, 8000);
                             showToast('✅ Your request for "' + reqName + '"' + reqFolder + ' has been approved and uploaded!', 'success', 8000);
                         }
                     )
@@ -8037,10 +8095,13 @@
                     if (label) label.textContent = Math.round(POLL_INTERVAL_MS / 1000);
                     setInterval(function() {
                         _refreshFilesWhenIdle();
+                        if (typeof loadNotifications === 'function' && window._currentUserId) loadNotifications();
                     }, POLL_INTERVAL_MS);
                 }
             }
-            initRealtime();
+            initRealtime().catch(function(e) {
+                console.warn('[FileVault] Realtime init failed:', e.message);
+            });
             var _reinitRealtimeTimer = null;
             window._reinitRealtime = function() {
                 // Debounce: if checkAuth AND onAuthStateChange both fire,
@@ -8054,7 +8115,9 @@
                         try { _supabase.removeChannel(_realtimeChannel); } catch(e) {}
                         _realtimeChannel = null;
                     }
-                    initRealtime();
+                    initRealtime().catch(function(e) {
+                        console.warn('[FileVault] Realtime reinit failed:', e.message);
+                    });
                 }, 300);
             };
 

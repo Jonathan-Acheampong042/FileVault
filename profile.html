@@ -13,7 +13,7 @@
     https://cdn.tailwindcss.com;
   font-src 'self'
     https://fonts.gstatic.com;
-  img-src 'self' data:
+  img-src 'self' data: blob:
     https://lh3.googleusercontent.com
     https://cdn.discordapp.com
     https://*.supabase.co;
@@ -3111,7 +3111,8 @@
                 loader.onerror = function() {
                     document.getElementById('cropModal').classList.remove('open');
                     document.body.style.overflow = '';
-                    if (typeof showToast === 'function') showToast('Could not read image. Please try another.', 'error');
+                    setMsg('avatarMsg', 'Could not load photo. Please try another image.', 'error');
+                    if (typeof showToast === 'function') showToast('Could not load photo. Please try another image.', 'error');
                 };
                 loader.onload = function() {
                     img.onload = function() {
