@@ -304,10 +304,10 @@
             }
             #cropContainer {
                 position: relative;
-                width: 300px;
-                height: 300px;
+                width: min(300px, calc(94vw - 48px));
+                height: min(300px, calc(94vw - 48px));
                 overflow: hidden;
-                background: #1e293b;
+                background: #0f172a;
                 border-radius: 16px;
                 cursor: grab;
                 user-select: none;
@@ -3051,17 +3051,24 @@
                 if (_cropObjUrl) URL.revokeObjectURL(_cropObjUrl);
                 _cropObjUrl = URL.createObjectURL(file);
 
-                // Open modal FIRST so the img element is visible in the DOM
+                // Open modal FIRST so the container is laid out and measurable
                 document.getElementById('cropModal').classList.add('open');
                 document.body.style.overflow = 'hidden';
 
                 const img = document.getElementById('cropSourceImg');
-                img.onload = () => {
-                    _cropState.imgW  = img.naturalWidth;
-                    _cropState.imgH  = img.naturalHeight;
-                    _cropState.zoom  = 1;
-                    // Scale image to cover the full 300×300 container (not just the 200px circle)
-                    // so no dark background is ever visible behind the photo
+
+                function _onImgReady() {
+                    // Read the actual rendered container size — works on any screen width
+                    const container = document.getElementById('cropContainer');
+                    const rect = container.getBoundingClientRect();
+                    _cropState.cW = rect.width  || 300;
+                    _cropState.cH = rect.height || 300;
+
+                    _cropState.imgW = img.naturalWidth;
+                    _cropState.imgH = img.naturalHeight;
+                    _cropState.zoom = 1;
+
+                    // Scale to fully cover the container so no gray bars show
                     const scale = Math.max(_cropState.cW / img.naturalWidth, _cropState.cH / img.naturalHeight);
                     _cropState.zoom = Math.max(1, scale);
                     document.getElementById('cropZoom').value = _cropState.zoom;
@@ -3069,8 +3076,30 @@
                     _centreImage();
                     _applyCropTransform();
                     _drawPreview();
+                }
+
+                // Reset src to '' first — forces onload even if the same blob was used before
+                img.onload = null;
+                img.src = '';
+
+                img.onload = function() {
+                    img.onload = null;
+                    _onImgReady();
                 };
-                img.src = _cropObjUrl;
+
+                // Double rAF ensures the modal is fully painted and the container
+                // has its final dimensions before we set src (fixes Android WebKit)
+                requestAnimationFrame(function() {
+                    requestAnimationFrame(function() {
+                        img.src = _cropObjUrl;
+                        // Safety fallback: if browser already cached the blob and
+                        // skips firing onload, call _onImgReady directly
+                        if (img.complete && img.naturalWidth > 0) {
+                            img.onload = null;
+                            _onImgReady();
+                        }
+                    });
+                });
 
                 _attachCropEvents();
             }

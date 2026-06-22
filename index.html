@@ -1789,11 +1789,10 @@
             }
 
             /* legacy — hidden, replaced by container */
+            /* Announcements are delivered via the notifications drawer only —
+               the main-page banner is hidden so it never clutters the vault. */
             #announcementContainer {
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-                margin-bottom: 20px;
+                display: none !important;
             }
 
             #announcementContainer:empty {
@@ -7745,6 +7744,10 @@
                             loadAnnouncement();
                             if ((row.status || 'published') === 'published') {
                                 showToast('📢 A new announcement was posted!', 'info', 5000);
+                                // Server fan-out writes notification rows a couple of seconds
+                                // after the INSERT — poll so the bell lights up without a refresh
+                                setTimeout(loadNotifications, 2000);
+                                setTimeout(loadNotifications, 5000);
                             }
                         }
                     )
@@ -7760,6 +7763,8 @@
                             loadAnnouncement();
                             if ((oldRow.status === 'draft') && (newRow.status === 'published')) {
                                 showToast('📢 A new announcement was posted!', 'info', 5000);
+                                setTimeout(loadNotifications, 2000);
+                                setTimeout(loadNotifications, 5000);
                             }
                         }
                     )
