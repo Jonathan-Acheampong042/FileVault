@@ -1692,6 +1692,55 @@ function initChatWidget() {
         handle.addEventListener('pointerup', endDrag);
         handle.addEventListener('pointercancel', endDrag);
 
+        // ── Also make the open chat HEADER draggable ──────────────
+        // Re-use the same applyPosition/savePosition/clampPos so the widget
+        // remembers its location whether it was dragged by the bubble or the header.
+        (function() {
+            var header = document.getElementById('chatHeader');
+            if (!header) return;
+            var hDragging = false, hMoved = false, hStartX, hStartY, hStartLeft, hStartTop;
+
+            header.style.cursor = 'grab';
+            header.style.touchAction = 'none';
+
+            header.addEventListener('pointerdown', function(e) {
+                // Don't hijack clicks on buttons inside the header (close, theme)
+                if (e.target.closest('button')) return;
+                hDragging = true;
+                hMoved = false;
+                var rect = w.getBoundingClientRect();
+                hStartX = e.clientX;
+                hStartY = e.clientY;
+                hStartLeft = rect.left;
+                hStartTop = rect.top;
+                try { header.setPointerCapture(e.pointerId); } catch (err) {}
+            });
+
+            header.addEventListener('pointermove', function(e) {
+                if (!hDragging) return;
+                var dx = e.clientX - hStartX, dy = e.clientY - hStartY;
+                if (!hMoved && Math.hypot(dx, dy) < 6) return;
+                hMoved = true;
+                header.style.cursor = 'grabbing';
+                applyPosition(hStartLeft + dx, hStartTop + dy);
+            });
+
+            function endHeaderDrag() {
+                if (!hDragging) return;
+                hDragging = false;
+                header.style.cursor = 'grab';
+                if (hMoved) {
+                    var rect = w.getBoundingClientRect();
+                    var p = clampPos(rect.left, rect.top);
+                    applyPosition(p.left, p.top);
+                    savePosition(p);
+                }
+                hMoved = false;
+            }
+            header.addEventListener('pointerup', endHeaderDrag);
+            header.addEventListener('pointercancel', endHeaderDrag);
+        })();
+
         // A drag-release shouldn't also fire the toggleChat() click handler
         handle.addEventListener('click', function(e) {
             if (moved) {
@@ -1755,6 +1804,10 @@ function initChatWidget() {
         if (_win && _ico) {
             _win.style.display = 'flex';
             _ico.textContent = 'close';
+            // Re-run smart positioning after the widget has been placed.
+            requestAnimationFrame(function() {
+                if (typeof _repositionChatWindow === 'function') _repositionChatWindow();
+            });
         }
     }
 
@@ -1812,7 +1865,9 @@ function initChatWidget() {
                     width: 340px !important;
                     max-width: calc(100vw - 32px) !important;
                     height: min(480px, 70vh) !important;
-                    margin-bottom: 12px !important;
+                    /* margin-bottom intentionally NOT set here — _repositionChatWindow()
+                       sets it dynamically (or flips to margin-top) depending on where
+                       the widget is on screen so the window never overflows the viewport. */
                     border-radius: 20px !important;
                     box-sizing: border-box !important;
                 }
@@ -1882,6 +1937,86 @@ function _showChatAuthGate() {
     win.appendChild(gate);
 }
 
+// ── Smart-position the chat window so it's always fully visible ──────────
+// Called every time the chat opens. The window is a flex child that sits
+// above the bubble via margin-bottom. When the widget is near the bottom of
+// the viewport that works fine, but if the bubble has been dragged near the
+// top, the 480 px window would overflow off-screen above it. This function
+// measures the actual viewport space above and below the bubble and either:
+//   • keeps the window above (margin-bottom, the default), or
+//   • flips it below the bubble (margin-top, removes margin-bottom), or
+//   • centres it in the viewport as a last resort on very small screens.
+// It also nudges the widget horizontally so the window never clips the left edge.
+function _repositionChatWindow() {
+    const widget = document.getElementById('aiChatWidget');
+    const win    = document.getElementById('chatWindow');
+    const bubble = document.getElementById('chatToggleBtn');
+    if (!widget || !win || !bubble) return;
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // Measure the bubble's position in the viewport
+    const bRect = bubble.getBoundingClientRect();
+    const bubbleBottom = bRect.bottom; // distance from top of viewport to bottom of bubble
+    const bubbleTop    = bRect.top;
+
+    // Measure the window size (it's display:flex now so getBoundingClientRect works)
+    const wRect = win.getBoundingClientRect();
+    const winH  = wRect.height || 480;
+    const winW  = wRect.width  || 340;
+
+    const GAP = 12; // px gap between bubble and chat window
+
+    // ── Vertical: above or below? ─────────────────────────────────────────
+    const spaceAbove = bubbleTop - GAP;          // px available above the bubble
+    const spaceBelow = vh - bubbleBottom - GAP;  // px available below the bubble
+
+    // Reset both margins first
+    win.style.marginBottom = '';
+    win.style.marginTop    = '';
+
+    if (spaceAbove >= winH) {
+        // Plenty of room above — default layout (window sits above bubble)
+        win.style.marginBottom = GAP + 'px';
+        win.style.order = '';          // window first in flex column (above)
+    } else if (spaceBelow >= winH) {
+        // Not enough above but enough below — flip window below the bubble
+        win.style.marginTop = GAP + 'px';
+        win.style.order = '1';         // push window after the bubble in flex order
+        bubble.style.order = '0';
+    } else {
+        // Neither side has enough room (small screen / widget in the middle).
+        // Centre the window in the viewport using fixed positioning override.
+        const centreTop  = Math.max(8, Math.round((vh - winH) / 2));
+        const centreLeft = Math.max(8, Math.round((vw - winW) / 2));
+        win.style.position   = 'fixed';
+        win.style.top        = centreTop + 'px';
+        win.style.left       = centreLeft + 'px';
+        win.style.marginTop  = '0';
+        win.style.marginBottom = '0';
+        return; // horizontal clamp not needed — already centred
+    }
+
+    // Reset any centre-mode override from a previous open
+    win.style.position = '';
+    win.style.top      = '';
+    win.style.left     = '';
+
+    // ── Horizontal: make sure the window doesn't clip the left edge ───────
+    // The widget is anchored right by default; on narrow screens the 340 px
+    // window can overflow the left side of the viewport.
+    const widgetRect = widget.getBoundingClientRect();
+    const winLeft    = widgetRect.right - winW; // where the window's left edge would be
+    if (winLeft < 8) {
+        // Shift the whole widget right just enough
+        const shift = 8 - winLeft;
+        const newLeft = widgetRect.left + shift;
+        widget.style.setProperty('left',  newLeft + 'px', 'important');
+        widget.style.setProperty('right', 'auto',          'important');
+    }
+}
+
 function toggleChat() {
     const win = document.getElementById('chatWindow');
     const icon = document.getElementById('chatBtnIcon');
@@ -1891,6 +2026,10 @@ function toggleChat() {
     if (isOpen) {
         // Closing — always allowed
         win.style.display = 'none';
+        // Reset any flex-order flip so next open starts fresh
+        win.style.order   = '';
+        win.style.marginTop = '';
+        win.style.marginBottom = '';
         icon.textContent = 'smart_toy';
         if (btn) {
             btn.setAttribute('aria-expanded', 'false');
@@ -1898,6 +2037,12 @@ function toggleChat() {
         }
         sessionStorage.setItem('fvChatOpen', '0');
         return;
+    }
+
+    // Helper: run smart positioning after the window is visible so
+    // getBoundingClientRect() returns real dimensions.
+    function _afterOpen() {
+        requestAnimationFrame(_repositionChatWindow);
     }
 
     // Opening — check session first
@@ -1911,6 +2056,7 @@ function toggleChat() {
                 btn.setAttribute('aria-label', 'Close FileVault AI chat');
             }
             sessionStorage.setItem('fvChatOpen', '1');
+            _afterOpen();
 
             if (!data?.session) {
                 _showChatAuthGate();
@@ -1925,6 +2071,7 @@ function toggleChat() {
             win.style.display = 'flex';
             icon.textContent = 'close';
             sessionStorage.setItem('fvChatOpen', '1');
+            _afterOpen();
         });
     } else {
         // No Supabase on this page — open normally (graceful degradation)
@@ -1935,6 +2082,7 @@ function toggleChat() {
             btn.setAttribute('aria-label', 'Close FileVault AI chat');
         }
         sessionStorage.setItem('fvChatOpen', '1');
+        _afterOpen();
         setTimeout(() => document.getElementById('chatInput')?.focus(), 120);
     }
 }
@@ -2938,82 +3086,7 @@ if (document.readyState === 'loading') {
     initChatWidget();
 }
 
-function enableFullDragging() {
-    const container = document.getElementById('aiChatWidget'); // The main wrapper
-    const toggleBtn = document.getElementById('chatToggleBtn'); // The closed bubble
-    const chatHeader = document.getElementById('chatHeader'); // The top bar of the open chat
-
-    if (!container) return;
-
-    let isDragging = false,
-        startX, startY, initX, initY;
-
-    function attachDrag(handle) {
-        if (!handle) return;
-
-        // Show a grab hand cursor so users know they can move it
-        handle.style.cursor = 'grab';
-
-        handle.addEventListener('pointerdown', (e) => {
-            // Ignore clicks on the Close/Minimize 'X' button inside the header
-            if (e.target.closest('button')) return;
-
-            isDragging = true;
-            handle.style.cursor = 'grabbing';
-            startX = e.clientX;
-            startY = e.clientY;
-
-            // Get the current position of the widget
-            const rect = container.getBoundingClientRect();
-            initX = rect.left;
-            initY = rect.top;
-
-            // Remove CSS bottom/right constraints so left/top can take over
-            container.style.bottom = 'auto';
-            container.style.right = 'auto';
-            container.style.left = initX + 'px';
-            container.style.top = initY + 'px';
-
-            handle.setPointerCapture(e.pointerId);
-        });
-
-        handle.addEventListener('pointermove', (e) => {
-            if (!isDragging) return;
-            // Move the container based on how far the mouse/finger moved
-            container.style.left = (initX + e.clientX - startX) + 'px';
-            container.style.top = (initY + e.clientY - startY) + 'px';
-        });
-
-        handle.addEventListener('pointerup', (e) => {
-            isDragging = false;
-            handle.style.cursor = 'grab';
-            handle.releasePointerCapture(e.pointerId);
-        });
-    }
-
-    // Attach the drag logic to BOTH the bubble and the open header
-    attachDrag(toggleBtn);
-    attachDrag(chatHeader);
-}
-
-// Wait for the widget to be in the DOM before attaching drag handlers.
-// setTimeout(500) was fragile on slow connections — if initChatWidget() hadn't
-// run yet, the handles simply weren't found and dragging was silently disabled.
-// A MutationObserver fires exactly once as soon as #aiChatWidget appears, regardless
-// of how long initChatWidget takes.
-(function _attachDragWhenReady() {
-    if (document.getElementById('aiChatWidget')) {
-        enableFullDragging();
-        return;
-    }
-    const observer = new MutationObserver(function(_mutations, obs) {
-        if (document.getElementById('aiChatWidget')) {
-            obs.disconnect();
-            enableFullDragging();
-        }
-    });
-    observer.observe(document.body || document.documentElement, {
-        childList: true,
-        subtree: true
-    });
-})();
+// enableFullDragging() removed — header dragging is now handled inline
+// inside the initChatWidget IIFE (see the "Also make the open chat HEADER
+// draggable" block), which shares applyPosition/savePosition/clampPos with
+// the bubble drag so both inputs persist position to the same localStorage key.
