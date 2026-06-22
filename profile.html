@@ -319,20 +319,31 @@
                 transform-origin: 0 0;
                 pointer-events: none;
             }
-            /* circle overlay */
+            /* circle overlay — inset set dynamically by JS via --crop-inset CSS variable */
             #cropCircleOverlay {
                 position: absolute;
                 inset: 0;
-                border-radius: 16px;
                 pointer-events: none;
-                box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
-                clip-path: polygon(0% 0%, 0% 100%, 50px 100%, 50px 50px, calc(100% - 50px) 50px, calc(100% - 50px) calc(100% - 50px), 50px calc(100% - 50px), 50px 100%, 100% 100%, 100% 0%);
+                /* Four corner pieces that together frame the circle */
+                background:
+                    linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55));
+                /* Punch a transparent circular hole via radial-gradient mask */
+                -webkit-mask-image: radial-gradient(
+                    circle at 50% 50%,
+                    transparent calc(50% - var(--crop-inset, 50px)),
+                    black calc(50% - var(--crop-inset, 50px) + 1px)
+                );
+                mask-image: radial-gradient(
+                    circle at 50% 50%,
+                    transparent calc(50% - var(--crop-inset, 50px)),
+                    black calc(50% - var(--crop-inset, 50px) + 1px)
+                );
             }
             #cropCircleBorder {
                 position: absolute;
-                left: 50px; top: 50px;
-                width: calc(100% - 100px);
-                height: calc(100% - 100px);
+                left: var(--crop-inset); top: var(--crop-inset);
+                width: calc(100% - var(--crop-inset) * 2);
+                height: calc(100% - var(--crop-inset) * 2);
                 border-radius: 50%;
                 border: 2px solid rgba(255,255,255,0.7);
                 pointer-events: none;
@@ -3046,61 +3057,77 @@
             let _cropState  = { x: 0, y: 0, zoom: 1, imgW: 0, imgH: 0, cW: 300, cH: 300, cropR: 100 };
             let _cropDrag   = null; // { startX, startY, startCX, startCY }
 
+            // CROP_INSET_RATIO: fraction of container used as margin each side.
+            // 1/6 → circle occupies the middle 2/3 of the container (matches CSS --crop-inset).
+            const CROP_INSET_RATIO = 1 / 6;
+
+            function _setCropInsetVar(containerEl) {
+                const w = containerEl.getBoundingClientRect().width || 300;
+                const insetPx = Math.round(w * CROP_INSET_RATIO);
+                containerEl.style.setProperty('--crop-inset', insetPx + 'px');
+                return { cW: w, cH: w, inset: insetPx };
+            }
+
             function openCropModal(file) {
                 _cropFile = file;
                 if (_cropObjUrl) URL.revokeObjectURL(_cropObjUrl);
                 _cropObjUrl = URL.createObjectURL(file);
 
-                // Open modal FIRST so the container is laid out and measurable
+                // Open modal first so container is laid out and measurable
                 document.getElementById('cropModal').classList.add('open');
                 document.body.style.overflow = 'hidden';
 
+                const container = document.getElementById('cropContainer');
                 const img = document.getElementById('cropSourceImg');
 
-                function _onImgReady() {
-                    // Read the actual rendered container size — works on any screen width
-                    const container = document.getElementById('cropContainer');
-                    const rect = container.getBoundingClientRect();
-                    _cropState.cW = rect.width  || 300;
-                    _cropState.cH = rect.height || 300;
+                // Fully reset the img element
+                img.onload = null;
+                img.onerror = null;
+                img.removeAttribute('src');
 
+                function _onImgReady() {
+                    if (!img.naturalWidth) return;
+                    const dims = _setCropInsetVar(container);
+                    _cropState.cW   = dims.cW;
+                    _cropState.cH   = dims.cH;
                     _cropState.imgW = img.naturalWidth;
                     _cropState.imgH = img.naturalHeight;
-                    _cropState.zoom = 1;
 
-                    // Scale to fully cover the crop circle (2/3 of container) so no gray bars show
-                    const circleSize = _cropState.cW * (2 / 3);
+                    // Scale so image fully covers the crop circle area
+                    const circleSize = dims.cW - dims.inset * 2;
                     const scale = Math.max(circleSize / img.naturalWidth, circleSize / img.naturalHeight);
                     _cropState.zoom = Math.max(1, scale);
                     document.getElementById('cropZoom').value = _cropState.zoom;
                     document.getElementById('cropZoom').max   = Math.max(4, _cropState.zoom * 4);
                     _centreImage();
+                    _clampPos();
                     _applyCropTransform();
                     _drawPreview();
                 }
 
-                // Reset src to '' first — forces onload even if the same blob was used before
-                img.onload = null;
-                img.src = '';
-
-                img.onload = function() {
-                    img.onload = null;
-                    _onImgReady();
+                // Load via a separate Image() object to avoid Android Chrome onload bugs
+                // when reusing a DOM img element. Once loaded, copy src to the visible element.
+                const loader = new Image();
+                loader.onerror = function() {
+                    document.getElementById('cropModal').classList.remove('open');
+                    document.body.style.overflow = '';
+                    if (typeof showToast === 'function') showToast('Could not read image. Please try another.', 'error');
+                };
+                loader.onload = function() {
+                    img.onload = function() {
+                        img.onload = null;
+                        _onImgReady();
+                    };
+                    img.src = _cropObjUrl;
+                    if (img.complete && img.naturalWidth > 0) {
+                        img.onload = null;
+                        _onImgReady();
+                    }
                 };
 
-                // Double rAF ensures the modal is fully painted and the container
-                // has its final dimensions before we set src (fixes Android WebKit)
-                requestAnimationFrame(function() {
-                    requestAnimationFrame(function() {
-                        img.src = _cropObjUrl;
-                        // Safety fallback: if browser already cached the blob and
-                        // skips firing onload, call _onImgReady directly
-                        if (img.complete && img.naturalWidth > 0) {
-                            img.onload = null;
-                            _onImgReady();
-                        }
-                    });
-                });
+                // 80 ms delay guarantees the modal's flex layout has painted and
+                // getBoundingClientRect() returns the real dimensions on all browsers
+                setTimeout(function() { loader.src = _cropObjUrl; }, 80);
 
                 _attachCropEvents();
             }
@@ -3121,15 +3148,13 @@
             }
 
             function _clampPos() {
-                const s   = _cropState;
-                const dW  = s.imgW * s.zoom;
-                const dH  = s.imgH * s.zoom;
-                // Circle inset is 1/6 of container on each side (dynamic — works on any screen width)
-                const inset = Math.round(s.cW / 6);
-                const cx1 = inset, cy1 = inset, cx2 = s.cW - inset, cy2 = s.cH - inset;
-                // image must cover the full circle
-                s.x = Math.min(cx1, Math.max(cx2 - dW, s.x));
-                s.y = Math.min(cy1, Math.max(cy2 - dH, s.y));
+                const s     = _cropState;
+                const dW    = s.imgW * s.zoom;
+                const dH    = s.imgH * s.zoom;
+                const inset = Math.round(s.cW * CROP_INSET_RATIO);
+                // image must cover the full crop circle
+                s.x = Math.min(inset, Math.max(s.cW - inset - dW, s.x));
+                s.y = Math.min(inset, Math.max(s.cH - inset - dH, s.y));
             }
 
             function _applyCropTransform() {
@@ -3146,6 +3171,7 @@
                 const canvas = document.getElementById('cropPreviewCanvas');
                 const ctx    = canvas.getContext('2d');
                 const img    = document.getElementById('cropSourceImg');
+                if (!img.naturalWidth) return; // image not ready yet
                 const size   = 56;
                 canvas.width  = size;
                 canvas.height = size;
@@ -3156,8 +3182,7 @@
                 ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
                 ctx.clip();
 
-                // Dynamic inset — matches _clampPos and CSS overlay (1/6 of container width)
-                const inset = Math.round(s.cW / 6);
+                const inset      = Math.round(s.cW * CROP_INSET_RATIO);
                 const circleSize = s.cW - inset * 2;
                 const srcX = (inset - s.x) / s.zoom;
                 const srcY = (inset - s.y) / s.zoom;
@@ -3169,10 +3194,10 @@
 
             // ── Zoom slider ──
             document.getElementById('cropZoom').addEventListener('input', function() {
-                const s       = _cropState;
-                const prevZ   = s.zoom;
-                s.zoom        = parseFloat(this.value);
-                // Zoom towards centre of crop circle (dynamic centre)
+                const s     = _cropState;
+                const prevZ = s.zoom;
+                s.zoom      = parseFloat(this.value);
+                // Zoom towards the centre of the crop circle
                 const cx = s.cW / 2, cy = s.cH / 2;
                 s.x = cx - (cx - s.x) * (s.zoom / prevZ);
                 s.y = cy - (cy - s.y) * (s.zoom / prevZ);
@@ -3233,8 +3258,7 @@
                 ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2, 0, Math.PI * 2);
                 ctx.clip();
 
-                // Dynamic inset — matches _clampPos and CSS overlay (1/6 of container width)
-                const inset = Math.round(s.cW / 6);
+                const inset      = Math.round(s.cW * CROP_INSET_RATIO);
                 const circleSize = s.cW - inset * 2;
                 const srcX = (inset - s.x) / s.zoom;
                 const srcY = (inset - s.y) / s.zoom;

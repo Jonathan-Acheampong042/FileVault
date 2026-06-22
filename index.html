@@ -603,11 +603,94 @@
                     opacity: 1;
                     transform: translateX(0);
                 }
-
                 to {
                     opacity: 0;
                     transform: translateX(40px);
                 }
+            }
+
+            /* ── In-app notification popup (Bug 3 fix) ── */
+            #fvNotifPopup {
+                position: fixed;
+                top: max(72px, calc(var(--sat) + 72px));
+                right: max(16px, var(--sar));
+                z-index: 999999;
+                width: 320px;
+                max-width: calc(100vw - 32px);
+                background: rgba(15, 23, 42, 0.97);
+                border: 1px solid rgba(99, 102, 241, 0.4);
+                border-radius: 18px;
+                padding: 14px 16px;
+                box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.1);
+                backdrop-filter: blur(20px);
+                display: flex;
+                align-items: flex-start;
+                gap: 12px;
+                overflow: hidden;
+                pointer-events: none;
+                transform: translateX(calc(100% + 24px));
+                opacity: 0;
+                transition: transform 0.35s cubic-bezier(0.34,1.2,0.64,1), opacity 0.25s ease;
+            }
+            #fvNotifPopup.fv-popup-show {
+                transform: translateX(0);
+                opacity: 1;
+                pointer-events: auto;
+            }
+            #fvNotifPopup .fv-popup-icon {
+                font-size: 26px;
+                line-height: 1;
+                flex-shrink: 0;
+                margin-top: 1px;
+            }
+            #fvNotifPopup .fv-popup-body { flex: 1; min-width: 0; }
+            #fvNotifPopup .fv-popup-title {
+                font-size: 13px;
+                font-weight: 700;
+                color: #e2e8f0;
+                margin: 0 0 3px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            #fvNotifPopup .fv-popup-text {
+                font-size: 12px;
+                color: #94a3b8;
+                margin: 0;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+            #fvNotifPopup .fv-popup-close {
+                background: none;
+                border: none;
+                color: rgba(255,255,255,0.3);
+                cursor: pointer;
+                font-size: 18px;
+                line-height: 1;
+                padding: 0;
+                flex-shrink: 0;
+                margin-top: -2px;
+            }
+            #fvNotifPopup .fv-popup-close:hover { color: rgba(255,255,255,0.7); }
+            #fvNotifPopup .fv-popup-bar {
+                position: absolute;
+                bottom: 0; left: 0;
+                height: 3px;
+                border-radius: 0 0 18px 18px;
+                background: linear-gradient(90deg, #6366f1, #8b5cf6);
+                width: 100%;
+                transform-origin: left;
+                animation: none;
+            }
+            #fvNotifPopup.fv-popup-show .fv-popup-bar {
+                animation: fvPopupBar var(--fv-popup-dur, 5s) linear forwards;
+            }
+            @keyframes fvPopupBar {
+                from { transform: scaleX(1); }
+                to   { transform: scaleX(0); }
             }
 
             /* Search highlight */
@@ -3748,7 +3831,7 @@
                 </section>
 
                 <!-- Folders Section — always visible, hidden only when truly empty -->
-                <!-- Notifications inbox moved to #notifDrawer slide-in panel (added before </body>) -->
+                <!-- Notifications inbox moved to #notifDrawer slide-in panel -->
 
                 <section id="foldersSection" class="mb-6 glass-card p-4 sm:p-5 rounded-3xl">
                     <div class="flex items-center gap-2 mb-3">
@@ -3986,6 +4069,33 @@
                     }, 300);
                 }, duration);
             }
+
+            // ── In-app notification popup — works without push permission ──
+            var _fvPopupTimer = null;
+            function showFvNotifPopup(icon, title, body, durationMs) {
+                durationMs = durationMs || 6000;
+                var popup   = document.getElementById('fvNotifPopup');
+                var elIcon  = document.getElementById('fvNotifPopupIcon');
+                var elTitle = document.getElementById('fvNotifPopupTitle');
+                var elText  = document.getElementById('fvNotifPopupText');
+                if (!popup) return;
+                if (elIcon)  elIcon.textContent  = icon  || '🔔';
+                if (elTitle) elTitle.textContent = title || 'Notification';
+                if (elText)  elText.textContent  = body  || '';
+                popup.style.setProperty('--fv-popup-dur', (durationMs / 1000) + 's');
+                // Reset animation
+                popup.classList.remove('fv-popup-show');
+                void popup.offsetWidth; // reflow
+                popup.classList.add('fv-popup-show');
+                clearTimeout(_fvPopupTimer);
+                _fvPopupTimer = setTimeout(fvHideNotifPopup, durationMs);
+            }
+            function fvHideNotifPopup() {
+                var popup = document.getElementById('fvNotifPopup');
+                if (popup) popup.classList.remove('fv-popup-show');
+                clearTimeout(_fvPopupTimer);
+            }
+            window.fvHideNotifPopup = fvHideNotifPopup;
 
             // Fix 19 — mobile share folder link
             function shareFolderLink() {
@@ -4539,9 +4649,17 @@
                     window._currentUserId = _currentUserId;
                     populateProfileUI(session.user, isAdmin && adminBrowseMode);
                     // ── Bug 4 fix: load notifications now that we have a userId ──
-                    if (typeof loadNotifications === 'function') {
-                        setTimeout(loadNotifications, 400);
-                    }
+                    // Use window.loadNotifications (not the bare name) because this checkAuth()
+                    // block is in an earlier <script> than the function definition — at this
+                    // point the bare identifier doesn't exist yet, so typeof returns 'undefined'.
+                    // By the time the 400 ms timer fires all scripts have run and
+                    // window.loadNotifications is guaranteed to be defined.
+                    setTimeout(function() {
+                        if (typeof window.loadNotifications === 'function') window.loadNotifications();
+                        // Re-init realtime channel with auth token so JWT is attached
+                        // to the subscription — fixes silent failures on authenticated tables.
+                        if (typeof window._reinitRealtime === 'function') window._reinitRealtime();
+                    }, 400);
                     // NOTE: syncBookmarksOnLogin() is intentionally NOT called here.
                     // It's defined in a later <script> block (the bookmarks IIFE),
                     // which has not executed yet at this point in document order —
@@ -4716,6 +4834,7 @@
                         if (typeof syncBookmarksOnLogin === 'function') syncBookmarksOnLogin();
                         if (typeof loadNotifications === 'function') loadNotifications();
                         if (typeof syncFolderSubsOnLogin === 'function') syncFolderSubsOnLogin();
+                        if (typeof window._reinitRealtime === 'function') window._reinitRealtime();
                     }
                 }
             });
@@ -7425,79 +7544,75 @@
                 const markAllBtn = document.getElementById('markAllReadBtn');
                 const bellDot = document.getElementById('pushBellDot');
                 if (!list) return;
+
+                // ── Fetch notifications and announcements INDEPENDENTLY ──
+                // Announcements are always shown in the sidebar even if the notifications
+                // table query fails (missing table, RLS policy, etc.)
+
+                let notifData = [];
                 try {
-                    const {
-                        data,
-                        error
-                    } = await _supabase
+                    const { data, error } = await _supabase
                         .from('notifications')
                         .select('id, type, title, body, created_at, read, link_url, metadata')
                         .eq('user_id', window._currentUserId)
-                        .order('created_at', {
-                            ascending: false
-                        })
+                        .order('created_at', { ascending: false })
                         .limit(30);
+                    if (!error && data) notifData = data;
+                } catch (_) {}
 
-                    if (error) throw error;
-
-                    // ── Also fetch active announcements and synthesise them as notification rows ──
-                    // This ensures announcements always appear in the sidebar even when the server
-                    // hasn't (yet) written per-user notification rows to the notifications table.
-                    let announcementRows = [];
-                    try {
-                        const { data: annData } = await _supabase
-                            .from('announcements')
-                            .select('id, message, created_at, expires_at, status')
-                            .order('created_at', { ascending: false })
-                            .limit(10);
-                        if (annData && annData.length) {
-                            const now = new Date();
-                            announcementRows = annData
-                                .filter(a => (a.status || 'published') === 'published' && (!a.expires_at || new Date(a.expires_at) > now))
-                                .map(a => ({
-                                    id: 'ann_' + a.id,
-                                    type: 'announcement',
-                                    title: '📢 Announcement',
-                                    body: a.message || '',
-                                    created_at: a.created_at,
-                                    read: true,   // announcements are never "unread" in the badge sense
-                                    link_url: '#announcement',
-                                    metadata: null,
-                                    _isAnnouncement: true
-                                }));
-                        }
-                    } catch (_) {}
-
-                    // Merge: deduplicate announcements that already have a matching notifications row
-                    const existingAnnIds = new Set(
-                        (data || []).filter(n => n.type === 'announcement').map(n => n.link_url || '')
-                    );
-                    const dedupedAnnRows = announcementRows.filter(a => !existingAnnIds.has('#announcement') || !(data || []).some(n => n.type === 'announcement' && n.body === a.body));
-                    // Build combined list: user notifications first, then any announcements not already represented
-                    const combined = [...(data || []), ...dedupedAnnRows]
-                        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                        .slice(0, 30);
-
-                    const unreadCount = (data || []).filter(n => !n.read).length;
-                    if (unreadCount > 0) {
-                        if (pill) {
-                            pill.textContent = unreadCount + ' new';
-                            pill.style.display = 'inline-flex';
-                        }
-                        if (markAllBtn) markAllBtn.style.display = '';
-                        if (bellDot) bellDot.style.display = 'block';
-                    } else {
-                        if (pill) pill.style.display = 'none';
-                        if (markAllBtn) markAllBtn.style.display = 'none';
-                        if (bellDot) bellDot.style.display = 'none';
+                // Always fetch active announcements directly from the announcements table
+                let announcementRows = [];
+                try {
+                    const { data: annData } = await _supabase
+                        .from('announcements')
+                        .select('id, message, created_at, expires_at, status')
+                        .order('created_at', { ascending: false })
+                        .limit(10);
+                    if (annData && annData.length) {
+                        const now = new Date();
+                        announcementRows = annData
+                            .filter(a => (a.status || 'published') === 'published' && (!a.expires_at || new Date(a.expires_at) > now))
+                            .map(a => ({
+                                id: 'ann_' + a.id,
+                                type: 'announcement',
+                                title: '📢 Announcement',
+                                body: a.message || '',
+                                created_at: a.created_at,
+                                read: true,
+                                link_url: '#announcement',
+                                metadata: null
+                            }));
                     }
+                } catch (_) {}
 
-                    if (!combined || combined.length === 0) {
-                        list.innerHTML = `<div class="nb-empty-state">
-                        <div class="nb-empty-state-icon"><span class="material-symbols-outlined">notifications</span></div>
-                        <p class="nb-empty-state-title">No notifications yet</p>
-                        <p class="nb-empty-state-sub">Announcements, new uploads, and request updates will show up here.</p>
-                    </div>`;
+                // Dedup: skip synthesised announcement rows whose body already appears
+                // in a real notifications row (server did fan-out successfully)
+                const notifAnnBodies = new Set(
+                    notifData.filter(n => n.type === 'announcement').map(n => (n.body || '').trim())
+                );
+                const dedupedAnnRows = announcementRows.filter(
+                    a => !notifAnnBodies.has((a.body || '').trim())
+                );
+
+                const combined = [...notifData, ...dedupedAnnRows]
+                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                    .slice(0, 30);
+
+                // Unread badge — only counts real notification rows, not synthesised announcements
+                const unreadCount = notifData.filter(n => !n.read).length;
+                if (unreadCount > 0) {
+                    if (pill) { pill.textContent = unreadCount + ' new'; pill.style.display = 'inline-flex'; }
+                    if (markAllBtn) markAllBtn.style.display = '';
+                    if (bellDot) bellDot.style.display = 'block';
+                } else {
+                    if (pill) pill.style.display = 'none';
+                    if (markAllBtn) markAllBtn.style.display = 'none';
+                    if (bellDot) bellDot.style.display = 'none';
+                }
+
+                try {
+                    if (!combined.length) {
+                        list.innerHTML = '<div class="nb-empty-state"><div class="nb-empty-state-icon"><span class="material-symbols-outlined">notifications</span></div><p class="nb-empty-state-title">No notifications yet</p><p class="nb-empty-state-sub">Announcements, new uploads, and request updates will show up here.</p></div>';
                         return;
                     }
 
@@ -7660,18 +7775,20 @@
             }
             window.markAllNotificationsRead = markAllNotificationsRead;
 
-            // Initial unread-count check (so the bell dot reflects reality without
-            // requiring the user to open the panel first). Deferred to window 'load'
-            // for the same reason syncBookmarksOnLogin() is — checkAuth() runs in an
-            // earlier <script> block than this one, so window._currentUserId may not
-            // be set yet if called synchronously from there.
-            if (document.readyState === 'complete') {
-                if (window._currentUserId) loadNotifications();
-            } else {
-                window.addEventListener('load', function() {
-                    if (window._currentUserId) loadNotifications();
-                });
+            // Initial unread-count check. We always defer and also retry briefly
+            // because checkAuth() is async — _currentUserId may not be set when the
+            // load event fires (Supabase getSession() is a Promise).
+            function _initNotifLoad() {
+                if (window._currentUserId) { loadNotifications(); return; }
+                var _notifRetries = 0;
+                var _notifRetryTimer = setInterval(function() {
+                    _notifRetries++;
+                    if (window._currentUserId) { clearInterval(_notifRetryTimer); loadNotifications(); }
+                    else if (_notifRetries >= 25) { clearInterval(_notifRetryTimer); } // 5s max
+                }, 200);
             }
+            if (document.readyState === 'complete') { _initNotifLoad(); }
+            else { window.addEventListener('load', _initNotifLoad); }
 
             // ══ ACTIVITY TRACKING — avoid disrupting the user with auto-refreshes ══
             var _lastInteractionTime = Date.now();
@@ -7733,11 +7850,12 @@
             //   • the manager posts an announcement (announcements INSERT)
             // No page refresh required — files grid reloads automatically
             // once the user is idle (so it never interrupts what they're doing).
-            (function initRealtime() {
+            var _realtimeChannel = null;
+            function initRealtime() {
                 // Debounce rapid back-to-back inserts (e.g. multi-file upload)
                 var _realtimeReloadTimer = null;
 
-                _supabase
+                _realtimeChannel = _supabase
                     .channel('filevault-live')
                     // ── New file uploaded ──
                     .on('postgres_changes', {
@@ -7781,28 +7899,20 @@
                             const row = payload.new || {};
                             loadAnnouncement();
                             if ((row.status || 'published') === 'published') {
-                                showToast('📢 A new announcement was posted!', 'info', 5000);
-                                // ── Show browser notification popup if permission granted ──
+                                const annMsg = row.message || 'The manager posted a new announcement.';
+                                // In-app popup — works for ALL users regardless of push permission
+                                showFvNotifPopup('📢', 'New Announcement', annMsg, 7000);
+                                showToast('📢 ' + annMsg, 'info', 5000);
+                                // Also try native Notification API if permission already granted
                                 try {
                                     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                                        const notifTitle = '📢 New Announcement';
-                                        const notifOpts = {
-                                            body: row.message || 'The manager posted a new announcement.',
-                                            icon: '/favicon.ico',
-                                            tag: 'fv-announce-' + (row.id || Date.now()),
-                                            requireInteraction: false
-                                        };
                                         if (navigator.serviceWorker && navigator.serviceWorker.controller) {
                                             navigator.serviceWorker.ready.then(function(reg) {
-                                                reg.showNotification(notifTitle, notifOpts);
-                                            }).catch(function() { new Notification(notifTitle, notifOpts); });
-                                        } else {
-                                            new Notification(notifTitle, notifOpts);
-                                        }
+                                                reg.showNotification('📢 New Announcement', { body: annMsg, icon: '/favicon.ico', tag: 'fv-ann-' + (row.id || Date.now()) });
+                                            }).catch(function() { new Notification('📢 New Announcement', { body: annMsg }); });
+                                        } else { new Notification('📢 New Announcement', { body: annMsg }); }
                                     }
                                 } catch (_) {}
-                                // Server fan-out writes notification rows a couple of seconds
-                                // after the INSERT — poll so the bell lights up without a refresh
                                 setTimeout(loadNotifications, 2000);
                                 setTimeout(loadNotifications, 5000);
                             }
@@ -7868,7 +7978,6 @@
                             // Only handle notifications for the currently logged-in user
                             if (row.user_id && window._currentUserId && row.user_id !== window._currentUserId) return;
 
-                            // ── Alert the user immediately with a toast ──
                             const iconMap = {
                                 announcement:       '📢',
                                 new_file:           '📁',
@@ -7878,36 +7987,24 @@
                             };
                             const icon  = iconMap[row.type] || '🔔';
                             const title = row.title || 'New notification';
-                            const body  = row.body  ? ' — ' + row.body : '';
-                            showToast(icon + ' ' + title + body, 'info', 6000);
+                            const body  = row.body  || '';
 
-                            // ── Also show an in-browser Notification popup if permission granted ──
-                            // This gives users the same visible pop-up the manager sees from test notify,
-                            // even when the tab is in the background or focus is elsewhere.
+                            // In-app popup — always visible, no push permission needed
+                            showFvNotifPopup(icon, title, body, 7000);
+                            showToast(icon + ' ' + title + (body ? ' — ' + body : ''), 'info', 5000);
+
+                            // Also fire native Notification if permission already granted
                             try {
                                 if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                                    const notifTitle = icon + ' ' + title;
-                                    const notifOpts = {
-                                        body: row.body || '',
-                                        icon: '/favicon.ico',
-                                        tag: 'fv-notif-' + (row.id || Date.now()),
-                                        requireInteraction: false
-                                    };
-                                    // Use the service worker to show the notification so it works
-                                    // even if the tab is backgrounded (SW notifications are more reliable).
+                                    const nOpts = { body: body, icon: '/favicon.ico', tag: 'fv-notif-' + (row.id || Date.now()) };
                                     if (navigator.serviceWorker && navigator.serviceWorker.controller) {
                                         navigator.serviceWorker.ready.then(function(reg) {
-                                            reg.showNotification(notifTitle, notifOpts);
-                                        }).catch(function() {
-                                            new Notification(notifTitle, notifOpts);
-                                        });
-                                    } else {
-                                        new Notification(notifTitle, notifOpts);
-                                    }
+                                            reg.showNotification(icon + ' ' + title, nOpts);
+                                        }).catch(function() { new Notification(icon + ' ' + title, nOpts); });
+                                    } else { new Notification(icon + ' ' + title, nOpts); }
                                 }
                             } catch (_) {}
 
-                            // Reload drawer + bell dot
                             if (typeof loadNotifications === 'function') loadNotifications();
                         }
                     )
@@ -7942,7 +8039,24 @@
                         _refreshFilesWhenIdle();
                     }, POLL_INTERVAL_MS);
                 }
-            })();
+            }
+            initRealtime();
+            var _reinitRealtimeTimer = null;
+            window._reinitRealtime = function() {
+                // Debounce: if checkAuth AND onAuthStateChange both fire,
+                // only reinit once. 300ms window collapses duplicates.
+                clearTimeout(_reinitRealtimeTimer);
+                _reinitRealtimeTimer = setTimeout(function() {
+                    // Re-subscribe with auth token now that the user is signed in.
+                    // This fixes the case where the channel was set up before
+                    // getSession() resolved and the JWT wasn't attached.
+                    if (_realtimeChannel) {
+                        try { _supabase.removeChannel(_realtimeChannel); } catch(e) {}
+                        _realtimeChannel = null;
+                    }
+                    initRealtime();
+                }, 300);
+            };
 
             // ══ LIGHT / DARK MODE ══════════════════════════════════
             function initTheme() {
@@ -11338,6 +11452,17 @@
 
             })();
         </script>
+
+        <!-- ── In-app notification popup ── -->
+        <div id="fvNotifPopup" role="alert" aria-live="assertive">
+            <span class="fv-popup-icon" id="fvNotifPopupIcon">🔔</span>
+            <div class="fv-popup-body">
+                <p class="fv-popup-title" id="fvNotifPopupTitle">Notification</p>
+                <p class="fv-popup-text" id="fvNotifPopupText"></p>
+            </div>
+            <button type="button" class="fv-popup-close" onclick="fvHideNotifPopup()" aria-label="Dismiss">&#x2715;</button>
+            <div class="fv-popup-bar" id="fvNotifPopupBar"></div>
+        </div>
 
         <!-- ── Notification drawer (slide-in from right) ── -->
         <div id="notifDrawerOverlay" onclick="closeNotifInbox()" aria-hidden="true"></div>
