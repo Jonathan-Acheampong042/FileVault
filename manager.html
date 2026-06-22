@@ -3072,7 +3072,7 @@ create policy "Admins can read audit log"
                         error
                     } = await _supabase
                         .from('files_list')
-                        .select('file_name, folder_name, download_count, created_at')
+                        .select('file_name, folder_name, download_count, created_at, updated_at')
                         .order('download_count', {
                             ascending: false
                         });
@@ -3211,6 +3211,7 @@ create policy "Admins can read audit log"
                             folder_name: folderName,
                             download_url: urlData.publicUrl,
                             created_at: file.created_at,
+                            updated_at: file.updated_at || null,
                             _storagePath: file.name,
                             file_size: file.metadata?.size
                         };
@@ -3721,7 +3722,9 @@ create policy "Admins can read audit log"
                         <span class="text-white/20">·</span>
                         <span>${fileSize}</span>
                     </p>
-                    ${row.created_at ? `<p class="text-[10px] text-white/30 mt-0.5">${formatDate(row.created_at)}</p>` : ''}
+                    ${row.updated_at && row.created_at && new Date(row.updated_at) - new Date(row.created_at) > 60000
+                        ? `<p class="text-[10px] text-amber-400/60 mt-0.5" title="Originally uploaded ${formatDate(row.created_at)}">↻ Updated ${formatDate(row.updated_at)}</p>`
+                        : (row.created_at ? `<p class="text-[10px] text-white/30 mt-0.5">Uploaded ${formatDate(row.created_at)}</p>` : '')}
                     <div class="flex gap-1 mt-1 flex-wrap">${dlBadge}${ratingBadge}${expiryBadge}${scheduledBadge}</div>
                     ${row.description ? `<p class="text-[10px] text-white/50 mt-1 italic line-clamp-2">${_esc(row.description)}</p>` : ''}
                 </div>

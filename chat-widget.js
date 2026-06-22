@@ -12,12 +12,6 @@ const CHAT_API_URL = window.location.hostname === 'localhost' ?
 // no-op fallback only so any endpoint that hasn't migrated to Bearer auth
 // yet doesn't throw on an undefined reference; the real auth now happens
 // via _getAuthHeader() below.
-const _getPushSecret = (function() {
-    return function() {
-        return window.pushSecret || '';
-    };
-})();
-
 // ─── MANAGER AUTH HEADER ──────────────────────────────────────
 // Mirrors manager.html's own fvManagerFetch() helper: manager-only
 // server.js endpoints (requireManager) verify a real Supabase session
@@ -770,7 +764,6 @@ function _tryManagerCommand(text) {
 }
 
 async function _postAnnouncement(message, expiresStr) {
-    const secret = _getPushSecret();
     let expires_at = null;
     if (expiresStr) {
         const d = new Date(expiresStr);
@@ -818,7 +811,7 @@ async function _postAnnouncement(message, expiresStr) {
     postBtn.textContent = 'Post announcement';
     // Use an event listener closure — no string interpolation of user data
     postBtn.addEventListener('click', function() {
-        _confirmAnnouncement(previewId, message, expires_at, secret);
+        _confirmAnnouncement(previewId, message, expires_at);
     });
     btnRow.appendChild(postBtn);
 
@@ -841,7 +834,7 @@ async function _postAnnouncement(message, expiresStr) {
     }
 }
 
-async function _confirmAnnouncement(previewId, message, expires_at, secret) {
+async function _confirmAnnouncement(previewId, message, expires_at) {
     const card = document.getElementById(previewId);
     const btnRow = card && card.querySelector('div[style*="display:flex"]');
     if (btnRow) btnRow.innerHTML = '<span style="font-size:12px;color:#94a3b8">Posting…</span>';
@@ -855,8 +848,7 @@ async function _confirmAnnouncement(previewId, message, expires_at, secret) {
             }, authHeader),
             body: JSON.stringify({
                 message,
-                expires_at,
-                secret
+                expires_at
             })
         });
         const data = await res.json();
@@ -878,7 +870,6 @@ async function _confirmAnnouncement(previewId, message, expires_at, secret) {
 }
 
 async function _deleteAnnouncement(id) {
-    const secret = _getPushSecret();
     const bubble = appendBubble('assistant', `🗑 Deleting announcement <code style="font-size:11px;opacity:0.6">${escapeHtml(id)}</code>…`);
     try {
         const authHeader = await _getAuthHeader();
@@ -887,9 +878,7 @@ async function _deleteAnnouncement(id) {
             headers: Object.assign({
                 'Content-Type': 'application/json'
             }, authHeader),
-            body: JSON.stringify({
-                secret
-            })
+            body: JSON.stringify({})
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Server error');
@@ -1027,7 +1016,6 @@ async function _showAllFileRequests() {
 }
 
 async function _updateFileRequest(id, status, note) {
-    const secret = _getPushSecret();
     const bubble = appendBubble('assistant', `⏳ Updating request…`);
     try {
         const authHeader = await _getAuthHeader();
@@ -1038,8 +1026,7 @@ async function _updateFileRequest(id, status, note) {
             }, authHeader),
             body: JSON.stringify({
                 status,
-                note,
-                secret
+                note
             })
         });
         const data = await res.json();
@@ -1976,10 +1963,12 @@ async function sendChatMessage() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
+        const chatAuthHeader = await _getAuthHeader();
         const res = await fetch(CHAT_API_URL, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                ...chatAuthHeader
             },
             body: JSON.stringify({
                 message: text,
@@ -1992,6 +1981,12 @@ async function sendChatMessage() {
 
         typing.remove();
 
+        if (res.status === 401) {
+            appendBubble('assistant', '🔒 <strong>Sign in to use the AI chat.</strong> Create a free account or log in to continue.');
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            return;
+        }
         if (!res.ok) throw new Error(`Server error ${res.status}`);
         const data = await res.json();
         const reply = data.text || 'No response received.';
@@ -2084,8 +2079,6 @@ async function _sendBroadcast(cardId, message) {
     const btnRow = card.querySelector('div[style*="display:flex"]');
     if (btnRow) btnRow.innerHTML = '<span style="font-size:12px;color:#94a3b8">Sending…</span>';
 
-    const secret = _getPushSecret(); // legacy field, server no longer checks it
-
     try {
         const authHeader = await _getAuthHeader();
         const res = await fetch(PUSH_NOTIFY_URL, {
@@ -2096,8 +2089,7 @@ async function _sendBroadcast(cardId, message) {
             body: JSON.stringify({
                 title: '📢 FileVault Announcement',
                 body: message,
-                url: '/index.html',
-                secret
+                url: '/index.html'
             })
         });
         const data = await res.json();
@@ -2542,19 +2534,28 @@ JSON FORMAT:
   ]
 }`;
 
-    fetch(CHAT_API_URL, {
+    _getAuthHeader().then(quizAuthHeader => fetch(CHAT_API_URL, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                ...quizAuthHeader
             },
             body: JSON.stringify({
                 message: prompt,
                 history: [],
                 systemPrompt: 'You are a JSON-only quiz generator. Output only valid JSON.'
             })
+        }))
+        .then(r => {
+            if (r.status === 401) {
+                _setQuizLoading(false);
+                _setQuizError('Sign in or create a free account to generate quizzes.');
+                return null;
+            }
+            return r.json();
         })
-        .then(r => r.json())
         .then(data => {
+            if (!data) return;
             _setQuizLoading(false);
             const raw = (data.text || '').replace(/```json|```/g, '').trim();
             let parsed;

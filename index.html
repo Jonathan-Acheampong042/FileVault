@@ -4807,6 +4807,7 @@
                             folder: row.folder_name && row.folder_name !== 'Root' ? row.folder_name : null,
                             url: row.download_url,
                             date: row.created_at,
+                            updated_at: row.updated_at || null,
                             expires_at: row.expires_at,
                             description: row.description || null,
                             file_size: row.file_size || null,
@@ -5068,7 +5069,10 @@
                         '<div class="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-slate-500">' +
                         '<span class="uppercase truncate max-w-[100px]">' + highlightText(file.folder || 'ROOT', currentSearchTerm) + '</span>' +
                         (sizeLabel ? '<span>·</span><span class="text-slate-400 font-medium">' + sizeLabel + '</span>' : '') +
-                        '<span>·</span><span title="' + escapeHtml(formatDate(file.date)) + '">' + escapeHtml(timeAgo(file.date)) + '</span>' +
+                        '<span>·</span>' +
+                        (file.updated_at && file.date && new Date(file.updated_at) - new Date(file.date) > 60000
+                            ? '<span title="Originally uploaded ' + escapeHtml(formatDate(file.date)) + '" style="color:#fbbf24;font-weight:600">↻ Updated ' + escapeHtml(timeAgo(file.updated_at)) + '</span>'
+                            : '<span title="' + escapeHtml(formatDate(file.date)) + '">' + escapeHtml(timeAgo(file.date)) + '</span>') +
                         expText +
                         viewBadge +
                         ratingBadge +
@@ -8924,7 +8928,7 @@
             </div>
         </div>
 
-        <script src="chat-widget.js?v=10"></script>
+        <script src="chat-widget.js?v=11"></script>
         <script>
             // ══════════════════════════════════════════════════════════════════
             // FEATURE 9: AI "Related Files" suggestions in preview

@@ -275,6 +275,49 @@ async function requireManager(req, res, next) {
     }
 }
 
+// Any logged-in user — no role check. Use for endpoints that must not be
+// anonymous but are not manager-only (e.g. /api/chat, /api/summarise).
+async function requireAuth(req, res, next) {
+    if (!_supa) return res.status(503).json({ error: 'Supabase not configured' });
+
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Sign in to use this feature.' });
+
+    try {
+        const { data: userData, error: userErr } = await _supa.auth.getUser(token);
+        if (userErr || !userData?.user) {
+            return res.status(401).json({ error: 'Invalid or expired session. Please sign in again.' });
+        }
+        req.authUser = userData.user;
+        next();
+    } catch (e) {
+        console.error('[requireAuth] Unexpected error:', e);
+        res.status(500).json({ error: 'Auth check failed.' });
+    }
+}
+
+// Per-user daily cap on AI endpoints. Must run after requireAuth (needs req.authUser).
+// Stores counts in-memory; resets on server restart. For production persistence,
+// swap the Map for a Supabase/Redis counter.
+const _aiDailyCounts = new Map(); // key: `${userId}:${YYYY-MM-DD}` → count
+const AI_DAILY_CAP = 50;
+async function aiDailyCapCheck(req, res, next) {
+    const userId = req.authUser?.id;
+    if (!userId) return res.status(401).json({ error: 'Auth required before cap check.' });
+
+    const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD' UTC
+    const key = `${userId}:${today}`;
+    const count = _aiDailyCounts.get(key) || 0;
+    if (count >= AI_DAILY_CAP) {
+        return res.status(429).json({
+            error: `Daily AI limit reached (${AI_DAILY_CAP} requests). Try again tomorrow.`
+        });
+    }
+    _aiDailyCounts.set(key, count + 1);
+    next();
+}
+
 // ── Supabase push_subscriptions table helper ────────────────
 // Required table (run once in Supabase SQL editor):
 //
@@ -472,30 +515,19 @@ app.get('/api/push/cleanup', async (req, res) => {
 // push notifications. Students always have a session when on index.html,
 // so this is transparent to legitimate use.
 // Rate-limited to 10 req/min as an additional layer.
-app.post('/api/push/notify-manager', pushRateLimit, async (req, res) => {
-    if (_supa) {
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-        if (!token) return res.status(401).json({ error: 'Authentication required' });
-        const { data: userData, error: userErr } = await _supa.auth.getUser(token);
-        if (userErr || !userData?.user) {
-            return res.status(401).json({ error: 'Invalid or expired session' });
-        }
-    }
-    const {
-        title,
-        body,
-        url
-    } = req.body;
+app.post('/api/push/notify-manager', pushRateLimit, requireAuth, async (req, res) => {
+    // req.authUser is set by requireAuth — any logged-in user may trigger this.
+    // Payload is server-controlled; caller cannot supply title/body/url.
+    const studentName = (req.authUser.email || 'A student').split('@')[0];
     if (!process.env.VAPID_PUBLIC_KEY) {
         return res.status(503).json({
             error: 'Push not configured. Set VAPID keys in .env'
         });
     }
     const payload = JSON.stringify({
-        title: title || '📥 New File Request',
-        body: body || 'A student has submitted a new file request.',
-        url: url || '/manager.html',
+        title: '📥 New File Request',
+        body: `${studentName} has submitted a new file request.`,
+        url: '/manager.html',
         icon: '/filevault%20logo.png',
         badge: '/filevault%20logo.png'
     });
@@ -687,7 +719,7 @@ async function groqSummariseWithRetry(payload, attempt = 0) {
 // Returns { summary: "…" }  — a short 2-3 sentence description for the file.
 // Called by manager.html after upload for PDF/PPTX/DOCX/XLSX files.
 // Queued internally so bulk uploads don't hammer Groq simultaneously.
-app.post('/api/summarise', aiRateLimit, async (req, res) => {
+app.post('/api/summarise', aiRateLimit, requireAuth, aiDailyCapCheck, async (req, res) => {
     if (!groq) return res.status(503).json({
         error: 'AI not configured. Set GROQ_API_KEY.'
     });
@@ -904,7 +936,7 @@ app.get('/api/cron/expiry-check', async (req, res) => {
     }
 });
 
-app.post('/api/chat', aiRateLimit, async (req, res) => {
+app.post('/api/chat', aiRateLimit, requireAuth, aiDailyCapCheck, async (req, res) => {
     if (!groq) return res.status(503).json({
         error: 'AI not configured. Set GROQ_API_KEY.'
     });
