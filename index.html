@@ -7803,8 +7803,23 @@
                         },
                         function(payload) {
                             const row = payload.new || {};
-                            // Only reload for the currently logged-in user's notifications
+                            // Only handle notifications for the currently logged-in user
                             if (row.user_id && window._currentUserId && row.user_id !== window._currentUserId) return;
+
+                            // ── Alert the user immediately with a toast ──
+                            const iconMap = {
+                                announcement:       '📢',
+                                new_file:           '📁',
+                                file_expiring:      '⏰',
+                                request_approved:   '✅',
+                                request_dismissed:  '❌',
+                            };
+                            const icon  = iconMap[row.type] || '🔔';
+                            const title = row.title || 'New notification';
+                            const body  = row.body  ? ' — ' + row.body : '';
+                            showToast(icon + ' ' + title + body, 'info', 6000);
+
+                            // Reload drawer + bell dot
                             if (typeof loadNotifications === 'function') loadNotifications();
                         }
                     )
