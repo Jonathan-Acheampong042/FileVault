@@ -258,6 +258,147 @@
                 color: #0f172a !important;
             }
 
+            /* ── Avatar Crop Modal ── */
+            #cropModal {
+                display: none;
+                position: fixed;
+                inset: 0;
+                z-index: 99999;
+                background: rgba(0,0,0,0.82);
+                backdrop-filter: blur(8px);
+                align-items: center;
+                justify-content: center;
+            }
+            #cropModal.open {
+                display: flex;
+            }
+            #cropModalInner {
+                background: rgba(15,23,42,0.98);
+                border: 1px solid rgba(255,255,255,0.12);
+                border-radius: 24px;
+                padding: 28px 24px 24px;
+                width: min(420px, 94vw);
+                box-shadow: 0 32px 80px rgba(0,0,0,0.7);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 16px;
+            }
+            html.light #cropModalInner {
+                background: rgba(255,255,255,0.98) !important;
+                border-color: rgba(0,0,0,0.1) !important;
+            }
+            #cropModalTitle {
+                font-size: 16px;
+                font-weight: 800;
+                color: #f1f5f9;
+                margin: 0;
+                align-self: flex-start;
+            }
+            html.light #cropModalTitle { color: #0f172a !important; }
+            #cropModalSub {
+                font-size: 12px;
+                color: #64748b;
+                margin: -10px 0 0;
+                align-self: flex-start;
+            }
+            #cropContainer {
+                position: relative;
+                width: 300px;
+                height: 300px;
+                overflow: hidden;
+                background: #000;
+                border-radius: 16px;
+                cursor: grab;
+                user-select: none;
+                touch-action: none;
+            }
+            #cropContainer:active { cursor: grabbing; }
+            #cropSourceImg {
+                position: absolute;
+                transform-origin: 0 0;
+                pointer-events: none;
+            }
+            /* circle overlay */
+            #cropCircleOverlay {
+                position: absolute;
+                inset: 0;
+                border-radius: 16px;
+                pointer-events: none;
+                box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+                clip-path: polygon(0% 0%, 0% 100%, 50px 100%, 50px 50px, calc(100% - 50px) 50px, calc(100% - 50px) calc(100% - 50px), 50px calc(100% - 50px), 50px 100%, 100% 100%, 100% 0%);
+            }
+            #cropCircleBorder {
+                position: absolute;
+                left: 50px; top: 50px;
+                width: calc(100% - 100px);
+                height: calc(100% - 100px);
+                border-radius: 50%;
+                border: 2px solid rgba(255,255,255,0.7);
+                pointer-events: none;
+            }
+            #cropZoomRow {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                width: 100%;
+            }
+            #cropZoomRow span { color: #64748b; font-size: 14px; }
+            #cropZoom {
+                flex: 1;
+                accent-color: var(--accent);
+            }
+            #cropPreviewRow {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                align-self: flex-start;
+            }
+            #cropPreviewCircle {
+                width: 56px;
+                height: 56px;
+                border-radius: 50%;
+                overflow: hidden;
+                border: 2px solid rgba(255,255,255,0.15);
+                background: #000;
+                flex-shrink: 0;
+            }
+            #cropPreviewCircle canvas {
+                width: 56px;
+                height: 56px;
+            }
+            #cropPreviewLabel {
+                font-size: 12px;
+                color: #64748b;
+            }
+            #cropBtnRow {
+                display: flex;
+                gap: 10px;
+                width: 100%;
+            }
+            #cropBtnRow button {
+                flex: 1;
+                padding: 12px;
+                border-radius: 13px;
+                font-size: 13px;
+                font-weight: 700;
+                font-family: inherit;
+                cursor: pointer;
+                border: none;
+                transition: all .2s;
+            }
+            #cropCancelBtn {
+                background: rgba(255,255,255,0.06);
+                color: #94a3b8;
+                border: 1px solid rgba(255,255,255,0.1) !important;
+            }
+            #cropCancelBtn:hover { background: rgba(255,255,255,0.1); }
+            #cropSaveBtn {
+                background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
+                color: #fff;
+            }
+            #cropSaveBtn:hover { opacity: .88; }
+
             html.light header.profile-header a,
             html.light .header-signout {
                 color: #475569 !important;
@@ -1693,6 +1834,32 @@
         <div class="bg-overlay"></div>
         <div id="toastWrap"></div>
 
+        <!-- ══ Avatar Crop Modal ══ -->
+        <div id="cropModal" role="dialog" aria-modal="true" aria-labelledby="cropModalTitle">
+            <div id="cropModalInner">
+                <p id="cropModalTitle">Crop Profile Photo</p>
+                <p id="cropModalSub">Drag to reposition · use the slider to zoom</p>
+                <div id="cropContainer">
+                    <img id="cropSourceImg" alt="" draggable="false" />
+                    <div id="cropCircleOverlay"></div>
+                    <div id="cropCircleBorder"></div>
+                </div>
+                <div id="cropZoomRow">
+                    <span class="material-symbols-outlined" style="font-size:18px">zoom_out</span>
+                    <input type="range" id="cropZoom" min="1" max="4" step="0.01" value="1" />
+                    <span class="material-symbols-outlined" style="font-size:18px">zoom_in</span>
+                </div>
+                <div id="cropPreviewRow">
+                    <div id="cropPreviewCircle"><canvas id="cropPreviewCanvas" width="56" height="56"></canvas></div>
+                    <span id="cropPreviewLabel">Circle preview</span>
+                </div>
+                <div id="cropBtnRow">
+                    <button id="cropCancelBtn" onclick="closeCropModal()">Cancel</button>
+                    <button id="cropSaveBtn" onclick="applyCrop()">Use Photo</button>
+                </div>
+            </div>
+        </div>
+
         <div class="min-h-screen flex flex-col">
             <!-- Header -->
             <header class="profile-header flex items-center justify-between pb-3 max-w-2xl mx-auto w-full">
@@ -2800,33 +2967,32 @@
             }
 
             // ═══════════════════════════════════════════════════════════
-            // AVATAR UPLOAD
+            // AVATAR UPLOAD  —  step 1: validate → open crop modal
             // ═══════════════════════════════════════════════════════════
             async function handleAvatarUpload(input) {
                 const file = input.files[0];
                 if (!file) return;
 
-                // ── 1. MIME type check (extension-rename catch) ──────────
+                // ── 1. MIME type check ───────────────────────────────────
                 if (!file.type.startsWith('image/')) {
                     setMsg('avatarMsg', 'Only image files are allowed (JPEG, PNG, WebP, GIF).', 'error');
                     input.value = '';
                     return;
                 }
-                // ── 2. Size check ─────────────────────────────────────────
-                if (file.size > 2 * 1024 * 1024) {
-                    setMsg('avatarMsg', 'Image must be under 2 MB.', 'error');
+                // ── 2. Size check (6 MB pre-crop limit — matches Supabase bucket max) ──
+                if (file.size > 6 * 1024 * 1024) {
+                    setMsg('avatarMsg', 'Image must be under 6 MB.', 'error');
                     input.value = '';
                     return;
                 }
-                // ── 3. Magic-byte check (read first 4 bytes) ──────────────
-                // Defends against a renamed .exe/.html with image MIME spoofed by JS
+                // ── 3. Magic-byte check ──────────────────────────────────
                 try {
                     const header = await file.slice(0, 4).arrayBuffer();
                     const bytes = new Uint8Array(header);
                     const isJpeg = bytes[0] === 0xFF && bytes[1] === 0xD8;
-                    const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47;
-                    const isGif = bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46;
-                    const isWebP = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x41; // 'RIFF' — WebP container
+                    const isPng  = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47;
+                    const isGif  = bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46;
+                    const isWebP = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x41;
                     if (!isJpeg && !isPng && !isGif && !isWebP) {
                         setMsg('avatarMsg', 'File does not appear to be a valid image.', 'error');
                         input.value = '';
@@ -2838,75 +3004,241 @@
                     return;
                 }
 
-                setMsg('avatarMsg', 'Uploading…', 'info');
-
-                // ── 4. Show local preview immediately (ObjectURL, no base64 bloat) ──
-                const previewUrl = URL.createObjectURL(file);
-                const photoWrap = document.getElementById('pPhotoWrap');
-                photoWrap.innerHTML = '';
-                const previewImg = document.createElement('img');
-                previewImg.src = previewUrl;
-                previewImg.style.cssText = 'width:84px;height:84px;border-radius:50%;object-fit:cover;display:block';
-                photoWrap.style.background = 'transparent';
-                photoWrap.appendChild(previewImg);
-
-                try {
-                    // ── 5. Upload to Supabase Storage (avatars bucket) ────
-                    const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
-                    const userId = _currentUser.id;
-                    const path = `${userId}/avatar.${ext}`;
-
-                    const {
-                        error: uploadError
-                    } = await _supabase.storage
-                        .from('avatars')
-                        .upload(path, file, {
-                            upsert: true,
-                            contentType: file.type
-                        });
-
-                    if (uploadError) throw uploadError;
-
-                    // ── 6. Get public URL and store only that in user_metadata ──
-                    const {
-                        data: urlData
-                    } = _supabase.storage
-                        .from('avatars')
-                        .getPublicUrl(path);
-
-                    const publicUrl = urlData?.publicUrl;
-                    if (!publicUrl) throw new Error('Could not get public URL for uploaded avatar.');
-
-                    const {
-                        data,
-                        error: metaError
-                    } = await _supabase.auth.updateUser({
-                        data: {
-                            avatar_url: publicUrl
-                        }
-                    });
-                    if (metaError) throw metaError;
-
-                    // Update preview to the canonical URL (revokes the ObjectURL)
-                    previewImg.src = publicUrl;
-                    URL.revokeObjectURL(previewUrl);
-
-                    if (data && data.user) _currentUser = data.user;
-                    setMsg('avatarMsg', '✅ Profile photo updated.', 'success');
-                    showToast('Profile photo updated', 'success');
-                    setTimeout(() => setMsg('avatarMsg', '', 'info'), 3000);
-
-                } catch (err) {
-                    // Roll back preview on failure
-                    previewImg.src = '';
-                    photoWrap.innerHTML = (_currentUser?.user_metadata?.avatar_url || _currentUser?.user_metadata?.picture) ?
-                        `<img src="${_currentUser.user_metadata.avatar_url || _currentUser.user_metadata.picture}" style="width:84px;height:84px;border-radius:50%;object-fit:cover;display:block"/>` :
-                        '?';
-                    URL.revokeObjectURL(previewUrl);
-                    setMsg('avatarMsg', 'Failed to save photo: ' + err.message, 'error');
-                }
-
                 input.value = '';
+                // ── 4. Open crop modal instead of uploading immediately ──
+                openCropModal(file);
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            // CROP MODAL ENGINE
+            // ═══════════════════════════════════════════════════════════
+            let _cropFile   = null;
+            let _cropObjUrl = null;
+            let _cropState  = { x: 0, y: 0, zoom: 1, imgW: 0, imgH: 0, cW: 300, cH: 300, cropR: 100 };
+            let _cropDrag   = null; // { startX, startY, startCX, startCY }
+
+            function openCropModal(file) {
+                _cropFile = file;
+                if (_cropObjUrl) URL.revokeObjectURL(_cropObjUrl);
+                _cropObjUrl = URL.createObjectURL(file);
+
+                const img = document.getElementById('cropSourceImg');
+                img.onload = () => {
+                    _cropState.imgW  = img.naturalWidth;
+                    _cropState.imgH  = img.naturalHeight;
+                    _cropState.zoom  = 1;
+                    // Centre the image initially
+                    const scale = Math.max(200 / img.naturalWidth, 200 / img.naturalHeight);
+                    _cropState.zoom = Math.max(1, scale);
+                    document.getElementById('cropZoom').value = _cropState.zoom;
+                    document.getElementById('cropZoom').max   = Math.max(4, _cropState.zoom * 4);
+                    _centreImage();
+                    _applyCropTransform();
+                    _drawPreview();
+                };
+                img.src = _cropObjUrl;
+
+                document.getElementById('cropModal').classList.add('open');
+                document.body.style.overflow = 'hidden';
+                _attachCropEvents();
+            }
+
+            function closeCropModal() {
+                document.getElementById('cropModal').classList.remove('open');
+                document.body.style.overflow = '';
+                if (_cropObjUrl) { URL.revokeObjectURL(_cropObjUrl); _cropObjUrl = null; }
+                _detachCropEvents();
+            }
+
+            function _centreImage() {
+                const s  = _cropState;
+                const dW = s.imgW * s.zoom;
+                const dH = s.imgH * s.zoom;
+                s.x = (s.cW - dW) / 2;
+                s.y = (s.cH - dH) / 2;
+            }
+
+            function _clampPos() {
+                const s   = _cropState;
+                const dW  = s.imgW * s.zoom;
+                const dH  = s.imgH * s.zoom;
+                // circle is 200×200 centred in the 300×300 container (50px inset each side)
+                const cx1 = 50, cy1 = 50, cx2 = 250, cy2 = 250;
+                // image must cover the full circle
+                s.x = Math.min(cx1, Math.max(cx2 - dW, s.x));
+                s.y = Math.min(cy1, Math.max(cy2 - dH, s.y));
+            }
+
+            function _applyCropTransform() {
+                const s   = _cropState;
+                const img = document.getElementById('cropSourceImg');
+                img.style.width  = (s.imgW * s.zoom) + 'px';
+                img.style.height = (s.imgH * s.zoom) + 'px';
+                img.style.left   = s.x + 'px';
+                img.style.top    = s.y + 'px';
+            }
+
+            function _drawPreview() {
+                const s      = _cropState;
+                const canvas = document.getElementById('cropPreviewCanvas');
+                const ctx    = canvas.getContext('2d');
+                const img    = document.getElementById('cropSourceImg');
+                const size   = 56;
+                canvas.width  = size;
+                canvas.height = size;
+                ctx.clearRect(0, 0, size, size);
+
+                // Clip to circle
+                ctx.beginPath();
+                ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+                ctx.clip();
+
+                // The crop circle in container coords: 50,50 → 250,250 (200×200)
+                const srcX = (50 - s.x) / s.zoom;
+                const srcY = (50 - s.y) / s.zoom;
+                const srcW = 200 / s.zoom;
+                const srcH = 200 / s.zoom;
+
+                ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, size, size);
+            }
+
+            // ── Zoom slider ──
+            document.getElementById('cropZoom').addEventListener('input', function() {
+                const s       = _cropState;
+                const prevZ   = s.zoom;
+                s.zoom        = parseFloat(this.value);
+                // Zoom towards centre of crop circle (centred at 150,150 in container)
+                const cx = 150, cy = 150;
+                s.x = cx - (cx - s.x) * (s.zoom / prevZ);
+                s.y = cy - (cy - s.y) * (s.zoom / prevZ);
+                _clampPos();
+                _applyCropTransform();
+                _drawPreview();
+            });
+
+            // ── Drag (mouse + touch) ──
+            function _onPointerDown(e) {
+                e.preventDefault();
+                const pt = e.touches ? e.touches[0] : e;
+                _cropDrag = { startX: pt.clientX, startY: pt.clientY, startCX: _cropState.x, startCY: _cropState.y };
+            }
+            function _onPointerMove(e) {
+                if (!_cropDrag) return;
+                e.preventDefault();
+                const pt = e.touches ? e.touches[0] : e;
+                _cropState.x = _cropDrag.startCX + (pt.clientX - _cropDrag.startX);
+                _cropState.y = _cropDrag.startCY + (pt.clientY - _cropDrag.startY);
+                _clampPos();
+                _applyCropTransform();
+                _drawPreview();
+            }
+            function _onPointerUp() { _cropDrag = null; }
+
+            function _attachCropEvents() {
+                const c = document.getElementById('cropContainer');
+                c.addEventListener('mousedown',  _onPointerDown);
+                c.addEventListener('touchstart', _onPointerDown, { passive: false });
+                window.addEventListener('mousemove',  _onPointerMove);
+                window.addEventListener('touchmove',  _onPointerMove, { passive: false });
+                window.addEventListener('mouseup',    _onPointerUp);
+                window.addEventListener('touchend',   _onPointerUp);
+            }
+            function _detachCropEvents() {
+                const c = document.getElementById('cropContainer');
+                c.removeEventListener('mousedown',  _onPointerDown);
+                c.removeEventListener('touchstart', _onPointerDown);
+                window.removeEventListener('mousemove',  _onPointerMove);
+                window.removeEventListener('touchmove',  _onPointerMove);
+                window.removeEventListener('mouseup',    _onPointerUp);
+                window.removeEventListener('touchend',   _onPointerUp);
+            }
+
+            // ── Apply crop → upload ──
+            async function applyCrop() {
+                const s   = _cropState;
+                const img = document.getElementById('cropSourceImg');
+
+                // Render crop to an offscreen canvas at 400×400
+                const SIZE   = 400;
+                const canvas = document.createElement('canvas');
+                canvas.width  = SIZE;
+                canvas.height = SIZE;
+                const ctx = canvas.getContext('2d');
+                ctx.beginPath();
+                ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2, 0, Math.PI * 2);
+                ctx.clip();
+
+                const srcX = (50 - s.x) / s.zoom;
+                const srcY = (50 - s.y) / s.zoom;
+                const srcW = 200 / s.zoom;
+                const srcH = 200 / s.zoom;
+                ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, SIZE, SIZE);
+
+                canvas.toBlob(async (blob) => {
+                    if (!blob) { showToast('Could not process image. Please try again.', 'error'); return; }
+
+                    closeCropModal();
+                    setMsg('avatarMsg', 'Uploading…', 'info');
+
+                    // Show local preview
+                    const previewUrl = URL.createObjectURL(blob);
+                    const photoWrap  = document.getElementById('pPhotoWrap');
+                    photoWrap.innerHTML = '';
+                    const previewImg = document.createElement('img');
+                    previewImg.src = previewUrl;
+                    previewImg.style.cssText = 'width:84px;height:84px;border-radius:50%;object-fit:cover;display:block';
+                    photoWrap.style.background = 'transparent';
+                    photoWrap.appendChild(previewImg);
+
+                    try {
+                        // ── Upload to Supabase Storage (avatars bucket) ────
+                        // ⚠️  Make sure a public bucket named "avatars" exists in your
+                        //     Supabase project: Storage → New bucket → name "avatars" → Public ✓
+                        const userId = _currentUser.id;
+                        const path   = `${userId}/avatar.jpg`;
+
+                        const { error: uploadError } = await _supabase.storage
+                            .from('avatars')
+                            .upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+
+                        if (uploadError) throw uploadError;
+
+                        const { data: urlData } = _supabase.storage
+                            .from('avatars')
+                            .getPublicUrl(path);
+
+                        const publicUrl = urlData?.publicUrl;
+                        if (!publicUrl) throw new Error('Could not get public URL for uploaded avatar.');
+
+                        const { data, error: metaError } = await _supabase.auth.updateUser({
+                            data: { avatar_url: publicUrl }
+                        });
+                        if (metaError) throw metaError;
+
+                        previewImg.src = publicUrl + '?t=' + Date.now(); // cache-bust
+                        URL.revokeObjectURL(previewUrl);
+
+                        if (data && data.user) _currentUser = data.user;
+                        setMsg('avatarMsg', '✅ Profile photo updated.', 'success');
+                        showToast('Profile photo updated', 'success');
+                        setTimeout(() => setMsg('avatarMsg', '', 'info'), 3000);
+
+                    } catch (err) {
+                        previewImg.src = '';
+                        photoWrap.innerHTML = (_currentUser?.user_metadata?.avatar_url || _currentUser?.user_metadata?.picture) ?
+                            `<img src="${_currentUser.user_metadata.avatar_url || _currentUser.user_metadata.picture}" style="width:84px;height:84px;border-radius:50%;object-fit:cover;display:block"/>` :
+                            '?';
+                        URL.revokeObjectURL(previewUrl);
+
+                        // Friendly message for the most common error
+                        const msg = err.message || '';
+                        if (msg.toLowerCase().includes('bucket') && msg.toLowerCase().includes('not found')) {
+                            setMsg('avatarMsg', 'Storage not set up yet — create an "avatars" bucket in Supabase.', 'error');
+                        } else {
+                            setMsg('avatarMsg', 'Failed to save photo: ' + msg, 'error');
+                        }
+                    }
+                }, 'image/jpeg', 0.92);
             }
 
             // ═══════════════════════════════════════════════════════════
@@ -4739,6 +5071,6 @@
                 }, 3000);
             }
         </script>
-        <script src="chat-widget.js"></script>
+        <script src="chat-widget.js?v=13"></script>
     </body>
 </html>
