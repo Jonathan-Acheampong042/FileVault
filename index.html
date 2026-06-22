@@ -7440,6 +7440,44 @@
 
                     if (error) throw error;
 
+                    // ── Also fetch active announcements and synthesise them as notification rows ──
+                    // This ensures announcements always appear in the sidebar even when the server
+                    // hasn't (yet) written per-user notification rows to the notifications table.
+                    let announcementRows = [];
+                    try {
+                        const { data: annData } = await _supabase
+                            .from('announcements')
+                            .select('id, message, created_at, expires_at, status')
+                            .order('created_at', { ascending: false })
+                            .limit(10);
+                        if (annData && annData.length) {
+                            const now = new Date();
+                            announcementRows = annData
+                                .filter(a => (a.status || 'published') === 'published' && (!a.expires_at || new Date(a.expires_at) > now))
+                                .map(a => ({
+                                    id: 'ann_' + a.id,
+                                    type: 'announcement',
+                                    title: '📢 Announcement',
+                                    body: a.message || '',
+                                    created_at: a.created_at,
+                                    read: true,   // announcements are never "unread" in the badge sense
+                                    link_url: '#announcement',
+                                    metadata: null,
+                                    _isAnnouncement: true
+                                }));
+                        }
+                    } catch (_) {}
+
+                    // Merge: deduplicate announcements that already have a matching notifications row
+                    const existingAnnIds = new Set(
+                        (data || []).filter(n => n.type === 'announcement').map(n => n.link_url || '')
+                    );
+                    const dedupedAnnRows = announcementRows.filter(a => !existingAnnIds.has('#announcement') || !(data || []).some(n => n.type === 'announcement' && n.body === a.body));
+                    // Build combined list: user notifications first, then any announcements not already represented
+                    const combined = [...(data || []), ...dedupedAnnRows]
+                        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                        .slice(0, 30);
+
                     const unreadCount = (data || []).filter(n => !n.read).length;
                     if (unreadCount > 0) {
                         if (pill) {
@@ -7454,7 +7492,7 @@
                         if (bellDot) bellDot.style.display = 'none';
                     }
 
-                    if (!data || data.length === 0) {
+                    if (!combined || combined.length === 0) {
                         list.innerHTML = `<div class="nb-empty-state">
                         <div class="nb-empty-state-icon"><span class="material-symbols-outlined">notifications</span></div>
                         <p class="nb-empty-state-title">No notifications yet</p>
@@ -7463,7 +7501,7 @@
                         return;
                     }
 
-                    list.innerHTML = data.map(n => {
+                    list.innerHTML = combined.map(n => {
                         const meta = NOTIF_ICON_MAP[n.type] || {
                             bg: 'rgba(100,116,139,0.15)',
                             icon: 'notifications',
@@ -7744,6 +7782,25 @@
                             loadAnnouncement();
                             if ((row.status || 'published') === 'published') {
                                 showToast('📢 A new announcement was posted!', 'info', 5000);
+                                // ── Show browser notification popup if permission granted ──
+                                try {
+                                    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                                        const notifTitle = '📢 New Announcement';
+                                        const notifOpts = {
+                                            body: row.message || 'The manager posted a new announcement.',
+                                            icon: '/favicon.ico',
+                                            tag: 'fv-announce-' + (row.id || Date.now()),
+                                            requireInteraction: false
+                                        };
+                                        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                                            navigator.serviceWorker.ready.then(function(reg) {
+                                                reg.showNotification(notifTitle, notifOpts);
+                                            }).catch(function() { new Notification(notifTitle, notifOpts); });
+                                        } else {
+                                            new Notification(notifTitle, notifOpts);
+                                        }
+                                    }
+                                } catch (_) {}
                                 // Server fan-out writes notification rows a couple of seconds
                                 // after the INSERT — poll so the bell lights up without a refresh
                                 setTimeout(loadNotifications, 2000);
@@ -7823,6 +7880,32 @@
                             const title = row.title || 'New notification';
                             const body  = row.body  ? ' — ' + row.body : '';
                             showToast(icon + ' ' + title + body, 'info', 6000);
+
+                            // ── Also show an in-browser Notification popup if permission granted ──
+                            // This gives users the same visible pop-up the manager sees from test notify,
+                            // even when the tab is in the background or focus is elsewhere.
+                            try {
+                                if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                                    const notifTitle = icon + ' ' + title;
+                                    const notifOpts = {
+                                        body: row.body || '',
+                                        icon: '/favicon.ico',
+                                        tag: 'fv-notif-' + (row.id || Date.now()),
+                                        requireInteraction: false
+                                    };
+                                    // Use the service worker to show the notification so it works
+                                    // even if the tab is backgrounded (SW notifications are more reliable).
+                                    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                                        navigator.serviceWorker.ready.then(function(reg) {
+                                            reg.showNotification(notifTitle, notifOpts);
+                                        }).catch(function() {
+                                            new Notification(notifTitle, notifOpts);
+                                        });
+                                    } else {
+                                        new Notification(notifTitle, notifOpts);
+                                    }
+                                }
+                            } catch (_) {}
 
                             // Reload drawer + bell dot
                             if (typeof loadNotifications === 'function') loadNotifications();

@@ -3068,8 +3068,9 @@
                     _cropState.imgH = img.naturalHeight;
                     _cropState.zoom = 1;
 
-                    // Scale to fully cover the container so no gray bars show
-                    const scale = Math.max(_cropState.cW / img.naturalWidth, _cropState.cH / img.naturalHeight);
+                    // Scale to fully cover the crop circle (2/3 of container) so no gray bars show
+                    const circleSize = _cropState.cW * (2 / 3);
+                    const scale = Math.max(circleSize / img.naturalWidth, circleSize / img.naturalHeight);
                     _cropState.zoom = Math.max(1, scale);
                     document.getElementById('cropZoom').value = _cropState.zoom;
                     document.getElementById('cropZoom').max   = Math.max(4, _cropState.zoom * 4);
@@ -3123,8 +3124,9 @@
                 const s   = _cropState;
                 const dW  = s.imgW * s.zoom;
                 const dH  = s.imgH * s.zoom;
-                // circle is 200×200 centred in the 300×300 container (50px inset each side)
-                const cx1 = 50, cy1 = 50, cx2 = 250, cy2 = 250;
+                // Circle inset is 1/6 of container on each side (dynamic — works on any screen width)
+                const inset = Math.round(s.cW / 6);
+                const cx1 = inset, cy1 = inset, cx2 = s.cW - inset, cy2 = s.cH - inset;
                 // image must cover the full circle
                 s.x = Math.min(cx1, Math.max(cx2 - dW, s.x));
                 s.y = Math.min(cy1, Math.max(cy2 - dH, s.y));
@@ -3154,11 +3156,13 @@
                 ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
                 ctx.clip();
 
-                // The crop circle in container coords: 50,50 → 250,250 (200×200)
-                const srcX = (50 - s.x) / s.zoom;
-                const srcY = (50 - s.y) / s.zoom;
-                const srcW = 200 / s.zoom;
-                const srcH = 200 / s.zoom;
+                // Dynamic inset — matches _clampPos and CSS overlay (1/6 of container width)
+                const inset = Math.round(s.cW / 6);
+                const circleSize = s.cW - inset * 2;
+                const srcX = (inset - s.x) / s.zoom;
+                const srcY = (inset - s.y) / s.zoom;
+                const srcW = circleSize / s.zoom;
+                const srcH = circleSize / s.zoom;
 
                 ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, size, size);
             }
@@ -3168,8 +3172,8 @@
                 const s       = _cropState;
                 const prevZ   = s.zoom;
                 s.zoom        = parseFloat(this.value);
-                // Zoom towards centre of crop circle (centred at 150,150 in container)
-                const cx = 150, cy = 150;
+                // Zoom towards centre of crop circle (dynamic centre)
+                const cx = s.cW / 2, cy = s.cH / 2;
                 s.x = cx - (cx - s.x) * (s.zoom / prevZ);
                 s.y = cy - (cy - s.y) * (s.zoom / prevZ);
                 _clampPos();
@@ -3229,10 +3233,13 @@
                 ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2, 0, Math.PI * 2);
                 ctx.clip();
 
-                const srcX = (50 - s.x) / s.zoom;
-                const srcY = (50 - s.y) / s.zoom;
-                const srcW = 200 / s.zoom;
-                const srcH = 200 / s.zoom;
+                // Dynamic inset — matches _clampPos and CSS overlay (1/6 of container width)
+                const inset = Math.round(s.cW / 6);
+                const circleSize = s.cW - inset * 2;
+                const srcX = (inset - s.x) / s.zoom;
+                const srcY = (inset - s.y) / s.zoom;
+                const srcW = circleSize / s.zoom;
+                const srcH = circleSize / s.zoom;
                 ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, SIZE, SIZE);
 
                 canvas.toBlob(async (blob) => {
