@@ -7461,7 +7461,9 @@
                                 'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({
-                                subscription: sub.toJSON()
+                                subscription: sub.toJSON(),
+                                userId: window._currentUserId || null,
+                                role: 'student'
                             })
                         });
                         _pushSubscription = sub;
@@ -8315,6 +8317,39 @@
                     if (!parsed || !window._currentUserId) return;
                     _applyProfileRefresh(parsed.url || null, parsed.displayName || null);
                 } catch (_) {}
+            });
+
+            // Bug 3 fix: refresh profile when the page becomes visible again (e.g. after
+            // navigating back from profile.html). This catches the BroadcastChannel timing
+            // race where profile.html closes the channel before index.html receives the
+            // message, and also handles full page-load navigations where the channel
+            // listener isn't yet attached when the message fires.
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible' && window._currentUserId && _supabase) {
+                    _supabase.auth.getUser().then(function(res) {
+                        var u = res && res.data && res.data.user;
+                        if (u && typeof populateProfileUI === 'function') {
+                            var adminBrowsing = !!(localStorage.getItem('fv_admin_browse_mode') || sessionStorage.getItem('fv_admin_browse_mode'));
+                            populateProfileUI(u, adminBrowsing);
+                        }
+                        // Also refresh notification dot in case new ones arrived while away
+                        if (typeof window.loadNotifications === 'function') window.loadNotifications();
+                    }).catch(function() {});
+                }
+            });
+
+            // pageshow covers bfcache restores (back/forward navigation in some browsers)
+            window.addEventListener('pageshow', function(e) {
+                if (e.persisted && window._currentUserId && _supabase) {
+                    _supabase.auth.getUser().then(function(res) {
+                        var u = res && res.data && res.data.user;
+                        if (u && typeof populateProfileUI === 'function') {
+                            var adminBrowsing = !!(localStorage.getItem('fv_admin_browse_mode') || sessionStorage.getItem('fv_admin_browse_mode'));
+                            populateProfileUI(u, adminBrowsing);
+                        }
+                        if (typeof window.loadNotifications === 'function') window.loadNotifications();
+                    }).catch(function() {});
+                }
             });
 
             // ══ LIGHT / DARK MODE ══════════════════════════════════

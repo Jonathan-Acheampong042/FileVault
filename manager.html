@@ -4354,16 +4354,16 @@ create policy "Admins can read audit log"
                 if (successCount > 0 && !scheduleAtVal) {
                     (function() {
                         const folder = document.getElementById('folderSelect') ? document.getElementById('folderSelect').value : '';
-                        const _pushPayload = JSON.stringify({
+                        const _pushPayload = {
                             title: '📁 New files in the Vault!',
                             body: successCount + ' new file' + (successCount > 1 ? 's' : '') + ' uploaded' + (folder ? ' to ' + folder : '') + '. Tap to view.',
                             url: '/index.html' + (folder ? '?folder=' + encodeURIComponent(folder) : '')
-                        });
+                        };
 
                         function _doUploadPush() {
                             return fvManagerFetch('/api/push/notify', {
                                     method: 'POST',
-                                    body: _pushPayload
+                                    body: JSON.stringify(_pushPayload)
                                 })
                                 .then(function(r) {
                                     return r.json();
@@ -5576,16 +5576,16 @@ create policy "Admins can read audit log"
                         }).catch(function() {
                             /* non-critical — push below still fires */ });
 
-                        const _annPushPayload = JSON.stringify({
+                        const _annPushPayload = {
                             title: '📢 New Announcement',
                             body: annMsg.length > 80 ? annMsg.substring(0, 77) + '…' : annMsg,
                             url: '/index.html'
-                        });
+                        };
 
                         function _doAnnPush() {
                             return fvManagerFetch('/api/push/notify', {
                                     method: 'POST',
-                                    body: _annPushPayload
+                                    body: JSON.stringify(_annPushPayload)
                                 })
                                 .then(function(r) {
                                     return r.json();

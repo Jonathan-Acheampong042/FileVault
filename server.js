@@ -341,7 +341,7 @@ async function dbGetAllSubs() {
     if (!_supa) return [];
     const {
         data
-    } = await _supa.from('push_subscriptions').select('subscription');
+    } = await _supa.from('push_subscriptions').select('subscription').neq('role', 'manager');
     return (data || []).map(r => r.subscription);
 }
 // Fix 7: fetch only manager subscriptions for targeted manager notifications.
