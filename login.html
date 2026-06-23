@@ -1707,7 +1707,7 @@
                 }
 
                 function _goToManager() {
-                    sessionStorage.removeItem('fv_admin_browse_mode');
+                    localStorage.removeItem('fv_admin_browse_mode'); sessionStorage.removeItem('fv_admin_browse_mode');
                     if (_remembered) localStorage.setItem('fv_remember_me', '1');
                     _navigating = true;
                     window.location.href = 'manager.html';
@@ -1715,7 +1715,7 @@
 
                 async function _goToBrowseAsAdmin() {
                     // Set a flag so index.html and profile.html know this is an admin browsing
-                    sessionStorage.setItem('fv_admin_browse_mode', '1');
+                    localStorage.setItem('fv_admin_browse_mode', '1');
                     sessionStorage.setItem('fv_just_signed_in', '1');
                     // Confirm session is persisted before navigating (same race-condition guard as student flow)
                     let attempts = 0;

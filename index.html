@@ -4635,7 +4635,7 @@
                         if (ADMIN_EMAILS_IDX.includes(session.user.email)) isAdmin = true;
                     }
 
-                    const adminBrowseMode = !!sessionStorage.getItem('fv_admin_browse_mode');
+                    const adminBrowseMode = !!(localStorage.getItem('fv_admin_browse_mode') || sessionStorage.getItem('fv_admin_browse_mode'));
                     window._isAdminBrowsing = isAdmin && adminBrowseMode;
                     if (window._isAdminBrowsing) _hideAdminExclusiveChatLinks();
 
@@ -4760,6 +4760,7 @@
                         mgrLink.innerHTML = '<span class="material-symbols-outlined" style="color:#fca5a5">dashboard</span> Manager Portal';
                         mgrLink.onclick = function() {
                             sessionStorage.removeItem('fv_admin_browse_mode');
+                            localStorage.removeItem('fv_admin_browse_mode');
                         };
                         pdItems.appendChild(mgrLink);
                     }
@@ -7677,6 +7678,13 @@
                             <p class="notif-time">${notifTimeAgo(n.created_at)}</p>
                         </div>
                         ${unread ? '<div class="notif-dot" title="Unread"></div>' : ''}
+                        <button
+                            onclick="event.stopPropagation();toggleNotifReadState(this.closest('.notif-item'))"
+                            title="${unread ? 'Mark as read' : 'Mark as unread'}"
+                            style="background:none;border:none;cursor:pointer;color:#475569;padding:4px;border-radius:6px;flex-shrink:0;line-height:0;transition:color .15s;align-self:flex-start;margin-top:2px"
+                            onmouseover="this.style.color='#94a3b8'" onmouseout="this.style.color='#475569'">
+                            <span class="material-symbols-outlined" style="font-size:14px">${unread ? 'mark_email_read' : 'mark_email_unread'}</span>
+                        </button>
                     </div>`;
                     }).join('');
                 } catch (e) {
@@ -7789,6 +7797,50 @@
                 } catch (_) {}
             }
             window.markAllNotificationsRead = markAllNotificationsRead;
+
+            // ── toggleNotifReadState: per-item read ↔ unread toggle ──
+            window.toggleNotifReadState = async function(el) {
+                if (!el) return;
+                const id = el.dataset.notifId;
+                const isCurrentlyUnread = el.classList.contains('unread');
+                const newRead = isCurrentlyUnread; // if unread → mark read; if read → mark unread
+
+                // Optimistic UI
+                el.classList.toggle('unread', !newRead);
+                el.classList.toggle('read', newRead);
+                const dot = el.querySelector('.notif-dot');
+                if (newRead && dot) { dot.remove(); }
+                if (!newRead && !el.querySelector('.notif-dot')) {
+                    const d = document.createElement('div');
+                    d.className = 'notif-dot'; d.title = 'Unread';
+                    el.insertBefore(d, el.querySelector('button[onclick*="toggleNotifReadState"]'));
+                }
+                // Update toggle button icon and title
+                const btn = el.querySelector('button[onclick*="toggleNotifReadState"]');
+                if (btn) {
+                    const icon = btn.querySelector('.material-symbols-outlined');
+                    if (icon) icon.textContent = newRead ? 'mark_email_unread' : 'mark_email_read';
+                    btn.title = newRead ? 'Mark as unread' : 'Mark as read';
+                }
+                // Recount unread
+                const remaining = document.querySelectorAll('#notifInboxList .notif-item.unread').length;
+                const pill = document.getElementById('notifUnreadPill');
+                const bellDot = document.getElementById('pushBellDot');
+                const markAllBtn = document.getElementById('markAllReadBtn');
+                if (remaining > 0) {
+                    if (pill) { pill.textContent = remaining + ' new'; pill.style.display = 'inline-flex'; }
+                    if (bellDot) bellDot.style.display = 'block';
+                    if (markAllBtn) markAllBtn.style.display = '';
+                } else {
+                    if (pill) pill.style.display = 'none';
+                    if (bellDot) bellDot.style.display = 'none';
+                    if (markAllBtn) markAllBtn.style.display = 'none';
+                }
+                // Persist
+                try {
+                    await _supabase.from('notifications').update({ read: newRead }).eq('id', id);
+                } catch(_) {}
+            };
 
             // Initial unread-count check. We always defer and also retry briefly
             // because checkAuth() is async — _currentUserId may not be set when the
@@ -8047,9 +8099,23 @@
                             const title = row.title || 'New notification';
                             const body  = row.body  || '';
 
-                            // In-app popup — always visible, no push permission needed
+                            // ── FIX 1: In-app popup — immediately visible, no push permission needed ──
                             showFvNotifPopup(icon, title, body, 7000);
                             showToast(icon + ' ' + title + (body ? ' — ' + body : ''), 'info', 5000);
+
+                            // ── FIX 2: Immediately light up the bell dot without waiting for async DB round-trip ──
+                            (function() {
+                                var bellDot = document.getElementById('pushBellDot');
+                                if (bellDot) bellDot.style.display = 'block';
+                                var pill = document.getElementById('notifUnreadPill');
+                                if (pill) {
+                                    var cur = parseInt(pill.textContent) || 0;
+                                    pill.textContent = (cur + 1) + ' new';
+                                    pill.style.display = 'inline-flex';
+                                }
+                                var markAllBtn = document.getElementById('markAllReadBtn');
+                                if (markAllBtn) markAllBtn.style.display = '';
+                            })();
 
                             // Also fire native Notification if permission already granted
                             try {
@@ -8063,6 +8129,7 @@
                                 }
                             } catch (_) {}
 
+                            // Reload to get the real unread count and render the item
                             if (typeof loadNotifications === 'function') loadNotifications();
                         }
                     )
@@ -8118,6 +8185,10 @@
                     initRealtime().catch(function(e) {
                         console.warn('[FileVault] Realtime reinit failed:', e.message);
                     });
+                    // Re-sync bell dot / notifications after reconnecting
+                    setTimeout(function() {
+                        if (typeof loadNotifications === 'function' && window._currentUserId) loadNotifications();
+                    }, 1200);
                 }, 300);
             };
 
@@ -9139,7 +9210,7 @@
                     </div>
                 </div>
                 <!-- Main column -->
-                <div id="previewMainCol" style="display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden">
+                <div id="previewMainCol" style="display:flex;flex-direction:column;flex:1;min-width:0;overflow-y:auto;overflow-x:hidden">
                     <div id="previewHeader">
                         <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1">
                             <span id="previewIcon" class="material-symbols-outlined text-primary" style="font-size:28px;flex-shrink:0">description</span>
@@ -10050,25 +10121,31 @@
                                         }
                                     }, 600);
                                 }
-                                // Kick off PDF timer from correct starting point
+                                // Kick off PDF timer from correct starting point (with same 30s grace delay)
                                 if (isPDF) {
                                     clearInterval(window._pdfProgressTimer);
-                                    let current = serverPct;
-                                    window._pdfProgressTimer = setInterval(function() {
+                                    clearTimeout(window._pdfProgressDelay);
+                                    window._pdfProgressDelay = setTimeout(function() {
                                         const modal = document.getElementById('previewModal');
-                                        if (!modal || !modal.classList.contains('open')) {
-                                            clearInterval(window._pdfProgressTimer);
-                                            return;
-                                        }
-                                        if (current >= 99) {
-                                            clearInterval(window._pdfProgressTimer);
-                                            return;
-                                        }
-                                        current = Math.min(99, current + 0.15);
-                                        if (progFill) progFill.style.width = Math.round(current) + '%';
-                                        if (progLabel) progLabel.textContent = Math.round(current) + '%';
-                                        saveProgress(url, current);
-                                    }, 3000);
+                                        if (!modal || !modal.classList.contains('open')) return;
+                                        if (window._previewCurrentUrl !== url) return;
+                                        let current = serverPct;
+                                        window._pdfProgressTimer = setInterval(function() {
+                                            const modal2 = document.getElementById('previewModal');
+                                            if (!modal2 || !modal2.classList.contains('open')) {
+                                                clearInterval(window._pdfProgressTimer);
+                                                return;
+                                            }
+                                            if (current >= 99) {
+                                                clearInterval(window._pdfProgressTimer);
+                                                return;
+                                            }
+                                            current = Math.min(99, current + 0.15);
+                                            if (progFill) progFill.style.width = Math.round(current) + '%';
+                                            if (progLabel) progLabel.textContent = Math.round(current) + '%';
+                                            saveProgress(url, current);
+                                        }, 3000);
+                                    }, 30000);
                                 }
                             }
                         }).catch(function() {});
@@ -10085,24 +10162,34 @@
                         // For PDFs, start time-based pseudo-progress from cached initPct.
                         // If Supabase returns a different value the async block above will
                         // restart the timer from the correct starting point.
+                        // Bug fix: delay the start by 30s so merely opening a file doesn't
+                        // inflate progress — only sustained reading counts.
                         clearInterval(window._pdfProgressTimer);
+                        clearTimeout(window._pdfProgressDelay);
                         if (isPDF) {
-                            let current = initPct;
-                            window._pdfProgressTimer = setInterval(function() {
+                            window._pdfProgressDelay = setTimeout(function() {
+                                // Don't start if the modal was already closed
                                 const modal = document.getElementById('previewModal');
-                                if (!modal || !modal.classList.contains('open')) {
-                                    clearInterval(window._pdfProgressTimer);
-                                    return;
-                                }
-                                if (current >= 99) {
-                                    clearInterval(window._pdfProgressTimer);
-                                    return;
-                                }
-                                current = Math.min(99, current + 0.15);
-                                if (progFill) progFill.style.width = Math.round(current) + '%';
-                                if (progLabel) progLabel.textContent = Math.round(current) + '%';
-                                saveProgress(url, current);
-                            }, 3000); // advances ~3%/min (~18%/hr of reading time)
+                                if (!modal || !modal.classList.contains('open')) return;
+                                // Don't start if the URL changed (user opened a different file)
+                                if (window._previewCurrentUrl !== url) return;
+                                let current = (getProgress()[url] || {}).pct || initPct;
+                                window._pdfProgressTimer = setInterval(function() {
+                                    const modal2 = document.getElementById('previewModal');
+                                    if (!modal2 || !modal2.classList.contains('open')) {
+                                        clearInterval(window._pdfProgressTimer);
+                                        return;
+                                    }
+                                    if (current >= 99) {
+                                        clearInterval(window._pdfProgressTimer);
+                                        return;
+                                    }
+                                    current = Math.min(99, current + 0.15);
+                                    if (progFill) progFill.style.width = Math.round(current) + '%';
+                                    if (progLabel) progLabel.textContent = Math.round(current) + '%';
+                                    saveProgress(url, current);
+                                }, 3000); // advances ~3%/min (~18%/hr of reading time)
+                            }, 30000); // 30s grace period before progress starts ticking
                         }
                     } else if (progBar) {
                         progBar.style.display = 'none';
@@ -10127,6 +10214,7 @@
                 const _origClose = window.closePreview;
                 window.closePreview = function() {
                     clearInterval(window._pdfProgressTimer);
+                    clearTimeout(window._pdfProgressDelay);
                     const body = document.getElementById('previewBody');
                     if (body) body.removeEventListener('scroll', _onBodyScroll);
                     const btn = document.getElementById('previewBookmarkBtn');
@@ -10557,17 +10645,21 @@
                             return;
                         }
                         const myKey = getUserKey();
-                        list.innerHTML = comments.map(c => `
+                        const myUserId = window._currentUserId || null;
+                        list.innerHTML = comments.map(c => {
+                            const isOwner = c.user_key === myKey || (myUserId && c.user_id === myUserId);
+                            return `
                 <div class="fv-comment" id="fvc-${esc(c.id)}">
                     <div class="fv-comment-meta">
                         <span class="material-symbols-outlined" style="font-size:12px">person</span>
-                        <span>${c.user_key === myKey ? '<b style="color:#93c5fd">You</b>' : 'Student'}</span>
+                        <span>${isOwner ? '<b style="color:#93c5fd">You</b>' : 'Student'}</span>
                         <span>·</span>
                         <span>${timeAgo(c.created_at)}</span>
-                        ${c.user_key === myKey ? `<button class="fv-comment-del" onclick="deleteComment('${esc(c.id)}')" title="Delete"><span class="material-symbols-outlined" style="font-size:12px">delete</span></button>` : ''}
+                        ${isOwner ? `<button class="fv-comment-del" onclick="deleteComment('${esc(c.id)}')" title="Delete"><span class="material-symbols-outlined" style="font-size:12px">delete</span></button>` : ''}
                     </div>
                     <div class="fv-comment-body">${esc(c.body)}</div>
-                </div>`).join('');
+                </div>`;
+                        }).join('');
                         // scroll to bottom
                         list.scrollTop = list.scrollHeight;
                     } catch (e) {
@@ -10590,14 +10682,16 @@
                     }
                     input.disabled = true;
                     try {
-                        const {
-                            error
-                        } = await window._supabase.from('file_comments').insert({
+                        const commentPayload = {
                             file_id: String(_commentFileId),
                             file_name: _commentFileName,
                             user_key: getUserKey(),
                             body: body.slice(0, 500)
-                        });
+                        };
+                        if (window._currentUserId) commentPayload.user_id = window._currentUserId;
+                        const {
+                            error
+                        } = await window._supabase.from('file_comments').insert(commentPayload);
                         if (error) throw error;
                         input.value = '';
                         input.style.borderColor = 'rgba(255,255,255,0.1)';
@@ -10613,11 +10707,24 @@
                 window.deleteComment = async function(id) {
                     if (!window._supabase) return;
                     try {
-                        await window._supabase.from('file_comments').delete().eq('id', id).eq('user_key', getUserKey());
+                        // Try deleting by user_id first (for logged-in users), then fall back to user_key
+                        let deleteQuery = window._supabase.from('file_comments').delete().eq('id', id);
+                        if (window._currentUserId) {
+                            // Use OR: match if user_id matches OR user_key matches (covers cross-device)
+                            const { error: e1 } = await window._supabase.from('file_comments').delete()
+                                .eq('id', id)
+                                .or(`user_id.eq.${window._currentUserId},user_key.eq.${getUserKey()}`);
+                            if (e1) throw e1;
+                        } else {
+                            const { error: e2 } = await deleteQuery.eq('user_key', getUserKey());
+                            if (e2) throw e2;
+                        }
                         const el = document.getElementById('fvc-' + id);
                         if (el) el.remove();
                         await loadComments(_commentFileId);
-                    } catch (e) {}
+                    } catch (e) {
+                        if (typeof showToast === 'function') showToast('Could not delete comment.', 'error', 2500);
+                    }
                 };
 
                 function toggleCommentsSection() {

@@ -313,6 +313,41 @@
                 user-select: none;
                 touch-action: none;
             }
+            /* Loading spinner shown before image is ready */
+            #cropContainer::before {
+                content: '';
+                position: absolute;
+                inset: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(15,23,42,0.85);
+                z-index: 10;
+                border-radius: 16px;
+                transition: opacity 0.25s;
+            }
+            #cropContainer::after {
+                content: '';
+                position: absolute;
+                top: 50%; left: 50%;
+                width: 32px; height: 32px;
+                margin: -16px 0 0 -16px;
+                border: 3px solid rgba(255,255,255,0.12);
+                border-top-color: var(--accent, #3b82f6);
+                border-radius: 50%;
+                animation: cropSpin 0.75s linear infinite;
+                z-index: 11;
+                transition: opacity 0.25s;
+            }
+            #cropContainer.img-ready::before,
+            #cropContainer.img-ready::after {
+                opacity: 0;
+                pointer-events: none;
+                animation: none;
+            }
+            @keyframes cropSpin {
+                to { transform: rotate(360deg); }
+            }
             #cropContainer:active { cursor: grabbing; }
             #cropSourceImg {
                 position: absolute;
@@ -2532,7 +2567,7 @@
                     return;
                 }
 
-                const adminBrowseMode = !!sessionStorage.getItem('fv_admin_browse_mode');
+                const adminBrowseMode = !!(localStorage.getItem('fv_admin_browse_mode') || sessionStorage.getItem('fv_admin_browse_mode'));
                 const isKnownAdmin = ADMIN_EMAILS.includes(session.user.email);
 
                 // Only redirect admins to manager.html if they're NOT in browse mode
@@ -2682,7 +2717,7 @@
                         banner.innerHTML = `
                         <span class="material-symbols-outlined" style="color:#fca5a5;font-size:18px;flex-shrink:0">admin_panel_settings</span>
                         <p style="font-size:12px;color:#fca5a5;font-weight:600;margin:0;flex:1">You're browsing as Admin</p>
-                        <a href="manager.html" onclick="sessionStorage.removeItem('fv_admin_browse_mode')"
+                        <a href="manager.html" onclick="sessionStorage.removeItem('fv_admin_browse_mode');localStorage.removeItem('fv_admin_browse_mode')"
                             style="flex-shrink:0;padding:6px 12px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.35);border-radius:10px;color:#fca5a5;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;transition:background .2s"
                             onmouseover="this.style.background='rgba(239,68,68,0.28)'"
                             onmouseout="this.style.background='rgba(239,68,68,0.18)'">
@@ -3080,6 +3115,9 @@
                 const container = document.getElementById('cropContainer');
                 const img = document.getElementById('cropSourceImg');
 
+                // Reset loading state — show spinner while image prepares
+                container.classList.remove('img-ready');
+
                 // Fully reset the img element
                 img.onload = null;
                 img.onerror = null;
@@ -3103,6 +3141,16 @@
                     _clampPos();
                     _applyCropTransform();
                     _drawPreview();
+
+                    // ── FIX 3: Reveal image — remove loading spinner ──
+                    container.classList.add('img-ready');
+
+                    // Update subtitle to guide the user
+                    const sub = document.getElementById('cropModalSub');
+                    if (sub) sub.textContent = 'Photo loaded ✓ · Drag to reposition · use the slider to zoom';
+                    setTimeout(function() {
+                        if (sub) sub.textContent = 'Drag to reposition · use the slider to zoom';
+                    }, 2500);
                 }
 
                 // Load via a separate Image() object to avoid Android Chrome onload bugs
@@ -3287,12 +3335,35 @@
                         // ── Upload to Supabase Storage (avatars bucket) ────
                         // ⚠️  Make sure a public bucket named "avatars" exists in your
                         //     Supabase project: Storage → New bucket → name "avatars" → Public ✓
+                        //
+                        // Required RLS policies on the avatars bucket:
+                        //   INSERT: (storage.foldername(name))[1] = auth.uid()::text
+                        //   UPDATE: (storage.foldername(name))[1] = auth.uid()::text
+                        //   DELETE: (storage.foldername(name))[1] = auth.uid()::text
+                        //   SELECT: bucket_id = 'avatars'  (for public reads)
+                        //
+                        // The file is stored at: {user_id}/avatar.jpg
+                        // Make sure each policy's "Applied to" is set to "authenticated".
                         const userId = _currentUser.id;
                         const path   = `${userId}/avatar.jpg`;
 
-                        const { error: uploadError } = await _supabase.storage
+                        // First try upsert (update existing); if RLS blocks it,
+                        // try remove + fresh insert as a fallback
+                        let uploadError = null;
+                        ({ error: uploadError } = await _supabase.storage
                             .from('avatars')
-                            .upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+                            .upload(path, blob, { upsert: true, contentType: 'image/jpeg' }));
+
+                        // If upsert fails with RLS (violates row-level security), try
+                        // deleting first then re-inserting — some Supabase setups only
+                        // have an INSERT policy but no UPDATE policy
+                        if (uploadError && (uploadError.message || '').toLowerCase().includes('rls')) {
+                            await _supabase.storage.from('avatars').remove([path]).catch(() => {});
+                            const { error: retryErr } = await _supabase.storage
+                                .from('avatars')
+                                .upload(path, blob, { upsert: false, contentType: 'image/jpeg' });
+                            uploadError = retryErr;
+                        }
 
                         if (uploadError) throw uploadError;
 
@@ -3323,12 +3394,15 @@
                             '?';
                         URL.revokeObjectURL(previewUrl);
 
-                        // Friendly message for the most common error
-                        const msg = err.message || '';
-                        if (msg.toLowerCase().includes('bucket') && msg.toLowerCase().includes('not found')) {
-                            setMsg('avatarMsg', 'Storage not set up yet — create an "avatars" bucket in Supabase.', 'error');
+                        // Friendly message for the most common errors
+                        const msg = (err.message || '').toLowerCase();
+                        if (msg.includes('bucket') && msg.includes('not found')) {
+                            setMsg('avatarMsg', 'Storage not set up — create an "avatars" bucket in Supabase Storage.', 'error');
+                        } else if (msg.includes('rls') || msg.includes('row-level') || msg.includes('policy') || msg.includes('violates')) {
+                            setMsg('avatarMsg', 'Permission denied: check your avatars bucket RLS policies. Each policy\'s expression should use: (storage.foldername(name))[1] = auth.uid()::text', 'error');
+                            showToast('RLS policy error — see avatar section for fix instructions.', 'error', 6000);
                         } else {
-                            setMsg('avatarMsg', 'Failed to save photo: ' + msg, 'error');
+                            setMsg('avatarMsg', 'Failed to save photo: ' + (err.message || 'unknown error'), 'error');
                         }
                     }
                 }, 'image/jpeg', 0.92);
@@ -3770,6 +3844,13 @@
                             <p class="notif-time">${notifTimeAgo(n.created_at)}</p>
                         </div>
                         ${unread ? '<div class="notif-dot" title="Unread"></div>' : ''}
+                        <button
+                            onclick="event.stopPropagation();toggleNotifReadState(this.closest('.notif-item'))"
+                            title="${unread ? 'Mark as read' : 'Mark as unread'}"
+                            style="background:none;border:none;cursor:pointer;color:#475569;padding:4px;border-radius:6px;flex-shrink:0;line-height:0;transition:color .15s;align-self:flex-start;margin-top:2px"
+                            onmouseover="this.style.color='#94a3b8'" onmouseout="this.style.color='#475569'">
+                            <span class="material-symbols-outlined" style="font-size:14px">${unread ? 'mark_email_read' : 'mark_email_unread'}</span>
+                        </button>
                     </div>`;
                     }).join('');
                 } catch (e) {
@@ -3831,6 +3912,47 @@
                     showToast('All notifications marked as read', 'info');
                 } catch (_) {}
             }
+
+            // ── toggleNotifReadState: per-item read ↔ unread toggle ──
+            window.toggleNotifReadState = async function(el) {
+                if (!el) return;
+                const id = el.dataset.notifId;
+                const isCurrentlyUnread = el.classList.contains('unread');
+                const newRead = isCurrentlyUnread; // unread → mark read; read → mark unread
+
+                // Optimistic UI
+                el.classList.toggle('unread', !newRead);
+                el.classList.toggle('read', newRead);
+                const dot = el.querySelector('.notif-dot');
+                if (newRead && dot) { dot.remove(); }
+                if (!newRead && !el.querySelector('.notif-dot')) {
+                    const d = document.createElement('div');
+                    d.className = 'notif-dot'; d.title = 'Unread';
+                    el.insertBefore(d, el.querySelector('button[onclick*="toggleNotifReadState"]'));
+                }
+                // Update toggle button
+                const btn = el.querySelector('button[onclick*="toggleNotifReadState"]');
+                if (btn) {
+                    const icon = btn.querySelector('.material-symbols-outlined');
+                    if (icon) icon.textContent = newRead ? 'mark_email_unread' : 'mark_email_read';
+                    btn.title = newRead ? 'Mark as unread' : 'Mark as read';
+                }
+                // Recount unread
+                const remaining = document.querySelectorAll('#notifInboxList .notif-item.unread').length;
+                const pill = document.getElementById('notifUnreadPill');
+                const markAllBtn = document.getElementById('markAllReadBtn');
+                if (remaining > 0) {
+                    if (pill) { pill.textContent = remaining + ' new'; pill.style.display = 'inline-flex'; }
+                    if (markAllBtn) markAllBtn.style.display = '';
+                } else {
+                    if (pill) pill.style.display = 'none';
+                    if (markAllBtn) markAllBtn.style.display = 'none';
+                }
+                // Persist
+                try {
+                    await _supabase.from('notifications').update({ read: newRead }).eq('id', id);
+                } catch(_) {}
+            };
 
             // ═══════════════════════════════════════════════════════════
             // EMAIL VERIFICATION
