@@ -2788,6 +2788,17 @@
                     populateProfile(_currentUser, _isAdminBrowsing);
                     loadAchievements(); // re-evaluate Profile Pro & Verified after user metadata refreshes
                 }
+                // Signal index.html to refresh name in header chip / sidebar / mobile nav
+                try {
+                    const _nameMsg = { displayName: name, ts: Date.now() };
+                    try {
+                        const _bc2 = new BroadcastChannel('fv_profile_updates');
+                        _bc2.postMessage(_nameMsg);
+                        setTimeout(() => _bc2.close(), 300);
+                    } catch (_) {}
+                    localStorage.setItem('fv_avatar_updated', JSON.stringify(_nameMsg));
+                    setTimeout(() => localStorage.removeItem('fv_avatar_updated'), 200);
+                } catch (_) {}
                 setMsg('nameMsg', '✅ Display name updated.', 'success');
                 showToast('Display name updated', 'success');
                 loadAchievements(); // re-evaluate badges (Profile Pro)
@@ -3384,12 +3395,19 @@
 
                         if (data && data.user) _currentUser = data.user;
 
-                        // ── Signal index.html (and any other tab) to refresh the header avatar ──
-                        // index.html listens for 'fv_avatar_updated' in localStorage and
-                        // calls populateProfileUI() to re-render the chip + dropdown photo.
+                        // ── Signal index.html to refresh the header avatar ──
+                        // BroadcastChannel reaches the same tab (e.g. navigating back);
+                        // localStorage storage event reaches other open tabs.
                         try {
-                            localStorage.setItem('fv_avatar_updated', JSON.stringify({ url: publicUrl, ts: Date.now() }));
-                            // Remove immediately so the event fires on every upload, not just the first
+                            const _profMsg = { url: publicUrl, ts: Date.now() };
+                            // BroadcastChannel (same-tab and other tabs in same origin)
+                            try {
+                                const _bc = new BroadcastChannel('fv_profile_updates');
+                                _bc.postMessage(_profMsg);
+                                setTimeout(() => _bc.close(), 300);
+                            } catch (_) {}
+                            // localStorage fallback for other tabs
+                            localStorage.setItem('fv_avatar_updated', JSON.stringify(_profMsg));
                             setTimeout(() => localStorage.removeItem('fv_avatar_updated'), 200);
                         } catch (_) {}
 
@@ -5344,6 +5362,6 @@
                 }, 3000);
             }
         </script>
-        <script src="chat-widget.js?v=13"></script>
+        <script src="chat-widget.js?v=14"></script>
     </body>
 </html>

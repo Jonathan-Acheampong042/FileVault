@@ -2349,39 +2349,85 @@ async function _sendBroadcast(cardId, message) {
 }
 
 // ─── MANAGER: SEND TEST PUSH NOTIFICATION ─────────────────────
-// Sends a push notification only to the current manager's browser
-// subscription — without notifying all students.
+// Sends a push notification only to the current manager's browser.
+// Auto-subscribes the manager (role='manager') if not already subscribed,
+// so they don't need to touch the student bell at all.
 async function _sendTestNotification() {
-    // Get this browser's push subscription (if any)
-    let sub = null;
-    try {
-        const reg = await navigator.serviceWorker.ready;
-        sub = await reg.pushManager.getSubscription();
-    } catch (e) {}
+    const PUSH_BASE = window.location.hostname === 'localhost' ?
+        'http://localhost:3000' :
+        'https://project-one-187u.onrender.com';
 
-    if (!sub) {
-        appendBubble('assistant', '⚠️ <strong>No push subscription found.</strong><br>Enable notifications first via the 🔔 bell icon on the student page, then try again.');
-        const msgs = document.getElementById('chatMessages');
+    const msgs = document.getElementById('chatMessages');
+
+    // Step 1 — need a service worker + PushManager
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        appendBubble('assistant', '⚠️ <strong>Push not supported.</strong><br>Your browser doesn\'t support push notifications.');
         if (msgs) msgs.scrollTop = msgs.scrollHeight;
         return;
     }
 
-    const NOTIFY_ONE_URL = window.location.hostname === 'localhost' ?
-        'http://localhost:3000/api/push/notify-one' :
-        'https://project-one-187u.onrender.com/api/push/notify-one';
+    let sub = null;
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        sub = await reg.pushManager.getSubscription();
 
-    // Show a sending bubble
+        // Step 2 — if not subscribed yet, subscribe now with role='manager'
+        if (!sub) {
+            // Fetch VAPID key
+            const keyRes = await fetch(PUSH_BASE + '/api/push/vapid-public-key');
+            const { key } = await keyRes.json();
+            if (!key) {
+                appendBubble('assistant', '⚠️ <strong>Push not configured on server.</strong><br>Set VAPID_PUBLIC_KEY in your environment variables.');
+                if (msgs) msgs.scrollTop = msgs.scrollHeight;
+                return;
+            }
+
+            // Request permission
+            const perm = await Notification.requestPermission();
+            if (perm !== 'granted') {
+                appendBubble('assistant', '⚠️ <strong>Notification permission denied.</strong><br>Allow notifications for this site in your browser settings, then try again.');
+                if (msgs) msgs.scrollTop = msgs.scrollHeight;
+                return;
+            }
+
+            // Subscribe to push
+            function urlBase64ToUint8Array(b64) {
+                const pad = '='.repeat((4 - b64.length % 4) % 4);
+                const base64 = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+                const raw = atob(base64);
+                return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+            }
+            sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(key)
+            });
+
+            // Register subscription with role='manager' so broadcast never hits manager
+            const authHeader = await _getAuthHeader();
+            await fetch(PUSH_BASE + '/api/push/subscribe', {
+                method: 'POST',
+                headers: Object.assign({ 'Content-Type': 'application/json' }, authHeader),
+                body: JSON.stringify({
+                    subscription: sub.toJSON(),
+                    role: 'manager'
+                })
+            });
+        }
+    } catch (e) {
+        appendBubble('assistant', `❌ <strong>Subscription error:</strong> ${escapeHtml(e.message)}`);
+        if (msgs) msgs.scrollTop = msgs.scrollHeight;
+        return;
+    }
+
+    // Step 3 — send the test push to this subscription
     const bubble = appendBubble('assistant', '🔔 Sending test notification to your browser…');
-    const msgs = document.getElementById('chatMessages');
     if (msgs) msgs.scrollTop = msgs.scrollHeight;
 
     try {
         const authHeader = await _getAuthHeader();
-        const res = await fetch(NOTIFY_ONE_URL, {
+        const res = await fetch(PUSH_BASE + '/api/push/notify-one', {
             method: 'POST',
-            headers: Object.assign({
-                'Content-Type': 'application/json'
-            }, authHeader),
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeader),
             body: JSON.stringify({
                 endpoint: sub.endpoint,
                 keys: sub.toJSON().keys,
