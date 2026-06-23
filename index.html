@@ -9892,12 +9892,17 @@
                     try {
                         const userKey = (typeof _getUserKey === 'function') ? _getUserKey() : null;
                         if (!userKey) return;
-                        await window._supabase.from('user_reading_progress').upsert({
+                        // Option B: dual-write user_key (always) + user_id (when logged in)
+                        // This lets RLS policies match on auth.uid() for authenticated users
+                        // while still working for anonymous users via the random user_key.
+                        const payload = {
                             file_url: url,
                             user_key: userKey,
                             pct: pct,
                             updated_at: new Date().toISOString()
-                        }, {
+                        };
+                        if (window._currentUserId) payload.user_id = window._currentUserId;
+                        await window._supabase.from('user_reading_progress').upsert(payload, {
                             onConflict: 'file_url,user_key'
                         });
                     } catch (e) {
@@ -9913,14 +9918,19 @@
                     try {
                         const userKey = (typeof _getUserKey === 'function') ? _getUserKey() : null;
                         if (!userKey) return cached ? cached.pct : 0;
-                        const {
-                            data
-                        } = await window._supabase
+                        // Option B: if the user is logged in, query by user_id so progress
+                        // syncs correctly across devices (different user_keys, same user_id).
+                        // Fall back to user_key query for anonymous users.
+                        let query = window._supabase
                             .from('user_reading_progress')
                             .select('pct')
-                            .eq('file_url', url)
-                            .eq('user_key', userKey)
-                            .maybeSingle();
+                            .eq('file_url', url);
+                        if (window._currentUserId) {
+                            query = query.eq('user_id', window._currentUserId);
+                        } else {
+                            query = query.eq('user_key', userKey);
+                        }
+                        const { data } = await query.order('pct', { ascending: false }).limit(1).maybeSingle();
                         if (data && typeof data.pct === 'number') {
                             // Write back to local cache if Supabase is ahead
                             if (!cached || data.pct > cached.pct) {
