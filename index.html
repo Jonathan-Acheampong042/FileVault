@@ -7540,7 +7540,18 @@
                 drawer.classList.add('open');
                 overlay.classList.add('open');
                 document.body.style.overflow = 'hidden';
-                if (window._currentUserId) loadNotifications();
+                if (window._currentUserId) {
+                    loadNotifications().then(function() {
+                        try {
+                            const seenIds = JSON.parse(localStorage.getItem('fv_seen_ann_ids') || '[]');
+                            document.querySelectorAll('#notifInboxList .notif-item[data-type="announcement"]').forEach(function(el) {
+                                const id = (el.dataset.notifId || '').replace('ann_', '');
+                                if (id && !seenIds.includes(id)) seenIds.push(id);
+                            });
+                            localStorage.setItem('fv_seen_ann_ids', JSON.stringify(seenIds.slice(-50)));
+                        } catch(_) {}
+                    }).catch(function() {});
+                }
             }
             window.openNotifInbox = openNotifInbox;
 
@@ -7578,6 +7589,9 @@
 
                 // Always fetch active announcements directly from the announcements table
                 let announcementRows = [];
+                // Track which announcement IDs the user has already seen (read)
+                let _seenAnnIds = [];
+                try { _seenAnnIds = JSON.parse(localStorage.getItem('fv_seen_ann_ids') || '[]'); } catch(_) {}
                 try {
                     const { data: annData } = await _supabase
                         .from('announcements')
@@ -7594,7 +7608,8 @@
                                 title: '📢 Announcement',
                                 body: a.message || '',
                                 created_at: a.created_at,
-                                read: true,
+                                // Unread if this announcement ID hasn't been seen yet
+                                read: _seenAnnIds.includes(String(a.id)),
                                 link_url: '#announcement',
                                 metadata: null
                             }));
@@ -7614,8 +7629,9 @@
                     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
                     .slice(0, 30);
 
-                // Unread badge — only counts real notification rows, not synthesised announcements
-                const unreadCount = notifData.filter(n => !n.read).length;
+                // Unread badge — counts real notification rows AND unseen announcements
+                const unreadAnnCount = announcementRows.filter(a => !a.read).length;
+                const unreadCount = notifData.filter(n => !n.read).length + unreadAnnCount;
                 if (unreadCount > 0) {
                     if (pill) { pill.textContent = unreadCount + ' new'; pill.style.display = 'inline-flex'; }
                     if (markAllBtn) markAllBtn.style.display = '';
@@ -7986,16 +8002,33 @@
                                 // In-app popup — works for ALL users regardless of push permission
                                 showFvNotifPopup('📢', 'New Announcement', annMsg, 7000);
                                 showToast('📢 ' + annMsg, 'info', 5000);
-                                // Also try native Notification API if permission already granted
-                                try {
-                                    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                                        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-                                            navigator.serviceWorker.ready.then(function(reg) {
-                                                reg.showNotification('📢 New Announcement', { body: annMsg, icon: '/favicon.ico', tag: 'fv-ann-' + (row.id || Date.now()) });
-                                            }).catch(function() { new Notification('📢 New Announcement', { body: annMsg }); });
-                                        } else { new Notification('📢 New Announcement', { body: annMsg }); }
+                                // Try to fire a native browser notification.
+                                // If permission is already granted: fire immediately.
+                                // If 'default' (never asked): request permission first.
+                                // If 'denied': skip silently.
+                                (function() {
+                                    function _fireAnnNotif() {
+                                        try {
+                                            const nOpts = { body: annMsg, icon: '/favicon.ico', tag: 'fv-ann-' + (row.id || Date.now()) };
+                                            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                                                navigator.serviceWorker.ready
+                                                    .then(function(reg) { reg.showNotification('📢 New Announcement', nOpts); })
+                                                    .catch(function() { new Notification('📢 New Announcement', nOpts); });
+                                            } else {
+                                                new Notification('📢 New Announcement', nOpts);
+                                            }
+                                        } catch(_) {}
                                     }
-                                } catch (_) {}
+                                    if (typeof Notification === 'undefined') return;
+                                    if (Notification.permission === 'granted') {
+                                        _fireAnnNotif();
+                                    } else if (Notification.permission === 'default') {
+                                        // Ask once; if user allows, fire the notification immediately
+                                        Notification.requestPermission().then(function(perm) {
+                                            if (perm === 'granted') _fireAnnNotif();
+                                        }).catch(function() {});
+                                    }
+                                })();
                                 setTimeout(loadNotifications, 2000);
                                 setTimeout(loadNotifications, 5000);
                             }
@@ -8015,6 +8048,24 @@
                                 var pubMsg = newRow.message || 'The manager posted a new announcement.';
                                 showFvNotifPopup('📢', 'New Announcement', pubMsg, 7000);
                                 showToast('📢 A new announcement was posted!', 'info', 5000);
+                                // Fire browser notification (request permission if not yet asked)
+                                (function() {
+                                    function _firePubNotif() {
+                                        try {
+                                            const nOpts = { body: pubMsg, icon: '/favicon.ico', tag: 'fv-ann-pub-' + Date.now() };
+                                            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                                                navigator.serviceWorker.ready
+                                                    .then(function(reg) { reg.showNotification('📢 New Announcement', nOpts); })
+                                                    .catch(function() { new Notification('📢 New Announcement', nOpts); });
+                                            } else { new Notification('📢 New Announcement', nOpts); }
+                                        } catch(_) {}
+                                    }
+                                    if (typeof Notification === 'undefined') return;
+                                    if (Notification.permission === 'granted') { _firePubNotif(); }
+                                    else if (Notification.permission === 'default') {
+                                        Notification.requestPermission().then(function(p) { if (p === 'granted') _firePubNotif(); }).catch(function() {});
+                                    }
+                                })();
                                 setTimeout(loadNotifications, 2000);
                                 setTimeout(loadNotifications, 5000);
                             }
@@ -8191,6 +8242,34 @@
                     }, 1200);
                 }, 300);
             };
+
+            // ══ AVATAR CROSS-PAGE SYNC ═════════════════════════════
+            // When the user updates their photo on profile.html, that page writes
+            // 'fv_avatar_updated' to localStorage. The storage event fires here
+            // in any other open tab (including this user page), so we can refresh
+            // the header chip and dropdown photo without a full reload.
+            window.addEventListener('storage', function(e) {
+                if (e.key !== 'fv_avatar_updated' || !e.newValue) return;
+                try {
+                    const { url } = JSON.parse(e.newValue);
+                    if (!url || !window._currentUserId) return;
+                    // Patch the cached user metadata in memory
+                    if (window._cachedUser && window._cachedUser.user_metadata) {
+                        window._cachedUser.user_metadata.avatar_url = url;
+                    }
+                    // Re-fetch the user from Supabase auth to get the latest metadata,
+                    // then redraw the header chip with the new photo.
+                    if (_supabase && typeof _supabase.auth.getUser === 'function') {
+                        _supabase.auth.getUser().then(function(res) {
+                            const freshUser = res && res.data && res.data.user;
+                            if (freshUser && typeof populateProfileUI === 'function') {
+                                const adminBrowsing = !!(localStorage.getItem('fv_admin_browse_mode') || sessionStorage.getItem('fv_admin_browse_mode'));
+                                populateProfileUI(freshUser, adminBrowsing);
+                            }
+                        }).catch(function() {});
+                    }
+                } catch (_) {}
+            });
 
             // ══ LIGHT / DARK MODE ══════════════════════════════════
             function initTheme() {

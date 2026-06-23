@@ -3383,6 +3383,16 @@
                         URL.revokeObjectURL(previewUrl);
 
                         if (data && data.user) _currentUser = data.user;
+
+                        // ── Signal index.html (and any other tab) to refresh the header avatar ──
+                        // index.html listens for 'fv_avatar_updated' in localStorage and
+                        // calls populateProfileUI() to re-render the chip + dropdown photo.
+                        try {
+                            localStorage.setItem('fv_avatar_updated', JSON.stringify({ url: publicUrl, ts: Date.now() }));
+                            // Remove immediately so the event fires on every upload, not just the first
+                            setTimeout(() => localStorage.removeItem('fv_avatar_updated'), 200);
+                        } catch (_) {}
+
                         setMsg('avatarMsg', '✅ Profile photo updated.', 'success');
                         showToast('Profile photo updated', 'success');
                         setTimeout(() => setMsg('avatarMsg', '', 'info'), 3000);
