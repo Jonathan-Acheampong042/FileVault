@@ -2567,8 +2567,18 @@
                     return;
                 }
 
+                // getSession() returns a cached JWT that may carry stale user_metadata
+                // (e.g. the old avatar_url after a photo update). getUser() hits the
+                // server and always returns the latest metadata — use it to populate
+                // the profile so a refresh always shows the current photo.
+                let freshUser = session.user;
+                try {
+                    const { data: userData } = await _supabase.auth.getUser();
+                    if (userData && userData.user) freshUser = userData.user;
+                } catch (_) { /* fall back to session.user */ }
+
                 const adminBrowseMode = !!(localStorage.getItem('fv_admin_browse_mode') || sessionStorage.getItem('fv_admin_browse_mode'));
-                const isKnownAdmin = ADMIN_EMAILS.includes(session.user.email);
+                const isKnownAdmin = ADMIN_EMAILS.includes(freshUser.email);
 
                 // Only redirect admins to manager.html if they're NOT in browse mode
                 if (isKnownAdmin && !adminBrowseMode) {
@@ -2578,7 +2588,7 @@
                         const {
                             data: profile
                         } = await _supabase
-                            .from('user_profiles').select('role').eq('id', session.user.id).single();
+                            .from('user_profiles').select('role').eq('id', freshUser.id).single();
                         if (profile?.role === 'admin' || profile?.role === 'manager') roleIsAdmin = true;
                     } catch (e) {}
                     if (roleIsAdmin) {
@@ -2587,8 +2597,8 @@
                     }
                 }
 
-                _currentUser = session.user;
-                _isAdminBrowsing = adminBrowseMode && (isKnownAdmin || await _checkAdminRole(session.user.id));
+                _currentUser = freshUser;
+                _isAdminBrowsing = adminBrowseMode && (isKnownAdmin || await _checkAdminRole(freshUser.id));
                 populateProfile(_currentUser, _isAdminBrowsing);
                 showVerifyBanner(_currentUser);
                 initTheme();

@@ -15,7 +15,8 @@
     https://fonts.gstatic.com;
   img-src 'self' data:
     https://lh3.googleusercontent.com
-    https://cdn.discordapp.com;
+    https://cdn.discordapp.com
+    https://*.supabase.co;
   connect-src 'self'
     https://*.supabase.co
     wss://*.supabase.co
@@ -4098,6 +4099,36 @@
             window.fvHideNotifPopup = fvHideNotifPopup;
             window.showFvNotifPopup = showFvNotifPopup;
 
+            // ── Notification sound (Web Audio API — no external file needed) ──
+            // Plays a soft two-tone chime whenever a real-time notification arrives.
+            // Uses AudioContext so it works on all modern browsers without hosting
+            // an audio file. Fails silently if the browser blocks autoplay.
+            function _playNotifSound() {
+                try {
+                    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    // Two-tone ascending chime: 880 Hz then 1100 Hz
+                    var tones = [880, 1100];
+                    tones.forEach(function(freq, i) {
+                        var osc  = ctx.createOscillator();
+                        var gain = ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.type = 'sine';
+                        osc.frequency.value = freq;
+                        var start = ctx.currentTime + i * 0.18;
+                        var end   = start + 0.18;
+                        gain.gain.setValueAtTime(0, start);
+                        gain.gain.linearRampToValueAtTime(0.25, start + 0.02);  // quick fade in
+                        gain.gain.exponentialRampToValueAtTime(0.001, end);     // smooth fade out
+                        osc.start(start);
+                        osc.stop(end);
+                    });
+                    // Close context after both tones finish to free resources
+                    setTimeout(function() { try { ctx.close(); } catch(_) {} }, 800);
+                } catch(_) { /* autoplay blocked or AudioContext unavailable — silent fail */ }
+            }
+            window._playNotifSound = _playNotifSound;
+
             // Fix 19 — mobile share folder link
             function shareFolderLink() {
                 const url = window.location.href.split('?')[0] + (currentFolder ? '?folder=' + encodeURIComponent(currentFolder) : '');
@@ -4648,10 +4679,37 @@
                     _currentUserEmail = session.user.email || null;
                     _currentUserId = session.user.id || null;
                     window._currentUserId = _currentUserId;
+                    window._cachedUser = session.user; // needed by _applyProfileRefresh
                     if (session.access_token && _supabase.realtime) {
                         _supabase.realtime.setAuth(session.access_token);
                     }
+                    // ── Avatar fix: getSession() returns a cached local JWT that carries
+                    // stale user_metadata (the avatar_url won't update until the JWT
+                    // is forcibly refreshed from the server). We:
+                    //   1. Render immediately with whatever the session has (no blank flash)
+                    //   2. Call refreshSession() to force Supabase to issue a NEW JWT that
+                    //      contains the latest user_metadata from the database
+                    //   3. Re-render with the fresh user so the avatar shows correctly
                     populateProfileUI(session.user, isAdmin && adminBrowseMode);
+                    try {
+                        // refreshSession() forces a round-trip to Supabase and returns
+                        // a brand-new JWT with up-to-date user_metadata (including avatar_url).
+                        // This is the only reliable way to get fresh metadata after updateUser().
+                        const { data: refreshed, error: refreshErr } = await _supabase.auth.refreshSession();
+                        if (!refreshErr && refreshed && refreshed.user) {
+                            window._cachedUser = refreshed.user;
+                            populateProfileUI(refreshed.user, isAdmin && adminBrowseMode);
+                        } else {
+                            // refreshSession failed (e.g. network) — fall back to getUser()
+                            const { data: freshData } = await _supabase.auth.getUser();
+                            if (freshData && freshData.user) {
+                                window._cachedUser = freshData.user;
+                                populateProfileUI(freshData.user, isAdmin && adminBrowseMode);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Avatar refresh failed, using session data:', e.message);
+                    }
                     // ── Bug 4 fix: load notifications now that we have a userId ──
                     // Use window.loadNotifications (not the bare name) because this checkAuth()
                     // block is in an earlier <script> than the function definition — at this
@@ -4834,7 +4892,14 @@
                         _currentUserEmail = session.user.email || null;
                         _currentUserId = session.user.id || null;
                         window._currentUserId = _currentUserId;
+                        // Render immediately with session data, then refresh from server
                         populateProfileUI(session.user, false);
+                        _supabase.auth.getUser().then(function(res) {
+                            if (res && res.data && res.data.user) {
+                                window._cachedUser = res.data.user;
+                                populateProfileUI(res.data.user, false);
+                            }
+                        }).catch(function() {});
                     }
                     // Attach JWT to Realtime on sign-in and token refresh so
                     // RLS-protected tables (notifications) deliver live events.
@@ -8027,11 +8092,18 @@
                                     showToast('🕐 ' + fname + sfolder + ' will be available on ' + dateStr, 'info', 7000);
                                     return;
                                 }
+                                // Gate: only notify if user subscribed to this folder.
+                                // Root-level files (no folder) always notify.
+                                var rawFolder = (payload.new && payload.new.folder_name) ? payload.new.folder_name : null;
+                                var isRootFile = !rawFolder || rawFolder === 'Root';
+                                var userWantsNotif = isRootFile || (typeof window.isFolderSubscribed === 'function' && window.isFolderSubscribed(rawFolder));
+                                if (!userWantsNotif) {
+                                    _refreshFilesWhenIdle();
+                                    return;
+                                }
                                 showFvNotifPopup('📁', 'New file added', fname + folder, 7000);
                                 showToast("📁 " + fname + folder + " was just added!", "info", 5000);
-                                // Fire a native browser notification — same pattern as the
-                                // announcement handler below. Works when the tab is in the
-                                // background or the screen is off (if push is enabled).
+                                _playNotifSound();
                                 (function() {
                                     var _fileLabel = fname + folder;
                                     function _fireFileNotif() {
@@ -8047,18 +8119,42 @@
                                         } catch(_) {}
                                     }
                                     if (typeof Notification === 'undefined') return;
-                                    if (Notification.permission === 'granted') {
-                                        _fireFileNotif();
-                                    } else if (Notification.permission === 'default') {
-                                        // Ask once; fire immediately if user allows
-                                        Notification.requestPermission().then(function(perm) {
-                                            if (perm === 'granted') _fireFileNotif();
-                                        }).catch(function() {});
-                                    }
-                                    // If 'denied' — skip silently, in-app popup already shown above
+                                    if (Notification.permission === 'granted') { _fireFileNotif(); }
+                                    // Never call requestPermission() from a background event
                                 })();
                                 _refreshFilesWhenIdle();
                             }, 800); // 800ms debounce — handles multi-file batch uploads
+                        }
+                    )
+                    // ── File updated (description, name, folder move, re-upload) ──
+                    .on('postgres_changes', {
+                            event: 'UPDATE',
+                            schema: 'public',
+                            table: 'files_list'
+                        },
+                        function(payload) {
+                            clearTimeout(_realtimeReloadTimer);
+                            _realtimeReloadTimer = setTimeout(function() {
+                                // Bust the session cache so the next render fetches fresh
+                                // data including the new updated_at timestamp.
+                                try { sessionStorage.removeItem('fvFilesCache'); } catch(_) {}
+                                var fname = (payload.new && payload.new.file_name) ? payload.new.file_name : 'A file';
+                                _refreshFilesWhenIdle();
+                            }, 800);
+                        }
+                    )
+                    // ── File deleted ──
+                    .on('postgres_changes', {
+                            event: 'DELETE',
+                            schema: 'public',
+                            table: 'files_list'
+                        },
+                        function() {
+                            clearTimeout(_realtimeReloadTimer);
+                            _realtimeReloadTimer = setTimeout(function() {
+                                try { sessionStorage.removeItem('fvFilesCache'); } catch(_) {}
+                                _refreshFilesWhenIdle();
+                            }, 800);
                         }
                     )
                     // ── New announcement posted ──
@@ -8075,6 +8171,7 @@
                                 // In-app popup — works for ALL users regardless of push permission
                                 showFvNotifPopup('📢', 'New Announcement', annMsg, 7000);
                                 showToast('📢 ' + annMsg, 'info', 5000);
+                                _playNotifSound();
                                 // Try to fire a native browser notification.
                                 // If permission is already granted: fire immediately.
                                 // If 'default' (never asked): request permission first.
@@ -8228,6 +8325,7 @@
                             // ── FIX 1: In-app popup — immediately visible, no push permission needed ──
                             showFvNotifPopup(icon, title, body, 7000);
                             showToast(icon + ' ' + title + (body ? ' — ' + body : ''), 'info', 5000);
+                            _playNotifSound();
 
                             // ── FIX 2: Immediately light up the bell dot without waiting for async DB round-trip ──
                             (function() {
@@ -8388,15 +8486,22 @@
             // race where profile.html closes the channel before index.html receives the
             // message, and also handles full page-load navigations where the channel
             // listener isn't yet attached when the message fires.
+            // visibilitychange: fires when user navigates back to this tab from profile.html
+            // FIX: use refreshSession() to force a new JWT with up-to-date user_metadata.
+            // The old code was OVERWRITING the fresh avatar_url with the stale cached one.
             document.addEventListener('visibilitychange', function() {
                 if (document.visibilityState === 'visible' && window._currentUserId && _supabase) {
-                    _supabase.auth.getUser().then(function(res) {
+                    // Bust the file cache so updated_at timestamps are always fresh
+                    // when the user returns to this tab from the manager page.
+                    try { sessionStorage.removeItem('fvFilesCache'); } catch(_) {}
+                    if (typeof _refreshFilesWhenIdle === 'function') _refreshFilesWhenIdle();
+                    _supabase.auth.refreshSession().then(function(res) {
                         var u = res && res.data && res.data.user;
                         if (u && typeof populateProfileUI === 'function') {
+                            window._cachedUser = u;
                             var adminBrowsing = !!(localStorage.getItem('fv_admin_browse_mode') || sessionStorage.getItem('fv_admin_browse_mode'));
                             populateProfileUI(u, adminBrowsing);
                         }
-                        // Also refresh notification dot in case new ones arrived while away
                         if (typeof window.loadNotifications === 'function') window.loadNotifications();
                     }).catch(function() {});
                 }
@@ -8405,9 +8510,10 @@
             // pageshow covers bfcache restores (back/forward navigation in some browsers)
             window.addEventListener('pageshow', function(e) {
                 if (e.persisted && window._currentUserId && _supabase) {
-                    _supabase.auth.getUser().then(function(res) {
+                    _supabase.auth.refreshSession().then(function(res) {
                         var u = res && res.data && res.data.user;
                         if (u && typeof populateProfileUI === 'function') {
+                            window._cachedUser = u;
                             var adminBrowsing = !!(localStorage.getItem('fv_admin_browse_mode') || sessionStorage.getItem('fv_admin_browse_mode'));
                             populateProfileUI(u, adminBrowsing);
                         }
