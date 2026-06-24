@@ -2030,23 +2030,12 @@
                 // SOCIAL LOGIN (Google, Discord, GitHub, Microsoft)
                 // ═══════════════════════════════════════════════════════════════
                 async function socialLogin(provider) {
-                    // Encode the ?next= destination into the redirectTo URL so it survives
-                    // the OAuth round-trip (sessionStorage is wiped when the browser leaves
-                    // and returns via a full redirect). On return, _captureNextParam() reads
-                    // it from the URL query string and re-saves it to sessionStorage.
-                    const _nextDest = _sanitizeNext(new URLSearchParams(window.location.search).get('next'))
-                        || _getNextPage()
-                        || null;
-                    const _redirectBase = 'https://www.filevault.works/login.html';
-                    const _redirectTo = _nextDest
-                        ? _redirectBase + '?next=' + encodeURIComponent(_nextDest)
-                        : _redirectBase;
                     const {
                         error
                     } = await _supabase.auth.signInWithOAuth({
                         provider,
                         options: {
-                            redirectTo: _redirectTo
+                            redirectTo: window.location.origin + '/login.html'
                         }
                     });
                     if (error) showToast(friendlyError(error), 'error');
