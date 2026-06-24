@@ -1911,11 +1911,20 @@ create policy "Admins can read audit log"
             // someone is a signed-in manager.
             async function fvManagerFetch(path, options) {
                 options = options || {};
-                const {
-                    data: {
-                        session
-                    }
-                } = await _supabase.auth.getSession();
+                // Use refreshSession to get a guaranteed fresh token — getSession()
+                // returns a cached token that may be expired if the tab has been
+                // open a while, causing 401s on the server even though the manager
+                // appears logged in. refreshSession() silently renews if needed.
+                let session = null;
+                try {
+                    const { data: refreshData } = await _supabase.auth.refreshSession();
+                    session = refreshData?.session || null;
+                } catch (_re) {}
+                // Fallback to cached session if refresh fails (e.g. offline)
+                if (!session) {
+                    const { data: sessionData } = await _supabase.auth.getSession();
+                    session = sessionData?.session || null;
+                }
                 const headers = Object.assign({
                     'Content-Type': 'application/json'
                 }, options.headers || {});
