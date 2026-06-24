@@ -7574,23 +7574,43 @@
                         // Save subscription directly to Supabase — no Render cold-start risk.
                         var _subJson = sub.toJSON();
                         var _subSaved = false;
+                        var _subErr1 = null, _subErr2 = null;
                         try {
                             var _sbClient = window._supabase;
                             if (_sbClient) {
-                                var _subInsert = await _sbClient.from('push_subscriptions').upsert({
-                                    endpoint: _subJson.endpoint,
-                                    p256dh: (_subJson.keys || {}).p256dh || null,
-                                    auth: (_subJson.keys || {}).auth || null,
+                                // Try schema A: { subscription jsonb, user_id, role } — what Render's server.js creates
+                                var _tryA = await _sbClient.from('push_subscriptions').upsert({
+                                    subscription: _subJson,
                                     user_id: window._currentUserId || null,
                                     role: 'student'
-                                }, { onConflict: 'endpoint' });
-                                if (!_subInsert.error) { _subSaved = true; }
-                                else { console.error('push_subscriptions insert error:', _subInsert.error); }
+                                }, { onConflict: 'subscription->>endpoint' });
+                                if (!_tryA.error) {
+                                    _subSaved = true;
+                                } else {
+                                    _subErr1 = _tryA.error;
+                                    console.warn('[push] schema A failed:', _tryA.error.message, '— trying schema B');
+                                    // Try schema B: { endpoint, p256dh, auth, user_id, role } — split columns
+                                    var _tryB = await _sbClient.from('push_subscriptions').upsert({
+                                        endpoint: _subJson.endpoint,
+                                        p256dh: (_subJson.keys || {}).p256dh || null,
+                                        auth: (_subJson.keys || {}).auth || null,
+                                        user_id: window._currentUserId || null,
+                                        role: 'student'
+                                    }, { onConflict: 'endpoint' });
+                                    if (!_tryB.error) {
+                                        _subSaved = true;
+                                    } else {
+                                        _subErr2 = _tryB.error;
+                                        console.error('[push] schema B also failed:', _tryB.error.message);
+                                    }
+                                }
                             }
-                        } catch (_subErr) { console.error('push subscribe save error:', _subErr); }
+                        } catch (_subEx) { console.error('[push] subscribe save exception:', _subEx); }
 
                         if (!_subSaved) {
-                            showToast('⚠️ Could not save subscription. Try enabling again.', 'warning', 5000);
+                            var _errMsg = (_subErr2 || _subErr1 || {}).message || 'unknown error';
+                            console.error('[push] could not save subscription. Last error:', _errMsg);
+                            showToast('⚠️ Could not save subscription: ' + _errMsg, 'warning', 7000);
                             // Don't mark as enabled — the subscription isn't persisted
                             return;
                         }
