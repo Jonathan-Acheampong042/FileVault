@@ -7571,32 +7571,28 @@
                             userVisibleOnly: true,
                             applicationServerKey: _urlBase64ToUint8Array(window._vapidPublicKey)
                         });
-                        // Save subscription to server with retry — if Render is cold the
-                        // first POST may time out and the sub would be lost. We retry up
-                        // to 3 more times (at 10 s, 25 s, 50 s) before giving up.
-                        var _subBody = JSON.stringify({
-                            subscription: sub.toJSON(),
-                            userId: window._currentUserId || null,
-                            role: 'student'
-                        });
-                        var _subUrl = _CHAT_API_URL.replace('/api/chat', '/api/push/subscribe');
+                        // Save subscription directly to Supabase — no Render cold-start risk.
+                        var _subJson = sub.toJSON();
                         var _subSaved = false;
-                        var _subDelays = [0, 10000, 25000, 50000];
-                        for (var _si = 0; _si < _subDelays.length && !_subSaved; _si++) {
-                            if (_subDelays[_si] > 0) await new Promise(function(r) { setTimeout(r, _subDelays[_si]); });
-                            try {
-                                var _subResp = await fetch(_subUrl, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: _subBody
-                                });
-                                if (_subResp.ok) { _subSaved = true; }
-                            } catch (_subErr) { /* retry */ }
-                        }
+                        try {
+                            var _sbClient = window._supabase;
+                            if (_sbClient) {
+                                var _subInsert = await _sbClient.from('push_subscriptions').upsert({
+                                    endpoint: _subJson.endpoint,
+                                    p256dh: (_subJson.keys || {}).p256dh || null,
+                                    auth: (_subJson.keys || {}).auth || null,
+                                    user_id: window._currentUserId || null,
+                                    role: 'student'
+                                }, { onConflict: 'endpoint' });
+                                if (!_subInsert.error) { _subSaved = true; }
+                                else { console.error('push_subscriptions insert error:', _subInsert.error); }
+                            }
+                        } catch (_subErr) { console.error('push subscribe save error:', _subErr); }
+
                         if (!_subSaved) {
-                            // Subscription object exists in the browser but server never
-                            // confirmed — let the user know they may not receive push alerts.
-                            showToast('⚠️ Enabled locally, but server save failed. Try again.', 'warning', 5000);
+                            showToast('⚠️ Could not save subscription. Try enabling again.', 'warning', 5000);
+                            // Don't mark as enabled — the subscription isn't persisted
+                            return;
                         }
                         _pushSubscription = sub;
                         _updatePushBell(true);
