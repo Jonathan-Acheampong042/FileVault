@@ -81,6 +81,7 @@ const pushRateLimit = rateLimiter({
 
 const ALLOWED_ORIGINS = [
     'https://filevault.works',
+    'https://www.filevault.works',
     'http://localhost:3000',
     'http://localhost:5500', // common live-server port for local dev
 ];
