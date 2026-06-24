@@ -8579,16 +8579,16 @@
             // race where profile.html closes the channel before index.html receives the
             // message, and also handles full page-load navigations where the channel
             // listener isn't yet attached when the message fires.
-            // visibilitychange: fires when user navigates back to this tab from profile.html
-            // FIX: use refreshSession() to force a new JWT with up-to-date user_metadata.
-            // The old code was OVERWRITING the fresh avatar_url with the stale cached one.
+            // visibilitychange: fires when user navigates back to this tab from profile.html.
+            // Uses getUser() instead of refreshSession() -- refreshSession() consumes the
+            // rotating refresh token and races with autoRefreshToken, causing SIGNED_OUT.
             document.addEventListener('visibilitychange', function() {
                 if (document.visibilityState === 'visible' && window._currentUserId && _supabase) {
                     // Bust the file cache so updated_at timestamps are always fresh
                     // when the user returns to this tab from the manager page.
                     try { sessionStorage.removeItem('fvFilesCache'); } catch(_) {}
                     if (typeof _refreshFilesWhenIdle === 'function') _refreshFilesWhenIdle();
-                    _supabase.auth.refreshSession().then(function(res) {
+                    _supabase.auth.getUser().then(function(res) {
                         var u = res && res.data && res.data.user;
                         if (u && typeof populateProfileUI === 'function') {
                             window._cachedUser = u;
@@ -8600,10 +8600,11 @@
                 }
             });
 
-            // pageshow covers bfcache restores (back/forward navigation in some browsers)
+            // pageshow covers bfcache restores (back/forward navigation in some browsers).
+            // Uses getUser() instead of refreshSession() for the same reason as above.
             window.addEventListener('pageshow', function(e) {
                 if (e.persisted && window._currentUserId && _supabase) {
-                    _supabase.auth.refreshSession().then(function(res) {
+                    _supabase.auth.getUser().then(function(res) {
                         var u = res && res.data && res.data.user;
                         if (u && typeof populateProfileUI === 'function') {
                             window._cachedUser = u;
