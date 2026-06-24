@@ -1617,7 +1617,7 @@
                             _revealForm(session.user.email, session.user.user_metadata, session.user);
                             return;
                         }
-                        if (!_isAuthenticated && attempt < 8) {
+                        if (!_isAuthenticated && attempt < 20) {
                             setTimeout(function() {
                                 _checkSessionWithRetry(attempt + 1);
                             }, 200);

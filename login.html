@@ -1525,6 +1525,9 @@
                     // Wait for the session to be fully persisted to storage before navigating.
                     // Without this, index.html creates its Supabase client before the tokens
                     // are written, sees no session, and redirects back with "session expired".
+                    // OAuth logins need a longer initial delay: the hash token exchange is
+                    // async and 300ms is too short on slow connections.
+                    const _isOAuthLogin = !!(window.location.hash && window.location.hash.includes('access_token'));
                     let attempts = 0;
                     const confirmAndRedirect = async () => {
                         const {
@@ -1532,7 +1535,7 @@
                                 session: confirmedSession
                             }
                         } = await _supabase.auth.getSession();
-                        if (confirmedSession || attempts >= 10) {
+                        if (confirmedSession || attempts >= 20) {
                             _navigating = true;
                             sessionStorage.removeItem('fvFilesCache');
                             const dest = _getNextPage() || 'index.html';
@@ -1540,7 +1543,7 @@
                             window.location.href = dest;
                         } else {
                             attempts++;
-                            setTimeout(confirmAndRedirect, 150);
+                            setTimeout(confirmAndRedirect, 200);
                         }
                     };
                     setTimeout(confirmAndRedirect, 300);
@@ -1725,7 +1728,7 @@
                                 session: confirmedSession
                             }
                         } = await _supabase.auth.getSession();
-                        if (confirmedSession || attempts >= 10) {
+                        if (confirmedSession || attempts >= 20) {
                             _navigating = true;
                             sessionStorage.removeItem('fvFilesCache');
                             const dest = _getNextPage() || 'index.html';
@@ -1733,7 +1736,7 @@
                             window.location.href = dest;
                         } else {
                             attempts++;
-                            setTimeout(confirmAndRedirect, 150);
+                            setTimeout(confirmAndRedirect, 200);
                         }
                     };
                     setTimeout(confirmAndRedirect, 300);
@@ -2030,12 +2033,19 @@
                 // SOCIAL LOGIN (Google, Discord, GitHub, Microsoft)
                 // ═══════════════════════════════════════════════════════════════
                 async function socialLogin(provider) {
+                    // Preserve any ?next= intent through the OAuth round-trip so that
+                    // after Google redirects back to login.html the destination survives.
+                    const nextVal = _getNextPage();
+                    const redirectBase = window.location.origin + '/login.html';
+                    const redirectTo = nextVal
+                        ? redirectBase + '?next=' + encodeURIComponent(nextVal)
+                        : redirectBase;
                     const {
                         error
                     } = await _supabase.auth.signInWithOAuth({
                         provider,
                         options: {
-                            redirectTo: window.location.origin + '/login.html'
+                            redirectTo
                         }
                     });
                     if (error) showToast(friendlyError(error), 'error');
