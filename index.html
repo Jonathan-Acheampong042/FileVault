@@ -7436,6 +7436,43 @@
             // togglePushSubscription() can safely read it before initPush() resolves.
             var _pushSubscription = null;
 
+            // Shared helper — saves a PushSubscription object to Supabase.
+            // Uses SELECT then INSERT (no upsert) to avoid needing UPDATE RLS policy.
+            // Returns true on success, false on failure.
+            async function _savePushSubscription(sub) {
+                var _sbClient = window._supabase;
+                if (!_sbClient || !sub) return false;
+                var _sJson = sub.toJSON ? sub.toJSON() : sub;
+                var _endpoint = _sJson.endpoint;
+                try {
+                    // Check if this endpoint is already saved — avoids triggering UPDATE
+                    var _check = await _sbClient
+                        .from('push_subscriptions')
+                        .select('endpoint')
+                        .eq('endpoint', _endpoint)
+                        .maybeSingle();
+                    if (_check.data) {
+                        console.log('[push] subscription already in Supabase');
+                        return true;
+                    }
+                    // Row missing — insert fresh
+                    var _ins = await _sbClient.from('push_subscriptions').insert({
+                        endpoint: _endpoint,
+                        subscription: _sJson,
+                        p256dh: (_sJson.keys || {}).p256dh || null,
+                        auth: (_sJson.keys || {}).auth || null,
+                        user_id: window._currentUserId || null,
+                        role: 'student'
+                    });
+                    if (!_ins.error) return true;
+                    console.error('[push] insert failed:', _ins.error.message, '| code:', _ins.error.code);
+                    return false;
+                } catch (_e) {
+                    console.error('[push] _savePushSubscription exception:', _e);
+                    return false;
+                }
+            }
+
             async function initPush() {
                 if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
                 // Fetch VAPID public key from server — retry on cold start (Render spins
@@ -7469,6 +7506,12 @@
                     if (existing) {
                         _pushSubscription = existing;
                         _updatePushBell(true);
+                        // Silently re-save to Supabase in case the row is missing
+                        // (e.g. server was cold when the student originally subscribed)
+                        _savePushSubscription(existing).then(function(saved) {
+                            if (saved) console.log('[push] existing subscription re-synced to Supabase');
+                            else console.warn('[push] existing subscription found but could not re-sync to Supabase');
+                        });
                     }
                 } catch (e) {}
             }
@@ -7571,46 +7614,14 @@
                             userVisibleOnly: true,
                             applicationServerKey: _urlBase64ToUint8Array(window._vapidPublicKey)
                         });
-                        // Save subscription directly to Supabase — no Render cold-start risk.
-                        var _subJson = sub.toJSON();
+                        // Save subscription directly to Supabase via shared helper
                         var _subSaved = false;
-                        var _subErr1 = null, _subErr2 = null;
                         try {
-                            var _sbClient = window._supabase;
-                            if (_sbClient) {
-                                // Try schema A: { subscription jsonb, user_id, role } — what Render's server.js creates
-                                var _tryA = await _sbClient.from('push_subscriptions').upsert({
-                                    subscription: _subJson,
-                                    user_id: window._currentUserId || null,
-                                    role: 'student'
-                                }, { onConflict: 'subscription->>endpoint' });
-                                if (!_tryA.error) {
-                                    _subSaved = true;
-                                } else {
-                                    _subErr1 = _tryA.error;
-                                    console.warn('[push] schema A failed:', _tryA.error.message, '— trying schema B');
-                                    // Try schema B: { endpoint, p256dh, auth, user_id, role } — split columns
-                                    var _tryB = await _sbClient.from('push_subscriptions').upsert({
-                                        endpoint: _subJson.endpoint,
-                                        p256dh: (_subJson.keys || {}).p256dh || null,
-                                        auth: (_subJson.keys || {}).auth || null,
-                                        user_id: window._currentUserId || null,
-                                        role: 'student'
-                                    }, { onConflict: 'endpoint' });
-                                    if (!_tryB.error) {
-                                        _subSaved = true;
-                                    } else {
-                                        _subErr2 = _tryB.error;
-                                        console.error('[push] schema B also failed:', _tryB.error.message);
-                                    }
-                                }
-                            }
+                            _subSaved = await _savePushSubscription(sub);
                         } catch (_subEx) { console.error('[push] subscribe save exception:', _subEx); }
 
                         if (!_subSaved) {
-                            var _errMsg = (_subErr2 || _subErr1 || {}).message || 'unknown error';
-                            console.error('[push] could not save subscription. Last error:', _errMsg);
-                            showToast('⚠️ Could not save subscription: ' + _errMsg, 'warning', 7000);
+                            showToast('⚠️ Could not save subscription — check console for details.', 'warning', 7000);
                             // Don't mark as enabled — the subscription isn't persisted
                             return;
                         }
