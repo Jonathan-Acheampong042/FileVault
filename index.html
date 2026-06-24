@@ -7743,11 +7743,22 @@
                     }
                 }
 
-                // 2. Persist read state to Supabase (fire-and-forget)
+                // 2. Persist read state — announcements use localStorage, real notifications use Supabase
                 if (wasUnread) {
-                    try {
-                        await _supabase.from('notifications').update({ read: true }).eq('id', id);
-                    } catch(_) {}
+                    if (type === 'announcement') {
+                        // Announcement read state lives in fv_seen_ann_ids, not the notifications table
+                        try {
+                            const annId = (id || '').replace('ann_', '');
+                            const seenIds = JSON.parse(localStorage.getItem('fv_seen_ann_ids') || '[]');
+                            if (annId && !seenIds.includes(annId)) seenIds.push(annId);
+                            localStorage.setItem('fv_seen_ann_ids', JSON.stringify(seenIds.slice(-50)));
+                        } catch(_) {}
+                    } else {
+                        // Regular notification row — persist to Supabase (fire-and-forget)
+                        try {
+                            await _supabase.from('notifications').update({ read: true }).eq('id', id);
+                        } catch(_) {}
+                    }
                 }
 
                 // 3. Navigate to the relevant destination
@@ -7810,6 +7821,20 @@
                     await _supabase.from('notifications').update({
                         read: true
                     }).eq('user_id', window._currentUserId).eq('read', false);
+
+                    // Also mark all visible announcements as seen in localStorage so
+                    // their unread badges clear immediately (announcements are not rows
+                    // in the notifications table — they live in a separate table and
+                    // their read state is tracked client-side via fv_seen_ann_ids).
+                    try {
+                        const seenIds = JSON.parse(localStorage.getItem('fv_seen_ann_ids') || '[]');
+                        document.querySelectorAll('#notifInboxList .notif-item[data-type="announcement"]').forEach(function(el) {
+                            const annId = (el.dataset.notifId || '').replace('ann_', '');
+                            if (annId && !seenIds.includes(annId)) seenIds.push(annId);
+                        });
+                        localStorage.setItem('fv_seen_ann_ids', JSON.stringify(seenIds.slice(-50)));
+                    } catch(_) {}
+
                     loadNotifications();
                     showToast('All notifications marked as read', 'info');
                 } catch (_) {}
@@ -7820,6 +7845,7 @@
             window.toggleNotifReadState = async function(el) {
                 if (!el) return;
                 const id = el.dataset.notifId;
+                const type = el.dataset.type;
                 const isCurrentlyUnread = el.classList.contains('unread');
                 const newRead = isCurrentlyUnread; // if unread → mark read; if read → mark unread
 
@@ -7854,10 +7880,27 @@
                     if (bellDot) bellDot.style.display = 'none';
                     if (markAllBtn) markAllBtn.style.display = 'none';
                 }
-                // Persist
-                try {
-                    await _supabase.from('notifications').update({ read: newRead }).eq('id', id);
-                } catch(_) {}
+                // Persist — announcements use localStorage (not a notifications table row)
+                if (type === 'announcement') {
+                    try {
+                        const annId = (id || '').replace('ann_', '');
+                        const seenIds = JSON.parse(localStorage.getItem('fv_seen_ann_ids') || '[]');
+                        if (newRead) {
+                            // Mark as read: add to seen list
+                            if (annId && !seenIds.includes(annId)) seenIds.push(annId);
+                        } else {
+                            // Mark as unread: remove from seen list
+                            const idx = seenIds.indexOf(annId);
+                            if (idx !== -1) seenIds.splice(idx, 1);
+                        }
+                        localStorage.setItem('fv_seen_ann_ids', JSON.stringify(seenIds.slice(-50)));
+                    } catch(_) {}
+                } else {
+                    // Regular notifications row — persist to Supabase
+                    try {
+                        await _supabase.from('notifications').update({ read: newRead }).eq('id', id);
+                    } catch(_) {}
+                }
             };
 
             // Initial unread-count check. We always defer and also retry briefly
@@ -8166,7 +8209,9 @@
                         },
                         function(payload) {
                             const row = payload.new || {};
-                            // Only handle notifications for the currently logged-in user
+                            // Only handle notifications for the currently logged-in user.
+                            // Allow rows with no user_id — those are admin-broadcast global
+                            // notifications (e.g. announcements fanned out to all users).
                             if (row.user_id && window._currentUserId && row.user_id !== window._currentUserId) return;
 
                             const iconMap = {
@@ -8280,7 +8325,10 @@
             // dropdown photo, sidebar avatar, and mobile bottom-nav avatar
             // all update instantly without a full page reload.
             function _applyProfileRefresh(url, displayName) {
-                // Patch in-memory cache
+                // Patch in-memory cache with the values from the broadcast message.
+                // This must happen BEFORE populateProfileUI() reads user_metadata so
+                // the cache-busted avatar URL (e.g. …/avatar.jpg?t=1234567) is used
+                // rather than whatever stale value Supabase's JWT may still carry.
                 if (window._cachedUser && window._cachedUser.user_metadata) {
                     if (url) window._cachedUser.user_metadata.avatar_url = url;
                     if (displayName) {
@@ -8288,14 +8336,30 @@
                         window._cachedUser.user_metadata.full_name = displayName;
                     }
                 }
-                // Re-fetch fresh user from Supabase and redraw all UI
+
+                // If the broadcast already gave us a URL, redraw immediately from the
+                // patched cache — no need to wait for a Supabase round-trip that may
+                // return a session token that hasn't refreshed yet.
+                if (url && window._cachedUser && typeof populateProfileUI === 'function') {
+                    const adminBrowsing = !!(localStorage.getItem('fv_admin_browse_mode') || sessionStorage.getItem('fv_admin_browse_mode'));
+                    populateProfileUI(window._cachedUser, adminBrowsing);
+                }
+
+                // Still re-fetch from Supabase in the background so display-name-only
+                // changes (which don't carry a URL) also refresh the UI, and so the
+                // in-memory cache stays in sync with the server for future renders.
                 if (_supabase && typeof _supabase.auth.getUser === 'function') {
                     _supabase.auth.getUser().then(function(res) {
                         const freshUser = res && res.data && res.data.user;
-                        if (freshUser && typeof populateProfileUI === 'function') {
-                            const adminBrowsing = !!(localStorage.getItem('fv_admin_browse_mode') || sessionStorage.getItem('fv_admin_browse_mode'));
-                            populateProfileUI(freshUser, adminBrowsing);
+                        if (!freshUser || typeof populateProfileUI !== 'function') return;
+                        // Preserve the cache-busted avatar URL if Supabase returned the
+                        // old one (its session token may lag behind the metadata write).
+                        if (url && freshUser.user_metadata) {
+                            freshUser.user_metadata.avatar_url = url;
                         }
+                        window._cachedUser = freshUser;
+                        const adminBrowsing = !!(localStorage.getItem('fv_admin_browse_mode') || sessionStorage.getItem('fv_admin_browse_mode'));
+                        populateProfileUI(freshUser, adminBrowsing);
                     }).catch(function() {});
                 }
             }

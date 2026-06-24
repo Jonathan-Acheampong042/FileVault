@@ -3385,12 +3385,17 @@
                         const publicUrl = urlData?.publicUrl;
                         if (!publicUrl) throw new Error('Could not get public URL for uploaded avatar.');
 
+                        // Cache-bust once here and reuse everywhere so the browser,
+                        // Supabase metadata, and the broadcast message all carry the
+                        // same fresh URL — fixing the stale-photo bug on index.html.
+                        const cachedUrl = publicUrl + '?t=' + Date.now();
+
                         const { data, error: metaError } = await _supabase.auth.updateUser({
-                            data: { avatar_url: publicUrl }
+                            data: { avatar_url: cachedUrl }  // saved WITH cache-buster
                         });
                         if (metaError) throw metaError;
 
-                        previewImg.src = publicUrl + '?t=' + Date.now(); // cache-bust
+                        previewImg.src = cachedUrl;  // profile page preview
                         URL.revokeObjectURL(previewUrl);
 
                         if (data && data.user) _currentUser = data.user;
@@ -3399,7 +3404,7 @@
                         // BroadcastChannel reaches the same tab (e.g. navigating back);
                         // localStorage storage event reaches other open tabs.
                         try {
-                            const _profMsg = { url: publicUrl, ts: Date.now() };
+                            const _profMsg = { url: cachedUrl, ts: Date.now() };  // cache-busted URL
                             // BroadcastChannel (same-tab and other tabs in same origin)
                             try {
                                 const _bc = new BroadcastChannel('fv_profile_updates');
