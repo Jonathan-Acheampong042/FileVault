@@ -1883,6 +1883,21 @@ create policy "Admins can read audit log"
                 'http://localhost:3000' :
                 'https://project-one-187u.onrender.com';
 
+            // ── Wake Render server immediately on page load ──────────────────────
+            // Render's free tier spins down after ~15 minutes of inactivity and takes
+            // 30–60 seconds to cold-start. If the manager opens this page, uploads a
+            // file, and the push call fires before the server is warm, the notification
+            // is silently lost. We ping /health the moment the page loads — by the
+            // time the manager fills in the form and clicks Upload the server is ready.
+            // Also repeats once at 30 s in case the first ping hit a mid-boot state.
+            (function _wakeRenderEarly() {
+                if (window.location.hostname === 'localhost') return;
+                const _healthUrl = FV_API_BASE + '/health';
+                function _ping() { fetch(_healthUrl, { method: 'GET' }).catch(function() {}); }
+                _ping(); // immediate ping
+                setTimeout(_ping, 30000); // second ping 30s later
+            })();
+
             // ── Authenticated fetch helper ───────────────────────────────────────
             // Replaces the old pattern of sending { secret: window.pushSecret } in
             // each request body — a static value embedded in browser JS can never
@@ -4366,21 +4381,37 @@ create policy "Admins can read audit log"
                                     body: JSON.stringify(_pushPayload)
                                 })
                                 .then(function(r) {
+                                    if (!r.ok) throw new Error('HTTP ' + r.status);
                                     return r.json();
                                 });
                         }
-                        _doUploadPush().then(function(result) {
-                            if (result && typeof result.sent === 'number') {
-                                if (result.sent > 0) showMgrToast('🔔 Notified ' + result.sent + ' student' + (result.sent > 1 ? 's' : '') + ' via push.', 'success');
-                                else showMgrToast('Push sent — no subscribers yet.', 'info');
-                            }
-                        }).catch(function() {
+
+                        // Retry with backoff — handles Render cold-start delays.
+                        // Attempts: immediate → 15 s → 35 s → 65 s (total ~65 s window,
+                        // well within Render's typical 30–60 s cold-start time).
+                        var _pushAttempt = 0;
+                        var _pushDelays = [0, 15000, 35000, 65000];
+                        function _tryPushWithBackoff() {
+                            var delay = _pushDelays[_pushAttempt] || 0;
                             setTimeout(function() {
                                 _doUploadPush().then(function(result) {
-                                    if (result && result.sent > 0) showMgrToast('🔔 Notified ' + result.sent + ' student' + (result.sent > 1 ? 's' : '') + ' via push.', 'success');
-                                }).catch(function() {});
-                            }, 14000);
-                        })
+                                    if (result && typeof result.sent === 'number') {
+                                        if (result.sent > 0) {
+                                            showMgrToast('🔔 Notified ' + result.sent + ' student' + (result.sent > 1 ? 's' : '') + ' via push.', 'success');
+                                        } else {
+                                            showMgrToast('Push sent — no subscribers yet.', 'info');
+                                        }
+                                    }
+                                }).catch(function() {
+                                    _pushAttempt++;
+                                    if (_pushAttempt < _pushDelays.length) {
+                                        _tryPushWithBackoff(); // schedule next attempt
+                                    }
+                                    // else: all retries exhausted — give up silently
+                                });
+                            }, delay);
+                        }
+                        _tryPushWithBackoff();
                     })();
                 }
 
@@ -5566,15 +5597,27 @@ create policy "Admins can read audit log"
 
                     // ── FIX: Push notification to ALL subscribed users for new announcement ──
                     (function(annMsg) {
-                        // Inbox notification — separate from push, written even for
-                        // users without push enabled. Fire-and-forget.
-                        fvManagerFetch('/api/notify-announcement', {
-                            method: 'POST',
-                            body: JSON.stringify({
-                                message: annMsg
-                            })
-                        }).catch(function() {
-                            /* non-critical — push below still fires */ });
+                        // Inbox notification — writes a `notifications` row for every user
+                        // so the bell inbox updates even for users without push enabled.
+                        // Retry with backoff so a Render cold start doesn't silently drop it.
+                        var _notifAttempt = 0;
+                        var _notifDelays = [0, 15000, 35000];
+                        function _tryNotifAnnouncement() {
+                            var delay = _notifDelays[_notifAttempt] || 0;
+                            setTimeout(function() {
+                                fvManagerFetch('/api/notify-announcement', {
+                                    method: 'POST',
+                                    body: JSON.stringify({ message: annMsg })
+                                }).then(function(r) {
+                                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                                    return r.json();
+                                }).catch(function() {
+                                    _notifAttempt++;
+                                    if (_notifAttempt < _notifDelays.length) _tryNotifAnnouncement();
+                                });
+                            }, delay);
+                        }
+                        _tryNotifAnnouncement();
 
                         const _annPushPayload = {
                             title: '📢 New Announcement',
@@ -5588,21 +5631,31 @@ create policy "Admins can read audit log"
                                     body: JSON.stringify(_annPushPayload)
                                 })
                                 .then(function(r) {
+                                    if (!r.ok) throw new Error('HTTP ' + r.status);
                                     return r.json();
                                 });
                         }
-                        _doAnnPush().then(function(result) {
-                            if (result && typeof result.sent === 'number') {
-                                if (result.sent > 0) showMgrToast('🔔 Notified ' + result.sent + ' student' + (result.sent > 1 ? 's' : '') + ' via push.', 'success');
-                                else showMgrToast('Announcement posted — no push subscribers yet.', 'info');
-                            }
-                        }).catch(function() {
+                        // Retry with backoff — handles Render cold-start delays.
+                        var _annPushAttempt = 0;
+                        var _annPushDelays = [0, 15000, 35000, 65000];
+                        function _tryAnnPushWithBackoff() {
+                            var delay = _annPushDelays[_annPushAttempt] || 0;
                             setTimeout(function() {
                                 _doAnnPush().then(function(result) {
-                                    if (result && result.sent > 0) showMgrToast('🔔 Notified ' + result.sent + ' student' + (result.sent > 1 ? 's' : '') + ' via push.', 'success');
-                                }).catch(function() {});
-                            }, 14000);
-                        })
+                                    if (result && typeof result.sent === 'number') {
+                                        if (result.sent > 0) {
+                                            showMgrToast('🔔 Notified ' + result.sent + ' student' + (result.sent > 1 ? 's' : '') + ' via push.', 'success');
+                                        } else {
+                                            showMgrToast('Announcement posted — no push subscribers yet.', 'info');
+                                        }
+                                    }
+                                }).catch(function() {
+                                    _annPushAttempt++;
+                                    if (_annPushAttempt < _annPushDelays.length) _tryAnnPushWithBackoff();
+                                });
+                            }, delay);
+                        }
+                        _tryAnnPushWithBackoff();
                     })(msg);
                 } catch (e) {
                     statusEl.textContent = 'Error: ' + e.message;
@@ -5628,26 +5681,53 @@ create policy "Admins can read audit log"
                     const ann = (_announcementsCache || []).find(a => a.id === id);
                     const msg = ann ? ann.message : 'A new announcement is available.';
 
-                    // Inbox notification — fire-and-forget, same as the fresh-post path.
-                    fvManagerFetch('/api/notify-announcement', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            message: msg
-                        })
-                    }).catch(() => {});
+                    // Inbox notification — retry with backoff so Render cold start doesn't drop it.
+                    var _pubNotifAttempt = 0;
+                    var _pubNotifDelays = [0, 15000, 35000];
+                    function _tryPubNotif() {
+                        var delay = _pubNotifDelays[_pubNotifAttempt] || 0;
+                        setTimeout(function() {
+                            fvManagerFetch('/api/notify-announcement', {
+                                method: 'POST',
+                                body: JSON.stringify({ message: msg })
+                            }).then(function(r) {
+                                if (!r.ok) throw new Error('HTTP ' + r.status);
+                            }).catch(function() {
+                                _pubNotifAttempt++;
+                                if (_pubNotifAttempt < _pubNotifDelays.length) _tryPubNotif();
+                            });
+                        }, delay);
+                    }
+                    _tryPubNotif();
 
-                    fvManagerFetch('/api/push/notify', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            title: '📢 New Announcement',
-                            body: msg.length > 80 ? msg.substring(0, 77) + '…' : msg,
-                            url: '/index.html'
-                        })
-                    }).then(r => r.json()).then(result => {
-                        if (result && typeof result.sent === 'number' && result.sent > 0) {
-                            showMgrToast('🔔 Notified ' + result.sent + ' student' + (result.sent > 1 ? 's' : '') + ' via push.', 'success');
-                        }
-                    }).catch(() => {});
+                    // Push notification — retry with backoff.
+                    var _pubPushAttempt = 0;
+                    var _pubPushDelays = [0, 15000, 35000, 65000];
+                    var _pubPushPayload = {
+                        title: '📢 New Announcement',
+                        body: msg.length > 80 ? msg.substring(0, 77) + '…' : msg,
+                        url: '/index.html'
+                    };
+                    function _tryPubPush() {
+                        var delay = _pubPushDelays[_pubPushAttempt] || 0;
+                        setTimeout(function() {
+                            fvManagerFetch('/api/push/notify', {
+                                method: 'POST',
+                                body: JSON.stringify(_pubPushPayload)
+                            }).then(function(r) {
+                                if (!r.ok) throw new Error('HTTP ' + r.status);
+                                return r.json();
+                            }).then(function(result) {
+                                if (result && typeof result.sent === 'number' && result.sent > 0) {
+                                    showMgrToast('🔔 Notified ' + result.sent + ' student' + (result.sent > 1 ? 's' : '') + ' via push.', 'success');
+                                }
+                            }).catch(function() {
+                                _pubPushAttempt++;
+                                if (_pubPushAttempt < _pubPushDelays.length) _tryPubPush();
+                            });
+                        }, delay);
+                    }
+                    _tryPubPush();
                 } catch (e) {
                     showMgrToast('Publish failed: ' + e.message, 'error');
                 }

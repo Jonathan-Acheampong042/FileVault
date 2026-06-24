@@ -4103,28 +4103,69 @@
             // Plays a soft two-tone chime whenever a real-time notification arrives.
             // Uses AudioContext so it works on all modern browsers without hosting
             // an audio file. Fails silently if the browser blocks autoplay.
+            //
+            // FIX: Browsers (especially Chrome) suspend AudioContext when it is
+            // created outside a user-gesture (e.g. inside a Supabase Realtime
+            // callback). We pre-create a single shared context on the first user
+            // interaction so it is already in the 'running' state by the time a
+            // notification fires. Creating a brand-new context per notification
+            // (as before) always starts suspended and silently fails.
+            var _sharedAudioCtx = null;
+
+            // Prime the AudioContext on the very first click/key/touch so it's
+            // in 'running' state before any realtime notification arrives.
+            (function() {
+                function _primeAudio() {
+                    if (_sharedAudioCtx) return;
+                    try {
+                        _sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                        // Resume immediately — this call inside a gesture handler is
+                        // guaranteed to succeed even on strict autoplay-policy browsers.
+                        if (_sharedAudioCtx.state === 'suspended') {
+                            _sharedAudioCtx.resume().catch(function() {});
+                        }
+                    } catch(_) {}
+                    // One-time listeners — remove after first gesture
+                    document.removeEventListener('click',     _primeAudio, true);
+                    document.removeEventListener('keydown',   _primeAudio, true);
+                    document.removeEventListener('touchstart', _primeAudio, true);
+                }
+                document.addEventListener('click',     _primeAudio, { capture: true, once: true });
+                document.addEventListener('keydown',   _primeAudio, { capture: true, once: true });
+                document.addEventListener('touchstart', _primeAudio, { capture: true, once: true, passive: true });
+            })();
+
             function _playNotifSound() {
                 try {
-                    var ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    // Two-tone ascending chime: 880 Hz then 1100 Hz
-                    var tones = [880, 1100];
-                    tones.forEach(function(freq, i) {
-                        var osc  = ctx.createOscillator();
-                        var gain = ctx.createGain();
-                        osc.connect(gain);
-                        gain.connect(ctx.destination);
-                        osc.type = 'sine';
-                        osc.frequency.value = freq;
-                        var start = ctx.currentTime + i * 0.18;
-                        var end   = start + 0.18;
-                        gain.gain.setValueAtTime(0, start);
-                        gain.gain.linearRampToValueAtTime(0.25, start + 0.02);  // quick fade in
-                        gain.gain.exponentialRampToValueAtTime(0.001, end);     // smooth fade out
-                        osc.start(start);
-                        osc.stop(end);
-                    });
-                    // Close context after both tones finish to free resources
-                    setTimeout(function() { try { ctx.close(); } catch(_) {} }, 800);
+                    // Use the pre-primed shared context if available; fall back to a
+                    // new one (will be suspended on first load before any gesture, but
+                    // that's unavoidable — at least subsequent notifications will work).
+                    var ctx = _sharedAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+                    // If context is suspended (user hasn't interacted yet), resume first
+                    var _doPlay = function() {
+                        // Two-tone ascending chime: 880 Hz then 1100 Hz
+                        var tones = [880, 1100];
+                        tones.forEach(function(freq, i) {
+                            var osc  = ctx.createOscillator();
+                            var gain = ctx.createGain();
+                            osc.connect(gain);
+                            gain.connect(ctx.destination);
+                            osc.type = 'sine';
+                            osc.frequency.value = freq;
+                            var start = ctx.currentTime + i * 0.18;
+                            var end   = start + 0.18;
+                            gain.gain.setValueAtTime(0, start);
+                            gain.gain.linearRampToValueAtTime(0.25, start + 0.02);  // quick fade in
+                            gain.gain.exponentialRampToValueAtTime(0.001, end);     // smooth fade out
+                            osc.start(start);
+                            osc.stop(end);
+                        });
+                    };
+                    if (ctx.state === 'suspended') {
+                        ctx.resume().then(_doPlay).catch(function() {});
+                    } else {
+                        _doPlay();
+                    }
                 } catch(_) { /* autoplay blocked or AudioContext unavailable — silent fail */ }
             }
             window._playNotifSound = _playNotifSound;
@@ -7397,22 +7438,30 @@
 
             async function initPush() {
                 if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-                // Fetch VAPID public key from server
-                try {
-                    const res = await fetch(_CHAT_API_URL.replace('/api/chat', '/api/push/vapid-public-key'));
-                    const {
-                        key
-                    } = await res.json();
-                    if (!key) {
-                        // Mark bell as unavailable for push specifically (inbox still opens)
-                        const btn = document.getElementById('pushBellBtn');
-                        if (btn) btn.title = 'Notifications (push not configured on server)';
-                        return;
-                    }
-                    window._vapidPublicKey = key;
-                } catch (e) {
+                // Fetch VAPID public key from server — retry on cold start (Render spins
+                // down after inactivity; the first request can time out for ~30–60 s).
+                // We try at 0 s, 15 s, 35 s, and 65 s before giving up silently.
+                var _vapidDelays = [0, 15000, 35000, 65000];
+                var _vapidKey = null;
+                for (var _vi = 0; _vi < _vapidDelays.length && !_vapidKey; _vi++) {
+                    if (_vapidDelays[_vi] > 0) await new Promise(function(r) { setTimeout(r, _vapidDelays[_vi]); });
+                    try {
+                        var _vRes = await fetch(_CHAT_API_URL.replace('/api/chat', '/api/push/vapid-public-key'));
+                        var _vJson = await _vRes.json();
+                        if (_vJson && _vJson.key) _vapidKey = _vJson.key;
+                    } catch (_ve) { /* server still cold — retry */ }
+                }
+                if (!_vapidKey) {
+                    // Server never responded — inbox still works, push silently unavailable
                     return;
-                } // server offline
+                }
+                if (_vapidKey === 'none') {
+                    // Mark bell as unavailable for push specifically (inbox still opens)
+                    const btn = document.getElementById('pushBellBtn');
+                    if (btn) btn.title = 'Notifications (push not configured on server)';
+                    return;
+                }
+                window._vapidPublicKey = _vapidKey;
                 // Check if already subscribed
                 try {
                     const reg = await navigator.serviceWorker.ready;
@@ -7475,22 +7524,24 @@
                     return;
                 }
                 if (!window._vapidPublicKey) {
-                    // Key not loaded yet — try fetching it now before giving up
-                    try {
-                        const res = await fetch(_CHAT_API_URL.replace('/api/chat', '/api/push/vapid-public-key'));
-                        const {
-                            key
-                        } = await res.json();
-                        if (key) {
-                            window._vapidPublicKey = key;
-                        } else {
-                            showToast('Push notifications not configured on the server.', 'warning', 4000);
-                            return;
-                        }
-                    } catch (e) {
-                        showToast('Could not reach the server. Check your connection.', 'error', 4000);
+                    // Key not loaded yet (server may be cold-starting) — show feedback
+                    // and retry up to 3 times before giving up.
+                    showToast('⏳ Connecting to server, please wait…', 'info', 4000);
+                    var _tvDelays = [0, 12000, 30000];
+                    var _tvKey = null;
+                    for (var _tvi = 0; _tvi < _tvDelays.length && !_tvKey; _tvi++) {
+                        if (_tvDelays[_tvi] > 0) await new Promise(function(r) { setTimeout(r, _tvDelays[_tvi]); });
+                        try {
+                            var _tvRes = await fetch(_CHAT_API_URL.replace('/api/chat', '/api/push/vapid-public-key'));
+                            var _tvJson = await _tvRes.json();
+                            if (_tvJson && _tvJson.key && _tvJson.key !== 'none') _tvKey = _tvJson.key;
+                        } catch (_tve) { /* still cold — retry */ }
+                    }
+                    if (!_tvKey) {
+                        showToast('Could not reach the notification server. Try again in a moment.', 'error', 5000);
                         return;
                     }
+                    window._vapidPublicKey = _tvKey;
                 }
                 try {
                     const reg = await navigator.serviceWorker.ready;
@@ -7520,17 +7571,33 @@
                             userVisibleOnly: true,
                             applicationServerKey: _urlBase64ToUint8Array(window._vapidPublicKey)
                         });
-                        await fetch(_CHAT_API_URL.replace('/api/chat', '/api/push/subscribe'), {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                subscription: sub.toJSON(),
-                                userId: window._currentUserId || null,
-                                role: 'student'
-                            })
+                        // Save subscription to server with retry — if Render is cold the
+                        // first POST may time out and the sub would be lost. We retry up
+                        // to 3 more times (at 10 s, 25 s, 50 s) before giving up.
+                        var _subBody = JSON.stringify({
+                            subscription: sub.toJSON(),
+                            userId: window._currentUserId || null,
+                            role: 'student'
                         });
+                        var _subUrl = _CHAT_API_URL.replace('/api/chat', '/api/push/subscribe');
+                        var _subSaved = false;
+                        var _subDelays = [0, 10000, 25000, 50000];
+                        for (var _si = 0; _si < _subDelays.length && !_subSaved; _si++) {
+                            if (_subDelays[_si] > 0) await new Promise(function(r) { setTimeout(r, _subDelays[_si]); });
+                            try {
+                                var _subResp = await fetch(_subUrl, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: _subBody
+                                });
+                                if (_subResp.ok) { _subSaved = true; }
+                            } catch (_subErr) { /* retry */ }
+                        }
+                        if (!_subSaved) {
+                            // Subscription object exists in the browser but server never
+                            // confirmed — let the user know they may not receive push alerts.
+                            showToast('⚠️ Enabled locally, but server save failed. Try again.', 'warning', 5000);
+                        }
                         _pushSubscription = sub;
                         _updatePushBell(true);
                         showToast('🔔 Push notifications enabled!', 'success', 2500);
@@ -8172,32 +8239,26 @@
                                 showFvNotifPopup('📢', 'New Announcement', annMsg, 7000);
                                 showToast('📢 ' + annMsg, 'info', 5000);
                                 _playNotifSound();
-                                // Try to fire a native browser notification.
-                                // If permission is already granted: fire immediately.
-                                // If 'default' (never asked): request permission first.
-                                // If 'denied': skip silently.
+                                // Fire a native browser notification only if permission
+                                // is already granted. Never call requestPermission() from
+                                // a background Realtime event — it causes a browser
+                                // permission dialog to steal focus mid-session, which
+                                // suppresses the AudioContext chime and briefly blanks
+                                // the page on mobile browsers. Users can grant push
+                                // permission from the notification bell drawer instead.
                                 (function() {
-                                    function _fireAnnNotif() {
-                                        try {
-                                            const nOpts = { body: annMsg, icon: '/favicon.ico', tag: 'fv-ann-' + (row.id || Date.now()) };
-                                            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-                                                navigator.serviceWorker.ready
-                                                    .then(function(reg) { reg.showNotification('📢 New Announcement', nOpts); })
-                                                    .catch(function() { new Notification('📢 New Announcement', nOpts); });
-                                            } else {
-                                                new Notification('📢 New Announcement', nOpts);
-                                            }
-                                        } catch(_) {}
-                                    }
                                     if (typeof Notification === 'undefined') return;
-                                    if (Notification.permission === 'granted') {
-                                        _fireAnnNotif();
-                                    } else if (Notification.permission === 'default') {
-                                        // Ask once; if user allows, fire the notification immediately
-                                        Notification.requestPermission().then(function(perm) {
-                                            if (perm === 'granted') _fireAnnNotif();
-                                        }).catch(function() {});
-                                    }
+                                    if (Notification.permission !== 'granted') return;
+                                    try {
+                                        const nOpts = { body: annMsg, icon: '/favicon.ico', tag: 'fv-ann-' + (row.id || Date.now()) };
+                                        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                                            navigator.serviceWorker.ready
+                                                .then(function(reg) { reg.showNotification('📢 New Announcement', nOpts); })
+                                                .catch(function() { new Notification('📢 New Announcement', nOpts); });
+                                        } else {
+                                            new Notification('📢 New Announcement', nOpts);
+                                        }
+                                    } catch(_) {}
                                 })();
                                 setTimeout(loadNotifications, 2000);
                                 setTimeout(loadNotifications, 5000);
@@ -8220,21 +8281,18 @@
                                 showToast('📢 A new announcement was posted!', 'info', 5000);
                                 // Fire browser notification (request permission if not yet asked)
                                 (function() {
-                                    function _firePubNotif() {
-                                        try {
-                                            const nOpts = { body: pubMsg, icon: '/favicon.ico', tag: 'fv-ann-pub-' + Date.now() };
-                                            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-                                                navigator.serviceWorker.ready
-                                                    .then(function(reg) { reg.showNotification('📢 New Announcement', nOpts); })
-                                                    .catch(function() { new Notification('📢 New Announcement', nOpts); });
-                                            } else { new Notification('📢 New Announcement', nOpts); }
-                                        } catch(_) {}
-                                    }
-                                    if (typeof Notification === 'undefined') return;
-                                    if (Notification.permission === 'granted') { _firePubNotif(); }
-                                    else if (Notification.permission === 'default') {
-                                        Notification.requestPermission().then(function(p) { if (p === 'granted') _firePubNotif(); }).catch(function() {});
-                                    }
+                                    // Only fire if already granted — never requestPermission()
+                                    // from a background Realtime callback (causes page flicker
+                                    // and suppresses the AudioContext chime).
+                                    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+                                    try {
+                                        const nOpts = { body: pubMsg, icon: '/favicon.ico', tag: 'fv-ann-pub-' + Date.now() };
+                                        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                                            navigator.serviceWorker.ready
+                                                .then(function(reg) { reg.showNotification('📢 New Announcement', nOpts); })
+                                                .catch(function() { new Notification('📢 New Announcement', nOpts); });
+                                        } else { new Notification('📢 New Announcement', nOpts); }
+                                    } catch(_) {}
                                 })();
                                 setTimeout(loadNotifications, 2000);
                                 setTimeout(loadNotifications, 5000);
