@@ -4735,25 +4735,18 @@
                     // stale user_metadata (the avatar_url won't update until the JWT
                     // is forcibly refreshed from the server). We:
                     //   1. Render immediately with whatever the session has (no blank flash)
-                    //   2. Call refreshSession() to force Supabase to issue a NEW JWT that
-                    //      contains the latest user_metadata from the database
-                    //   3. Re-render with the fresh user so the avatar shows correctly
+                    //   2. Call getUser() to re-render with latest server-side metadata
                     populateProfileUI(session.user, isAdmin && adminBrowseMode);
                     try {
-                        // refreshSession() forces a round-trip to Supabase and returns
-                        // a brand-new JWT with up-to-date user_metadata (including avatar_url).
-                        // This is the only reliable way to get fresh metadata after updateUser().
-                        const { data: refreshed, error: refreshErr } = await _supabase.auth.refreshSession();
-                        if (!refreshErr && refreshed && refreshed.user) {
-                            window._cachedUser = refreshed.user;
-                            populateProfileUI(refreshed.user, isAdmin && adminBrowseMode);
-                        } else {
-                            // refreshSession failed (e.g. network) — fall back to getUser()
-                            const { data: freshData } = await _supabase.auth.getUser();
-                            if (freshData && freshData.user) {
-                                window._cachedUser = freshData.user;
-                                populateProfileUI(freshData.user, isAdmin && adminBrowseMode);
-                            }
+                        // Use getUser() to fetch fresh user_metadata (including avatar_url)
+                        // from the server without consuming the refresh token.
+                        // refreshSession() was previously used here but caused a SIGNED_OUT
+                        // event when autoRefreshToken raced it for the same rotating token,
+                        // locking users out of every page after login.
+                        const { data: freshData } = await _supabase.auth.getUser();
+                        if (freshData && freshData.user) {
+                            window._cachedUser = freshData.user;
+                            populateProfileUI(freshData.user, isAdmin && adminBrowseMode);
                         }
                     } catch (e) {
                         console.warn('Avatar refresh failed, using session data:', e.message);
