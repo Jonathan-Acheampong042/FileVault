@@ -4384,7 +4384,14 @@
                 return safeText.replace(new RegExp('(' + escapedTerm + ')', 'gi'), '<mark class="search-highlight">$1</mark>');
             }
 
-            const _supabase = supabase.createClient('https://lvhecpvwpzmstciewziv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI');
+            const _supabase = supabase.createClient('https://lvhecpvwpzmstciewziv.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI', {
+                auth: {
+                    storage: window.localStorage,
+                    persistSession: true,
+                    autoRefreshToken: true,
+                    detectSessionInUrl: true // consumes the OAuth hash on redirect
+                }
+            });
             // Comment/reaction/collection code reads window._supabase — make sure it's there.
             window._supabase = _supabase;
 
@@ -4928,6 +4935,14 @@
             // ── Auth state fallback: catches session even if getSession() was called
             // before the session cookie was written after login redirect.
             _supabase.auth.onAuthStateChange(function(event, session) {
+                // After a social (OAuth) login the token lands in the URL hash.
+                // Strip it immediately so that pressing Back from another page
+                // doesn't restore the spent hash, cause a failed re-exchange,
+                // and fire SIGNED_OUT -- which logs the user out unexpectedly.
+                if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') &&
+                        window.location.hash.includes('access_token')) {
+                    history.replaceState(null, '', window.location.pathname + window.location.search);
+                }
                 if (session && session.user) {
                     if (!_currentUserEmail) {
                         _currentUserEmail = session.user.email || null;

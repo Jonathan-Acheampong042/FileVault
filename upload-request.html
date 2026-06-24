@@ -1459,14 +1459,20 @@
                 const SUPABASE_URL = 'https://lvhecpvwpzmstciewziv.supabase.co';
                 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI';
 
-                const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-                    auth: {
-                        storage: window.localStorage,
-                        persistSession: true,
-                        autoRefreshToken: true,
-                        detectSessionInUrl: false  // only login.html handles OAuth callbacks
-                    }
-                });
+                // Create ONE shared client and expose it on window so upload-request.js
+                // reuses the exact same instance. Two separate clients both calling
+                // onAuthStateChange race and leave the form locked for social login users.
+                if (!window._fvSupabase) {
+                    window._fvSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                        auth: {
+                            storage: window.localStorage,
+                            persistSession: true,
+                            autoRefreshToken: true,
+                            detectSessionInUrl: false  // only login.html handles OAuth callbacks
+                        }
+                    });
+                }
+                const _supabase = window._fvSupabase;
 
                 // ── Auth gate ───────────────────────────────────────────────────────────
                 // authGate is visible by default. We hide it only when a confirmed

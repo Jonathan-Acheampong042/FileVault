@@ -4,16 +4,14 @@
     // you load on a page later, regardless of variable/function naming overlap.
     'use strict';
 
-    const _supabase = supabase.createClient(
+    // Reuse the single Supabase client created by the inline script in
+    // upload-request.html (window._fvSupabase). Having two separate clients
+    // both calling onAuthStateChange causes a race that leaves the form locked
+    // for social login users. Fall back to creating one only if the inline
+    // script hasn't run yet (shouldn't happen, but keeps things safe).
+    const _supabase = window._fvSupabase || supabase.createClient(
         'https://lvhecpvwpzmstciewziv.supabase.co',
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx2aGVjcHZ3cHptc3RjaWV3eml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODIzODIsImV4cCI6MjA4NTY1ODM4Mn0.kjaJKidkubl-_-K87WEAe91puG1qoEvJqnfcOiaG2kI',
-        // detectSessionInUrl must be FALSE here.
-        // The inline script in upload-request.html already has detectSessionInUrl:true
-        // and is the ONE place that consumes the OAuth access_token from the URL hash.
-        // If this second client also sets detectSessionInUrl:true, both clients race to
-        // exchange the same PKCE code — the second exchange fails, Supabase fires a
-        // SIGNED_OUT / auth error, and the session is destroyed before the page can
-        // read it → the form stays locked and "Could not connect" errors appear.
         {
             auth: {
                 storage: window.localStorage,
@@ -22,7 +20,7 @@
                 detectSessionInUrl: false
             }
         }
-    );
+        );
 
     const _PUSH_API = window.location.hostname === 'localhost' ?
         'http://localhost:3000' :
