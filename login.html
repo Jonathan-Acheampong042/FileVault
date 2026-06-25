@@ -1538,16 +1538,26 @@
                             }
                         } = await _supabase.auth.getSession();
                         if (confirmedSession) {
-                            // For OAuth, pause 500ms after session confirmed so localStorage
-                            // is fully flushed before the destination page reads it.
-                            const settle = _isOAuthLogin ? 500 : 0;
-                            setTimeout(function() {
-                                _navigating = true;
-                                sessionStorage.removeItem('fvFilesCache');
-                                const dest = _getNextPage() || 'index.html';
-                                _clearNextPage();
-                                window.location.href = dest;
-                            }, settle);
+                            // Force an explicit setSession() call so the tokens are
+                            // synchronously written to localStorage before we navigate.
+                            // getSession() can return an in-memory session that hasn't
+                            // been flushed to storage yet (common on OAuth/PKCE flows),
+                            // causing the destination page's getSession() to return null
+                            // and redirect the user straight back to login.html.
+                            try {
+                                await _supabase.auth.setSession({
+                                    access_token: confirmedSession.access_token,
+                                    refresh_token: confirmedSession.refresh_token,
+                                });
+                            } catch (e) {
+                                // Non-fatal — session is still valid in memory; proceed.
+                                console.warn('[FileVault] setSession flush failed:', e.message);
+                            }
+                            _navigating = true;
+                            sessionStorage.removeItem('fvFilesCache');
+                            const dest = _getNextPage() || 'index.html';
+                            _clearNextPage();
+                            window.location.href = dest;
                         } else if (attempts >= 25) {
                             _navigating = true;
                             sessionStorage.removeItem('fvFilesCache');
@@ -1742,16 +1752,21 @@
                             }
                         } = await _supabase.auth.getSession();
                         if (confirmedSession) {
-                            // For OAuth, pause 500ms after session confirmed so localStorage
-                            // is fully flushed before the destination page reads it.
-                            const settle = _isOAuthLogin ? 500 : 0;
-                            setTimeout(function() {
-                                _navigating = true;
-                                sessionStorage.removeItem('fvFilesCache');
-                                const dest = _getNextPage() || 'index.html';
-                                _clearNextPage();
-                                window.location.href = dest;
-                            }, settle);
+                            // Force setSession() to flush tokens to localStorage before
+                            // navigating — same fix as the student flow above.
+                            try {
+                                await _supabase.auth.setSession({
+                                    access_token: confirmedSession.access_token,
+                                    refresh_token: confirmedSession.refresh_token,
+                                });
+                            } catch (e) {
+                                console.warn('[FileVault] setSession flush failed:', e.message);
+                            }
+                            _navigating = true;
+                            sessionStorage.removeItem('fvFilesCache');
+                            const dest = _getNextPage() || 'index.html';
+                            _clearNextPage();
+                            window.location.href = dest;
                         } else if (attempts >= 25) {
                             _navigating = true;
                             sessionStorage.removeItem('fvFilesCache');
