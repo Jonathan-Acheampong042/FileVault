@@ -5745,6 +5745,9 @@ create policy "Admins can read audit log"
             async function deleteAnnouncement(id) {
                 if (!confirm('Delete this announcement? Students will stop seeing it immediately.')) return;
                 try {
+                    // Delete fanned-out notification rows so the inbox clears on the user end
+                    await _supabase.from('notifications').delete().eq('type', 'announcement').filter('metadata', 'cs', '{"announcement_id":"' + id + '"}');
+                    // Delete the announcement itself
                     const {
                         error
                     } = await _supabase.from('announcements').delete().eq('id', id);

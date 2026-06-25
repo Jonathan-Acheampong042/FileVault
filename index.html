@@ -7817,15 +7817,17 @@
                         return;
                     }
 
-                    list.innerHTML = combined.map(n => {
+                    // ── Split into unread and read sections ──
+                    const unreadItems = combined.filter(n => !n.read);
+                    const readItems   = combined.filter(n => n.read);
+
+                    function renderNotifItem(n) {
                         const meta = NOTIF_ICON_MAP[n.type] || {
                             bg: 'rgba(100,116,139,0.15)',
                             icon: 'notifications',
                             color: '#94a3b8'
                         };
                         const unread = !n.read;
-                        // ── Resolve deep-link destination ──
-                        // Priority: explicit link_url column > type-based inference
                         let navTarget = n.link_url || null;
                         if (!navTarget) {
                             if (n.type === 'request_approved' || n.type === 'request_dismissed') {
@@ -7833,20 +7835,17 @@
                             } else if (n.type === 'announcement') {
                                 navTarget = '#announcement';
                             }
-                            // new_file and file_expiring are handled client-side (open preview)
                         }
                         const isFileType = n.type === 'new_file' || n.type === 'file_expiring';
-                        // Extract file name hint from metadata or body for file-type notifications
                         let fileNameHint = '';
                         if (isFileType) {
                             try { fileNameHint = (n.metadata && JSON.parse(n.metadata).file_name) || ''; } catch(_) {}
                             if (!fileNameHint && n.body) {
-                                // Try to parse a quoted filename from body e.g. '"Week 3 Notes.pdf"'
-                                const m = n.body.match(/["""]([^"""]+\.[a-zA-Z0-9]{2,5})["""]/);
+                                const m = n.body.match(/[“”"]([^“”"]+\.[a-zA-Z0-9]{2,5})[“”"]/);
                                 if (m) fileNameHint = m[1];
                             }
                         }
-                        // Encode nav info into data attributes; handled by handleNotifClick
+                        const canDelete = !String(n.id).startsWith('ann_');
                         return `<div class="notif-item ${unread ? 'unread' : 'read'}"
                             data-notif-id="${n.id}"
                             data-nav="${navTarget ? navTarget.replace(/"/g,'&quot;') : ''}"
@@ -7863,24 +7862,78 @@
                             <p class="notif-time">${notifTimeAgo(n.created_at)}</p>
                         </div>
                         ${unread ? '<div class="notif-dot" title="Unread"></div>' : ''}
-                        <button
-                            onclick="event.stopPropagation();toggleNotifReadState(this.closest('.notif-item'))"
-                            title="${unread ? 'Mark as read' : 'Mark as unread'}"
-                            style="background:none;border:none;cursor:pointer;color:#475569;padding:4px;border-radius:6px;flex-shrink:0;line-height:0;transition:color .15s;align-self:flex-start;margin-top:2px"
-                            onmouseover="this.style.color='#94a3b8'" onmouseout="this.style.color='#475569'">
-                            <span class="material-symbols-outlined" style="font-size:14px">${unread ? 'mark_email_read' : 'mark_email_unread'}</span>
-                        </button>
+                        <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0;align-self:flex-start;margin-top:2px">
+                            <button
+                                onclick="event.stopPropagation();toggleNotifReadState(this.closest('.notif-item'))"
+                                title="${unread ? 'Mark as read' : 'Mark as unread'}"
+                                style="background:none;border:none;cursor:pointer;color:#475569;padding:4px;border-radius:6px;line-height:0;transition:color .15s"
+                                onmouseover="this.style.color='#94a3b8'" onmouseout="this.style.color='#475569'">
+                                <span class="material-symbols-outlined" style="font-size:14px">${unread ? 'mark_email_read' : 'mark_email_unread'}</span>
+                            </button>
+                            ${canDelete ? `<button
+                                onclick="event.stopPropagation();deleteNotification(this.closest('.notif-item'))"
+                                title="Delete notification"
+                                style="background:none;border:none;cursor:pointer;color:#475569;padding:4px;border-radius:6px;line-height:0;transition:color .15s"
+                                onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='#475569'">
+                                <span class="material-symbols-outlined" style="font-size:14px">delete</span>
+                            </button>` : ''}
+                        </div>
                     </div>`;
-                    }).join('');
-                } catch (e) {
-                    list.innerHTML = `<div class="nb-empty-state">
-                    <div class="nb-empty-state-icon"><span class="material-symbols-outlined">notifications</span></div>
-                    <p class="nb-empty-state-title">No notifications yet</p>
-                    <p class="nb-empty-state-sub">Announcements, new uploads, and request updates will show up here.</p>
-                </div>`;
-                }
+                    }
+
+                    let html = '';
+                    if (unreadItems.length) {
+                        html += `<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;padding:4px 2px 6px">Unread</div>`;
+                        html += unreadItems.map(renderNotifItem).join('');
+                    }
+                    if (readItems.length) {
+                        html += `<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;padding:${unreadItems.length ? '12px' : '4px'} 2px 6px">Read</div>`;
+                        html += readItems.map(renderNotifItem).join('');
+                    }
+                    list.innerHTML = html;
+                } catch(e) { console.error('loadNotifications render error', e); }
             }
             window.loadNotifications = loadNotifications;
+
+            // ── deleteNotification: removes a notification row for the user ──
+            window.deleteNotification = async function(el) {
+                if (!el) return;
+                const id = el.dataset.notifId;
+                if (!id || String(id).startsWith('ann_')) return;
+                // Optimistic removal with fade
+                el.style.transition = 'opacity .2s';
+                el.style.opacity = '0';
+                setTimeout(() => {
+                    el.remove();
+                    // Hide section label if its section is now empty
+                    document.querySelectorAll('#notifInboxList').forEach(list => {
+                        list.querySelectorAll('div[style*="uppercase"]').forEach(header => {
+                            let sib = header.nextElementSibling;
+                            let hasItems = false;
+                            while (sib) {
+                                if (sib.classList && sib.classList.contains('notif-item')) { hasItems = true; break; }
+                                if (sib.style && sib.style.textTransform === 'uppercase') break;
+                                sib = sib.nextElementSibling;
+                            }
+                            if (!hasItems) header.remove();
+                        });
+                    });
+                    // Recount unread badge
+                    const remaining = document.querySelectorAll('#notifInboxList .notif-item.unread').length;
+                    const pill = document.getElementById('notifUnreadPill');
+                    const bellDot = document.getElementById('pushBellDot');
+                    const markAllBtn = document.getElementById('markAllReadBtn');
+                    if (pill) { if (remaining > 0) { pill.textContent = remaining + ' new'; pill.style.display = 'inline-flex'; } else pill.style.display = 'none'; }
+                    if (bellDot) bellDot.style.display = remaining > 0 ? 'block' : 'none';
+                    if (markAllBtn) markAllBtn.style.display = remaining > 0 ? '' : 'none';
+                }, 210);
+                // Persist to Supabase
+                try {
+                    await _supabase.from('notifications').delete().eq('id', id);
+                } catch (e) {
+                    console.warn('[FileVault] deleteNotification failed:', e.message);
+                }
+            };
 
             // ── handleNotifClick: marks as read (optimistically), then navigates ──
             window.handleNotifClick = async function(el) {
