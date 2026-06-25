@@ -79,6 +79,8 @@ Students manage display names, student info, notification preferences, connected
 - Run analytics; check for broken links
 - Send push notifications to all subscribers
 
+> A separate password-protected manager dashboard handles all of the above. It is not publicly accessible.
+
 **Auth & security**
 - Email/password, magic link, OTP, Google/Discord/GitHub OAuth
 - hCaptcha on all auth forms
