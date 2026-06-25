@@ -351,6 +351,7 @@
         const m = document.getElementById('toastMsg');
         const icon = document.getElementById('toastIcon');
         t.className = type;
+        t.style.display = 'flex'; // override any previous inline display:none
         m.textContent = msg;
         icon.textContent = type === 'success' ? 'check_circle' : 'error';
         clearTimeout(t._timer);

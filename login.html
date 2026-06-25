@@ -1251,6 +1251,15 @@
                 } catch (e) {}
             };
 
+            // ── Capture the URL hash SYNCHRONOUSLY before Supabase's detectSessionInUrl
+            // clears it. Supabase processes the hash as part of createClient(), so by
+            // the time our async IIFE checks window.location.hash it may already be gone.
+            // Reading it here — outside the IIFE, before createClient() — guarantees we
+            // always see type=recovery even on fast connections or browsers that flush the
+            // hash instantly. This is the root fix for the bug where clicking a password
+            // reset link auto-logged the user in instead of showing the reset form.
+            const _initialHash = window.location.hash;
+
             (async function() {
                 // ═══════════════════════════════════════════════════════════════
                 // CONFIG
@@ -1344,8 +1353,10 @@
                 let _studentSubTab = 'signin';
                 let _otpEmail = '';
                 let _signUpEmail = ''; // email used for the most recent sign-up; used for resend
-                // Capture OAuth flag NOW, before detectSessionInUrl clears the hash
-                const _isOAuthLogin = !!(window.location.hash && window.location.hash.includes('access_token'));
+                // Both flags read _initialHash — captured synchronously before createClient()
+                // so they always see the original URL even after Supabase clears the hash.
+                const _isOAuthLogin = !!(_initialHash && _initialHash.includes('access_token'));
+                let _recoveryFromHash = _initialHash.includes('type=recovery'); // true only for genuine reset links
                 let _redirecting = false; // prevents double-fire from onAuthStateChange
                 let _navigating = false; // true once window.location.href has been set; blocks all re-entry
                 let _inRecoveryFlow = false; // true while a recovery session is active but not yet completed
@@ -1367,7 +1378,13 @@
                     // A bare #access_token without type=recovery is a normal login callback
                     // (OAuth, magic link) and must NOT set _inRecoveryFlow — doing so would
                     // cause the pagehide handler to sign the user out when they navigate away.
-                    if (window.location.hash.includes('type=recovery')) {
+                    //
+                    // IMPORTANT: use _initialHash (captured synchronously before createClient())
+                    // rather than window.location.hash here. Supabase's detectSessionInUrl runs
+                    // inside createClient() and clears the hash as part of processing the token,
+                    // so window.location.hash may already be empty by the time this async block
+                    // executes. _initialHash always has the original value.
+                    if (_initialHash.includes('type=recovery')) {
                         _inRecoveryFlow = true;
                         _recoveryFromHash = true;
                         showReset();
@@ -1376,7 +1393,7 @@
 
                     // Handle email confirmation / magic link callback
                     // AFTER — let onAuthStateChange do the work; don't double-process:
-                    const params = new URLSearchParams(window.location.hash.replace('#', '?'));
+                    const params = new URLSearchParams(_initialHash.replace('#', '?'));
                     if (params.get('type') === 'magiclink' || params.get('type') === 'signup' || params.get('access_token')) {
                         // Token is handled by detectSessionInUrl + onAuthStateChange.
                         // Do NOT call getSession() here — just return and wait for the event.
@@ -1431,16 +1448,8 @@
                 // If the user navigates away or closes the tab while a password-recovery
                 // session is active but the password was never actually changed, sign that
                 // session out so they aren't left silently authenticated.
-                // IMPORTANT: only sign out when _inRecoveryFlow was set by a genuine
-                // type=recovery token — NOT by a normal access_token from admin/social
-                // login, which also puts a hash in the URL.
-                let _recoveryFromHash = false; // true only when URL explicitly contains type=recovery
-
-                (function _checkRecoveryHash() {
-                    const hash = window.location.hash;
-                    if (hash.includes('type=recovery')) _recoveryFromHash = true;
-                })();
-
+                // _recoveryFromHash is initialised in the STATE block above from _initialHash,
+                // so it's always set before Supabase can clear the URL hash.
                 window.addEventListener('pagehide', () => {
                     if (_inRecoveryFlow && !_recoveryCompleted && _recoveryFromHash) {
                         // { scope: 'local' } clears the session from localStorage immediately

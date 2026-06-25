@@ -3849,12 +3849,11 @@
 
                     const unreadCount = (data || []).filter(n => !n.read).length;
                     if (unreadCount > 0) {
-                        pill.textContent = unreadCount + ' new';
-                        pill.style.display = 'inline-flex';
-                        markAllBtn.style.display = '';
+                        if (pill) { pill.textContent = unreadCount + ' new'; pill.style.display = 'inline-flex'; }
+                        if (markAllBtn) markAllBtn.style.display = '';
                     } else {
-                        pill.style.display = 'none';
-                        markAllBtn.style.display = 'none';
+                        if (pill) pill.style.display = 'none';
+                        if (markAllBtn) markAllBtn.style.display = 'none';
                     }
 
                     if (!data || data.length === 0) {
@@ -3926,7 +3925,7 @@
                     const pill = document.getElementById('notifUnreadPill');
                     const markAllBtn = document.getElementById('markAllReadBtn');
                     if (remaining > 0) {
-                        if (pill) pill.textContent = remaining + ' new';
+                        if (pill) { pill.textContent = remaining + ' new'; pill.style.display = 'inline-flex'; }
                     } else {
                         if (pill) pill.style.display = 'none';
                         if (markAllBtn) markAllBtn.style.display = 'none';
@@ -4285,9 +4284,17 @@
                 toRemove.forEach(k => localStorage.removeItem(k));
                 loadNotifPrefs(); // refresh toggles to defaults
                 initTheme();
-                initHighContrast();
+                // High contrast: key was just removed — must explicitly turn it OFF
+                document.documentElement.classList.remove('high-contrast');
+                _updateHighContrastBtn(false);
                 initFontSize();
-                initAccent();
+                // Accent: key was just removed — must clear CSS vars back to defaults
+                document.documentElement.style.removeProperty('--accent');
+                document.documentElement.style.removeProperty('--accent-light');
+                document.documentElement.style.removeProperty('--accent-border');
+                document.documentElement.style.removeProperty('--accent-from');
+                document.documentElement.style.removeProperty('--accent-to');
+                document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
                 applyCompactView();
                 showToast('All preferences reset to defaults', 'info');
             }
@@ -4317,7 +4324,7 @@
                     } catch (_) {}
                     let themePrefs = {};
                     try {
-                        themePrefs = JSON.parse(localStorage.getItem(THEME_KEY) || '{}');
+                        themePrefs = { theme: localStorage.getItem('fvTheme'), highContrast: localStorage.getItem('fvHighContrast'), fontSize: localStorage.getItem('fvFontSize'), accent: localStorage.getItem('fvAccent'), compactView: localStorage.getItem('fvCompactView') };
                     } catch (_) {}
 
                     const exportObj = {
@@ -4359,8 +4366,7 @@
                 } catch (err) {
                     showToast('Could not export data: ' + err.message, 'error');
                 } finally {
-                    clearBtnLoading('exportDataBtn', 'exportDataText', '');
-                    document.getElementById('exportDataText').innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">download_for_offline</span> Download My Data';
+                    clearBtnLoading('exportDataBtn', 'exportDataText', 'Download My Data');
                 }
             }
 
@@ -5011,7 +5017,7 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            Authorization: `Bearer ${(await _supabase.auth.getSession()).data.session.access_token}`,
+                            Authorization: `Bearer ${((await _supabase.auth.getSession()).data.session || {}).access_token || ''}`,
                         },
                         body: JSON.stringify({
                             action: 'clear'
@@ -5092,7 +5098,7 @@
 
             function copyRecoveryCodesModal() {
                 if (!_lastGeneratedCodes.length) return;
-                navigator.clipboard.writeText(_lastGeneratedCodes.join('\n')).then(() => {
+                navigator.clipboard?.writeText(_lastGeneratedCodes.join('\n')).then(() => {
                     const el = document.getElementById('copyRecoveryModalText');
                     const prev = el.textContent;
                     el.textContent = 'Copied!';

@@ -5141,7 +5141,7 @@
                 folders.forEach(folder => {
                     const now0 = new Date();
                     const pCount = files.filter(f => f.folder === folder && (!f.expires_at || new Date(f.expires_at) > now0)).length;
-                    pillHtml += '<button onclick="filterByFolder(\'' + folder + '\',this)" class="folder-btn glass-card px-5 py-2.5 rounded-xl text-sm text-slate-400 whitespace-nowrap"><span class="material-symbols-outlined">folder</span>' + folder + ' <span style="font-size:10px;background:rgba(255,255,255,0.07);border-radius:99px;padding:1px 7px;margin-left:3px;font-weight:700;color:#64748b">' + pCount + '</span></button>';
+                    pillHtml += '<button onclick="filterByFolder(\'' + folder.replace(/'/g, "\\'") + '\',this)" class="folder-btn glass-card px-5 py-2.5 rounded-xl text-sm text-slate-400 whitespace-nowrap"><span class="material-symbols-outlined">folder</span>' + escapeHtml(folder) + ' <span style="font-size:10px;background:rgba(255,255,255,0.07);border-radius:99px;padding:1px 7px;margin-left:3px;font-weight:700;color:#64748b">' + pCount + '</span></button>';
                 });
                 folderSection.innerHTML = pillHtml;
 
@@ -5174,7 +5174,7 @@
                             }
                         });
                         const dotsHtml = dots.length ? '<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:4px">' + dots.slice(0, 6).join('') + '</div>' : '';
-                        return '<button onclick="filterByFolder(\'' + folder + '\',null)" class="folder-btn group flex items-center gap-3 p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-primary/40 hover:bg-primary/5 transition-all text-left w-full" style="animation:cardIn 0.35s ease-out both">' +
+                        return '<button onclick="filterByFolder(\'' + folder.replace(/'/g, "\\'") + '\',null)" class="folder-btn group flex items-center gap-3 p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-primary/40 hover:bg-primary/5 transition-all text-left w-full" style="animation:cardIn 0.35s ease-out both">' +
                             '<span class="material-symbols-outlined text-primary text-xl shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">folder</span>' +
                             '<div class="min-w-0 flex-1">' +
                             '<p class="text-sm font-semibold text-white truncate">' + folder + '</p>' +
@@ -5219,7 +5219,7 @@
                     } else {
                         sidebarFolderList.innerHTML = folders.map(folder => {
                             const isActive = currentFolder === folder;
-                            return '<button onclick="filterByFolder(\'' + folder + '\',this)" class="folder-btn w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-all' + (isActive ? ' text-primary bg-primary/10 active' : '') + '">' +
+                            return '<button onclick="filterByFolder(\'' + folder.replace(/'/g, "\\'") + '\',this)" class="folder-btn w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-all' + (isActive ? ' text-primary bg-primary/10 active' : '') + '">' +
                                 '<span class="material-symbols-outlined text-sm shrink-0">folder</span>' +
                                 '<span class="truncate">' + folder + '</span>' +
                                 '</button>';
@@ -7955,7 +7955,7 @@
                     const bellDot = document.getElementById('pushBellDot');
                     const markAllBtn = document.getElementById('markAllReadBtn');
                     if (remaining > 0) {
-                        if (pill) { pill.textContent = remaining + ' new'; }
+                        if (pill) { pill.textContent = remaining + ' new'; pill.style.display = 'inline-flex'; }
                     } else {
                         if (pill) pill.style.display = 'none';
                         if (bellDot) bellDot.style.display = 'none';
