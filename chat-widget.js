@@ -475,7 +475,40 @@ Library Tabs:
 // ─── PICK PROMPT FOR CURRENT PAGE ───────────────────────────
 function getSystemPrompt() {
     if (CURRENT_PAGE === 'manager') return SYSTEM_PROMPT_MANAGER;
-    return SYSTEM_PROMPT_USER;
+
+    // ── Inject the actual file list so AI can answer questions about real files ──
+    const { files, folder } = _getFileData();
+    if (!files || !files.length) return SYSTEM_PROMPT_USER;
+
+    function _sf(str, max) {
+        return String(str || '').replace(/[\x00-\x1F\x7F`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+    }
+
+    // Group files by folder for a readable layout
+    const byFolder = {};
+    files.forEach(f => {
+        const key = _sf(f.folder, 60) || '(No folder)';
+        if (!byFolder[key]) byFolder[key] = [];
+        byFolder[key].push(f);
+    });
+
+    let fileIndex = '';
+    Object.entries(byFolder).forEach(([folderName, folderFiles]) => {
+        fileIndex += `\nFOLDER: ${folderName}\n`;
+        folderFiles.forEach(f => {
+            const name = _sf(f.name, 120);
+            const desc = _sf(f.description, 200);
+            fileIndex += `  • ${name}${desc ? ' — ' + desc : ''}\n`;
+        });
+    });
+
+    return SYSTEM_PROMPT_USER + `
+
+=== FILES CURRENTLY IN THE VAULT ===
+The following files are available to this student. Use this list to answer questions about specific files, what a file is about, which folder it's in, or what it might help with.
+${fileIndex.trim()}
+
+IMPORTANT: When a student asks about a specific file (e.g. "what is X about?"), use the file name, folder, and description above to give a helpful, accurate answer. Do not say you cannot access files — use the metadata above.`;
 }
 
 function getChatTitle() {

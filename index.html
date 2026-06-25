@@ -5486,8 +5486,8 @@
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(zipBlob);
                 const _zipDate = new Date().toISOString().slice(0, 10);
-                const _zipLabel = currentFolder ? currentFolder.replace(/[^a-zA-Z0-9_-]/g, '_') : 'Vault';
-                link.download = `FileVault_${_zipLabel}_${_zipDate}.zip`;
+                const _zipLabel = currentFolder ? '_' + currentFolder.replace(/[^a-zA-Z0-9_-]/g, '_') : '';
+                link.download = `FileVault${_zipLabel}_${_zipDate}.zip`;
                 link.click();
                 showToast('Downloaded ' + (items.length - _failed) + ' file' + ((items.length - _failed) !== 1 ? 's' : '') + ' as ZIP' + (_failed ? ' (' + _failed + ' failed)' : '') + '.', _failed ? 'warning' : 'success');
             }
@@ -7260,8 +7260,8 @@
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(zipBlob);
                 const _zipDate = new Date().toISOString().slice(0, 10);
-                const _zipLabel = currentFolder ? currentFolder.replace(/[^a-zA-Z0-9_-]/g, '_') : 'Vault';
-                link.download = 'FileVault_' + _zipLabel + '_' + _zipDate + '.zip';
+                const _zipLabel = currentFolder ? '_' + currentFolder.replace(/[^a-zA-Z0-9_-]/g, '_') : '';
+                link.download = 'FileVault' + _zipLabel + '_' + _zipDate + '.zip';
                 link.click();
                 setTimeout(() => {
                     bar.classList.remove('open');
@@ -9909,7 +9909,7 @@
             </div>
         </div>
 
-        <script src="chat-widget.js?v=14"></script>
+        <script src="chat-widget.js?v=15"></script>
         <script>
             // ══════════════════════════════════════════════════════════════════
             // FEATURE 9: AI "Related Files" suggestions in preview
