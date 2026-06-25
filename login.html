@@ -2075,7 +2075,7 @@
                     // Preserve any ?next= intent through the OAuth round-trip so that
                     // after Google redirects back to login.html the destination survives.
                     const nextVal = _getNextPage();
-                    const redirectBase = window.location.origin + '/login.html';
+                    const redirectBase = 'https://www.filevault.works/login.html';
                     const redirectTo = nextVal
                         ? redirectBase + '?next=' + encodeURIComponent(nextVal)
                         : redirectBase;
@@ -2113,7 +2113,7 @@
                     }
 
                     const opts = {
-                        emailRedirectTo: window.location.origin + '/login.html',
+                        emailRedirectTo: 'https://www.filevault.works/login.html',
                         shouldCreateUser: true
                     };
                     if (captchaToken) opts.captchaToken = captchaToken;
@@ -2632,7 +2632,7 @@
                     }
 
                     const opts = {
-                        redirectTo: 'https://filevault.works/login.html'
+                        redirectTo: 'https://www.filevault.works/login.html'
                     };
                     if (captchaToken) opts.captchaToken = captchaToken;
                     const {
