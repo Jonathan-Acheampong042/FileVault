@@ -2557,10 +2557,15 @@
             // INIT — require an active session
             // ═══════════════════════════════════════════════════════════
             (async () => {
-                // Retry loop: after an OAuth login, the session may not yet be written
-                // to localStorage when this page loads. Retry up to ~3s before giving up.
+                // Retry loop: after an OAuth/social login, the session token write to
+                // localStorage is async and may not be complete when this page loads.
+                // Poll up to 4s (20 × 200ms) before giving up and sending to login.
+                // If we just came from login (fv_just_signed_in flag), add an extra
+                // 600ms upfront pause so the OAuth token exchange has time to settle.
+                const _justSignedIn = !!sessionStorage.getItem('fv_just_signed_in');
+                if (_justSignedIn) await new Promise(r => setTimeout(r, 600));
                 let _session = null;
-                for (let _i = 0; _i < 15; _i++) {
+                for (let _i = 0; _i < 20; _i++) {
                     const { data: { session: _s } } = await _supabase.auth.getSession();
                     if (_s) { _session = _s; break; }
                     await new Promise(r => setTimeout(r, 200));

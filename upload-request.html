@@ -1630,7 +1630,11 @@
                         }
                     });
                 }
-                _checkSessionWithRetry();
+                // If arriving fresh from a login (especially OAuth/social), the session
+                // token may not yet be written to localStorage. Delay the first check
+                // by 600ms so the async token write has time to complete.
+                var _initialDelay = sessionStorage.getItem('fv_just_signed_in') ? 600 : 0;
+                setTimeout(function() { _checkSessionWithRetry(); }, _initialDelay);
 
                 // ── My past requests ────────────────────────────────────────────────────
                 var STATUS_DOT = {

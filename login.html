@@ -1344,6 +1344,8 @@
                 let _studentSubTab = 'signin';
                 let _otpEmail = '';
                 let _signUpEmail = ''; // email used for the most recent sign-up; used for resend
+                // Capture OAuth flag NOW, before detectSessionInUrl clears the hash
+                const _isOAuthLogin = !!(window.location.hash && window.location.hash.includes('access_token'));
                 let _redirecting = false; // prevents double-fire from onAuthStateChange
                 let _navigating = false; // true once window.location.href has been set; blocks all re-entry
                 let _inRecoveryFlow = false; // true while a recovery session is active but not yet completed
@@ -1527,7 +1529,7 @@
                     // are written, sees no session, and redirects back with "session expired".
                     // OAuth logins need a longer initial delay: the hash token exchange is
                     // async and 300ms is too short on slow connections.
-                    const _isOAuthLogin = !!(window.location.hash && window.location.hash.includes('access_token'));
+                    // _isOAuthLogin is captured at script top before Supabase clears the hash.
                     let attempts = 0;
                     const confirmAndRedirect = async () => {
                         const {
@@ -1535,7 +1537,18 @@
                                 session: confirmedSession
                             }
                         } = await _supabase.auth.getSession();
-                        if (confirmedSession || attempts >= 20) {
+                        if (confirmedSession) {
+                            // For OAuth, pause 500ms after session confirmed so localStorage
+                            // is fully flushed before the destination page reads it.
+                            const settle = _isOAuthLogin ? 500 : 0;
+                            setTimeout(function() {
+                                _navigating = true;
+                                sessionStorage.removeItem('fvFilesCache');
+                                const dest = _getNextPage() || 'index.html';
+                                _clearNextPage();
+                                window.location.href = dest;
+                            }, settle);
+                        } else if (attempts >= 25) {
                             _navigating = true;
                             sessionStorage.removeItem('fvFilesCache');
                             const dest = _getNextPage() || 'index.html';
@@ -1546,7 +1559,7 @@
                             setTimeout(confirmAndRedirect, 200);
                         }
                     };
-                    setTimeout(confirmAndRedirect, 300);
+                    setTimeout(confirmAndRedirect, _isOAuthLogin ? 800 : 300);
                 }
 
                 // ── MFA opt-in nudge screen ───────────────────────────────────
@@ -1728,7 +1741,18 @@
                                 session: confirmedSession
                             }
                         } = await _supabase.auth.getSession();
-                        if (confirmedSession || attempts >= 20) {
+                        if (confirmedSession) {
+                            // For OAuth, pause 500ms after session confirmed so localStorage
+                            // is fully flushed before the destination page reads it.
+                            const settle = _isOAuthLogin ? 500 : 0;
+                            setTimeout(function() {
+                                _navigating = true;
+                                sessionStorage.removeItem('fvFilesCache');
+                                const dest = _getNextPage() || 'index.html';
+                                _clearNextPage();
+                                window.location.href = dest;
+                            }, settle);
+                        } else if (attempts >= 25) {
                             _navigating = true;
                             sessionStorage.removeItem('fvFilesCache');
                             const dest = _getNextPage() || 'index.html';
@@ -1739,7 +1763,7 @@
                             setTimeout(confirmAndRedirect, 200);
                         }
                     };
-                    setTimeout(confirmAndRedirect, 300);
+                    setTimeout(confirmAndRedirect, _isOAuthLogin ? 800 : 300);
                 }
 
                 // ═══════════════════════════════════════════════════════════════
