@@ -37,7 +37,7 @@ Students land on a personalised vault showing recently viewed files, AI-powered 
 
 ![FileVault — AI chat widget open in the vault](FileVault/CHATBOT%20(WEB%20SIGNED)%20DESKTOP.png)
 
-An embedded AI assistant (powered by Groq/Llama 3.1) helps students find files, filter by folder, and navigate the vault — without ever leaving the page.
+An embedded AI assistant (powered by Groq/Llama 3.1) helps students find files, filter by folder, and navigate the vault without ever leaving the page.
 
 ### File Requests
 
@@ -55,7 +55,7 @@ Multiple sign-in options: email/password, magic link, one-time password (OTP), a
 
 ![FileVault — student profile page](FileVault/PROFILE%20PAGE%20(WEB)%20DESKTOP.png)
 
-Students manage display names, student info, notification preferences, connected accounts, and data privacy — including a full account deletion flow handled server-side.
+Students manage display names, student info, notification preferences, connected accounts, and data privacy including a full account deletion flow handled server-side.
 
 ---
 
