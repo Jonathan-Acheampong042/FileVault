@@ -5354,6 +5354,7 @@
                         '<button onclick="shareViaWhatsApp(\'' + jsUrl + '\',\'' + jsName + '\');event.stopPropagation()" class="btn-copy rounded-xl transition-colors" title="Share on WhatsApp" aria-label="Share on WhatsApp"><svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px;display:block;color:#4ade80" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.272-.099-.47-.149-.67.15-.198.297-.767.967-.94 1.166-.173.198-.347.223-.644.075-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.148-.173.198-.297.297-.495.099-.198.05-.372-.025-.521-.075-.149-.67-1.612-.916-2.213-.242-.581-.487-.502-.67-.512l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.262.489 1.693.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414-.074-.124-.272-.198-.57-.347zM12.004 2.003c-5.514 0-9.996 4.482-9.996 9.997 0 1.762.463 3.456 1.342 4.957L2 22l4.08-1.074a9.94 9.94 0 0 0 5.924 1.832c5.514 0 9.996-4.482 9.996-9.997s-4.482-9.996-9.996-9.996z"/></svg></button>' +
                         '<a href="' + safeUrlAttr + '" download onclick="track(\'' + jsId + '\',\'' + jsName + '\',\'' + jsUrl + '\');event.stopPropagation()" class="p-2 rounded-xl text-slate-400 hover:text-green-400 hover:bg-green-400/10 material-symbols-outlined text-xl transition-colors" title="Download" aria-label="Download ' + safeNameText + '">download</a>' +
                         '<button class="pin-btn ' + (typeof isPinned === 'function' && isPinned(file.url) ? 'pinned' : '') + '" ' +
+                        'data-pin-url="' + escapeHtml(file.url || '') + '" ' +
                         'onclick="togglePin(event,' + JSON.stringify(file.url) + ',' + JSON.stringify(file.name) + ',' + JSON.stringify(file.folder || '') + ')" ' +
                         'title="' + (typeof isPinned === 'function' && isPinned(file.url) ? 'Unpin (remove offline copy)' : 'Pin for offline access') + '" ' +
                         'aria-label="Pin for offline">' +
@@ -12093,14 +12094,18 @@
                     } else {
                         await pinFile(url, name, folder);
                     }
-                    // Re-render the card's pin button state without full re-render
+                    // Re-render ALL pin buttons that match this URL
+                    const pinned = isPinned(url);
+                    const urlJson = JSON.stringify(url);
                     document.querySelectorAll('.pin-btn').forEach(btn => {
-                        const isThis = btn.closest('[data-url]')?.dataset.url === url ||
-                            btn.onclick?.toString().includes(JSON.stringify(url));
+                        // Match by data-pin-url attribute (set on card render) or onclick string
+                        const isThis = btn.dataset.pinUrl === url ||
+                            (btn.getAttribute('onclick') || '').includes(urlJson);
                         if (isThis) {
-                            btn.classList.toggle('pinned', isPinned(url));
-                            btn.querySelector('.material-symbols-outlined').textContent =
-                                isPinned(url) ? 'push_pin' : 'keep';
+                            btn.classList.toggle('pinned', pinned);
+                            const icon = btn.querySelector('.material-symbols-outlined');
+                            if (icon) icon.textContent = pinned ? 'push_pin' : 'keep';
+                            btn.title = pinned ? 'Unpin (remove offline copy)' : 'Pin for offline access';
                         }
                     });
                     loadPinnedFiles();
@@ -12132,7 +12137,7 @@
                             tx.onerror = e => reject(e.target.error);
                         });
 
-                        // Save metadata
+                        // Save metadata (offline pin store)
                         const meta = _getMeta().filter(m => m.url !== url);
                         meta.unshift({
                             url,
@@ -12142,6 +12147,9 @@
                             pinned: Date.now()
                         });
                         _setMeta(meta);
+
+                        // ── Also sync to fvBookmarks so profile.html can display pins ──
+                        _syncBookmarks(meta);
 
                         showToast('📌 Pinned! ' + name + ' (' + sizeMB + ' MB) available offline.', 'success');
                     } catch (err) {
@@ -12160,7 +12168,24 @@
                             tx.onerror = e => reject(e.target.error);
                         });
                     } catch {}
-                    _setMeta(_getMeta().filter(m => m.url !== url));
+                    const meta = _getMeta().filter(m => m.url !== url);
+                    _setMeta(meta);
+                    // ── Keep fvBookmarks in sync ──
+                    _syncBookmarks(meta);
+                }
+
+                // ── Sync fvPinnedMeta → fvBookmarks (profile.html reads fvBookmarks) ──
+                function _syncBookmarks(meta) {
+                    try {
+                        // fvBookmarks format: [{url, name, folder, ts}]
+                        const bookmarks = meta.map(m => ({
+                            url: m.url,
+                            name: m.name,
+                            folder: m.folder || '',
+                            ts: m.pinned || Date.now()
+                        }));
+                        localStorage.setItem('fvBookmarks', JSON.stringify(bookmarks));
+                    } catch {}
                 }
 
                 // ── Clear all pins ──
@@ -12175,8 +12200,11 @@
                         });
                     } catch {}
                     _setMeta([]);
+                    // ── Also clear fvBookmarks so profile.html reflects the clear ──
+                    try { localStorage.removeItem('fvBookmarks'); } catch {}
                     loadPinnedFiles();
                     showToast('All pins cleared.', 'info');
+                };
                 };
 
                 // ── Open a pinned file from IndexedDB (works offline) ──
