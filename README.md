@@ -37,7 +37,7 @@ Students land on a personalised vault showing recently viewed files, AI-powered 
 
 ![FileVault — AI chat widget open in the vault](FileVault/CHATBOT%20(WEB%20SIGNED)%20DESKTOP.png)
 
-An embedded AI assistant (powered by Groq/Llama 3.1) helps students find files, filter by folder, and navigate the vault without ever leaving the page.
+An embedded AI assistant (powered by Groq/GPT-OSS 20B) helps students find files, filter by folder, and navigate the vault without ever leaving the page.
 
 ### File Requests
 
@@ -97,7 +97,7 @@ Students manage display names, student info, notification preferences, connected
 | Frontend | HTML, vanilla JavaScript, Tailwind CSS |
 | Database & Storage | Supabase (Postgres, Storage, Realtime, Auth) |
 | Backend | Node.js + Express (deployed on Render) |
-| AI | Groq — Llama 3.1 8B Instant |
+| AI | Groq — GPT-OSS 20B |
 | Push Notifications | Web Push (VAPID) |
 | Offline / PWA | Service Worker + Web App Manifest |
 | Bulk Downloads | JSZip (client-side) |
@@ -218,7 +218,7 @@ npx web-push generate-vapid-keys
 - **Storage & database** — files live in a Supabase Storage bucket (`vault-files`), with metadata tracked in the `files_list` table.
 - **Live updates** — `index.html` subscribes to Supabase Realtime so new uploads and announcements appear automatically. Falls back to polling if Realtime is unavailable. Refreshes are deferred while a user is actively searching or has a preview open.
 - **Push notifications** — the Express backend handles Web Push subscriptions and sends notifications when new files are uploaded, when a student's file request is approved, or when files are about to expire.
-- **AI assistant** — the chat widget posts to `/api/chat`, which calls the Groq API (Llama 3.1). The manager dashboard also uses `/api/summarise` to auto-generate file descriptions on upload.
+- **AI assistant** — the chat widget posts to `/api/chat`, which calls the Groq API (GPT-OSS 20B). The manager dashboard also uses `/api/summarise` to auto-generate file descriptions on upload.
 - **Offline & install support** — `Sw.js` and `Manifest.json` make FileVault installable as a PWA, caching static assets while always fetching fresh HTML.
 - **File requests** — students submit via `upload-request.html`; managers review and fulfil in `manager.html`; the student is notified via push on approval.
 - **Account deletion** — `profile.html` calls `POST /api/delete-account`. The server validates the JWT, cleans up all associated rows, and calls `supabase.auth.admin.deleteUser()` — the anon key in the browser cannot do this.
