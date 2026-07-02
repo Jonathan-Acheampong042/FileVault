@@ -2220,9 +2220,11 @@ async function sendChatMessage() {
     setOnlineStatus(true);
 
     try {
-        // Send only the last 10 exchanges (20 messages) to stay well within
-        // llama-3.1-8b-instant's context window. chatMessages itself is unbounded
-        // in-memory so the full session remains browsable in the UI.
+        // Send only the last 10 exchanges (20 messages) to keep prompts small
+        // and fast. openai/gpt-oss-20b supports up to 131K tokens of context,
+        // so this cap is a cost/latency choice, not a hard model limit.
+        // chatMessages itself is unbounded in-memory so the full session
+        // remains browsable in the UI.
         const CONTEXT_WINDOW = 20;
         const history = chatMessages.slice(-(CONTEXT_WINDOW + 1), -1).map(m => ({
             role: m.role === 'assistant' ? 'model' : 'user',

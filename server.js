@@ -750,7 +750,7 @@ app.post('/api/summarise', aiRateLimit, requireAuth, aiDailyCapCheck, async (req
     const folderHint = folder && folder !== 'Root' ? ` in the "${folder}" folder` : '';
 
     const groqPayload = {
-        model: 'llama-3.1-8b-instant',
+        model: 'openai/gpt-oss-20b',
         max_tokens: 120,
         messages: [{
                 role: 'system',
@@ -982,7 +982,7 @@ app.post('/api/chat', aiRateLimit, requireAuth, aiDailyCapCheck, async (req, res
         ];
 
         const response = await groq.chat.completions.create({
-            model: 'llama-3.1-8b-instant',
+            model: 'openai/gpt-oss-20b',
             max_tokens: 1024,
             messages
         });
@@ -1618,7 +1618,7 @@ app.get('/api/health', async (req, res) => {
             const timer = setTimeout(() => controller.abort(), 5_000);
             // Smallest possible Groq call — 1 token, no meaningful output
             await groq.chat.completions.create({
-                model: 'llama-3.1-8b-instant',
+                model: 'openai/gpt-oss-20b',
                 max_tokens: 1,
                 messages: [{
                     role: 'user',
