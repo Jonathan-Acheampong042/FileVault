@@ -12175,16 +12175,31 @@
                 }
 
                 // ── Sync fvPinnedMeta → fvBookmarks (profile.html reads fvBookmarks) ──
+                // IMPORTANT: this must be ADDITIVE, not a wholesale overwrite.
+                // fvBookmarks is shared with the manual bookmark feature (toggleBookmark
+                // in the reading-progress/bookmarks IIFE), which also reads/writes this
+                // same key. Entries added here are tagged viaPin:true so we can tell
+                // them apart from genuine manual bookmarks and only ever touch our own
+                // entries — a real bookmark must never be dropped just because the user
+                // pinned or unpinned an unrelated file.
                 function _syncBookmarks(meta) {
                     try {
-                        // fvBookmarks format: [{url, name, folder, ts}]
-                        const bookmarks = meta.map(m => ({
+                        const existing = JSON.parse(localStorage.getItem('fvBookmarks') || '[]');
+                        const manualBookmarks = existing.filter(b => !b.viaPin);
+                        const pinEntries = meta.map(m => ({
                             url: m.url,
                             name: m.name,
                             folder: m.folder || '',
-                            ts: m.pinned || Date.now()
+                            ts: m.pinned || Date.now(),
+                            viaPin: true
                         }));
-                        localStorage.setItem('fvBookmarks', JSON.stringify(bookmarks));
+                        // If a file is both manually bookmarked and pinned, keep the
+                        // manual bookmark entry (it's the source of truth for that url).
+                        const merged = manualBookmarks.concat(
+                            pinEntries.filter(p => !manualBookmarks.some(b => b.url === p.url))
+                        );
+                        merged.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+                        localStorage.setItem('fvBookmarks', JSON.stringify(merged));
                     } catch {}
                 }
 
@@ -12200,11 +12215,14 @@
                         });
                     } catch {}
                     _setMeta([]);
-                    // ── Also clear fvBookmarks so profile.html reflects the clear ──
-                    try { localStorage.removeItem('fvBookmarks'); } catch {}
+                    // ── Also clear pin-origin entries from fvBookmarks, but keep any
+                    //    entries the user genuinely bookmarked themselves ──
+                    try {
+                        const existing = JSON.parse(localStorage.getItem('fvBookmarks') || '[]');
+                        localStorage.setItem('fvBookmarks', JSON.stringify(existing.filter(b => !b.viaPin)));
+                    } catch {}
                     loadPinnedFiles();
                     showToast('All pins cleared.', 'info');
-                };
                 };
 
                 // ── Open a pinned file from IndexedDB (works offline) ──
