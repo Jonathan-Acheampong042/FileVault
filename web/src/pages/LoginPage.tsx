@@ -162,7 +162,7 @@ export default function LoginPage() {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-x-hidden p-4">
       {/* Background */}
-      <div className="fixed inset-0 -z-20 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/filevault%20logo.png')", filter: 'blur(60px) saturate(1.4)', opacity: 0.08 }} />
+      <div className="fixed inset-0 -z-20 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/filevault-logo.png')", filter: 'blur(60px) saturate(1.4)', opacity: 0.08 }} />
       <div className="fixed inset-0 -z-10 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950" />
 
       {/* Back button */}
@@ -183,7 +183,7 @@ export default function LoginPage() {
           {/* Logo + Title */}
           <div className="mb-6 text-center">
             <div className="mx-auto mb-3 h-14 w-14 overflow-hidden rounded-2xl shadow-lg" style={{ boxShadow: '0 8px 32px rgba(59,130,246,0.3)' }}>
-              <img src="/filevault%20logo.png" alt="FileVault" className="h-full w-full object-contain" />
+              <img src="/filevault-logo.png" alt="FileVault" className="h-full w-full object-contain" />
             </div>
             <h1 className="text-2xl font-extrabold text-white">{title}</h1>
             <p className="mt-1 text-sm text-slate-500">{subtitle}</p>

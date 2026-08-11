@@ -85,7 +85,7 @@ export default function ProfileHeader({ compact = false }: ProfileHeaderProps) {
           </button>
           <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
           <img
-            src="/filevault%20logo.png"
+            src="/filevault-logo.png"
             alt="FileVault"
             className="h-[22px] w-[22px] shrink-0 rounded-md object-contain"
           />
