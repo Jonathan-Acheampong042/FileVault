@@ -55,7 +55,7 @@ export default function Header({ search, onSearchChange, unreadCount = 0, onOpen
         </div>
       </div>
 
-      {session && profile && (
+      {session && profile ? (
         <div className="relative shrink-0">
           <button
             onClick={() => setProfileOpen((o) => !o)}
@@ -94,6 +94,13 @@ export default function Header({ search, onSearchChange, unreadCount = 0, onOpen
             </div>
           )}
         </div>
+      ) : (
+        <a 
+          href="/login" 
+          className="shrink-0 rounded-xl bg-blue-500 px-4 py-2 text-xs font-bold text-white hover:bg-blue-600 transition-colors"
+        >
+          Sign In
+        </a>
       )}
     </header>
   )

@@ -29,11 +29,7 @@ export default function App() {
               <Route path="/request" element={<RequestPage />} />
               <Route 
                 path="/" 
-                element={
-                  <ProtectedRoute>
-                    <VaultPage />
-                  </ProtectedRoute>
-                } 
+                element={<VaultPage />} 
               />
               <Route 
                 path="/profile" 
