@@ -1663,12 +1663,12 @@ process.on('uncaughtException', (err) => {
 
 // ── Serve React Frontend (SPA) ───────────────────────────────────────────────
 // Serve static files from the React app build directory
-app.use(express.static(path.join(__dirname, 'web/dist')));
+app.use(express.static(path.join(__dirname, 'web/build')));
 
 // The "catchall" handler: for any request that doesn't match an API route,
 // send back React's index.html file.
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'web/dist/index.html'));
+    res.sendFile(path.join(__dirname, 'web/build/index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
