@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const Groq = require('groq-sdk');
@@ -1658,6 +1659,16 @@ process.on('unhandledRejection', (reason) => {
 process.on('uncaughtException', (err) => {
     console.error('[uncaughtException]', err);
     // Don't exit — Render will restart the service anyway if it truly crashes.
+});
+
+// ── Serve React Frontend (SPA) ───────────────────────────────────────────────
+// Serve static files from the React app build directory
+app.use(express.static(path.join(__dirname, 'web/dist')));
+
+// The "catchall" handler: for any request that doesn't match an API route,
+// send back React's index.html file.
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'web/dist/index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
