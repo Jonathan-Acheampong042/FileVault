@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --fv-accent-from: #3b82f6;
+  --fv-accent-to: #8b5cf6;
+  --accent: #3b82f6;
+  --accent-light: rgba(59, 130, 246, 0.2);
+  --accent-border: rgba(59, 130, 246, 0.4);
+}
+
+html.fs-small {
+  font-size: 13px;
+}
+html.fs-medium {
+  font-size: 16px;
+}
+html.fs-large {
+  font-size: 19px;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background-color: #020617;
+  color: #e2e8f0;
+  min-height: 100vh;
+}
+
+.text-primary {
+  color: var(--accent) !important;
+}
+.bg-primary\/10 {
+  background-color: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+}
+.bg-primary\/15 {
+  background-color: color-mix(in srgb, var(--accent) 15%, transparent) !important;
+}
+.bg-primary\/20 {
+  background-color: var(--accent-light) !important;
+}
+.border-primary\/20 {
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent) !important;
+}
+.border-primary\/25 {
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent) !important;
+}
+.border-primary\/30 {
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent) !important;
+}
+.border-primary\/40 {
+  border-color: var(--accent-border) !important;
+}
+.hover\:bg-primary\/10:hover {
+  background-color: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+}
+.hover\:bg-primary\/20:hover {
+  background-color: var(--accent-light) !important;
+}
+.hover\:text-primary:hover {
+  color: var(--accent) !important;
+}
+.hover\:border-primary\/30:hover {
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent) !important;
+}
+.hover\:border-primary\/40:hover {
+  border-color: var(--accent-border) !important;
+}
+
+.glass-card {
+  background: rgba(17, 24, 39, 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+
+.file-card {
+  transition:
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.25s ease,
+    box-shadow 0.25s ease;
+}
+.file-card:hover {
+  transform: translateY(-4px);
+  background: rgba(30, 41, 59, 0.62);
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(59, 130, 246, 0.15);
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ── Light mode ── */
+html.light body {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+html.light .glass-card {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+html.light .text-white {
+  color: #0f172a !important;
+}
+
+/* ── High contrast ── */
+html.high-contrast body {
+  background: #000 !important;
+  color: #fff !important;
+}
+html.high-contrast .glass-card {
+  background: #111 !important;
+  border: 2px solid #fff !important;
+}
+
+/* ── Compact view ── */
+body.compact-view .file-card {
+  padding: 10px 14px !important;
+}
