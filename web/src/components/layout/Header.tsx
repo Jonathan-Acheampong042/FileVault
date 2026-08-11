@@ -12,10 +12,9 @@ interface HeaderProps {
 }
 
 export default function Header({ search, onSearchChange, unreadCount = 0, onOpenNotifications }: HeaderProps) {
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const { session, profile, signOut } = useAuth()
-  const { theme, toggleTheme } = useSettings()
+  const { theme, toggleTheme, toggleSettings, settingsOpen, setSettingsOpen } = useSettings()
 
   return (
     <header className="sticky top-0 z-50 flex w-full items-center gap-3 border-b border-white/10 bg-slate-950/60 px-4 py-3 backdrop-blur-2xl sm:px-6">
@@ -46,7 +45,7 @@ export default function Header({ search, onSearchChange, unreadCount = 0, onOpen
         </button>
         <div className="relative">
           <button
-            onClick={() => setSettingsOpen((o) => !o)}
+            onClick={toggleSettings}
             title="Display settings"
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:border-primary/30 hover:bg-primary/20 hover:text-primary"
           >

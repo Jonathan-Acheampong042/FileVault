@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { VaultFile } from '../../types'
 import { formatFileSize, getFileColorClasses, getFileIcon, isNewFile, timeAgo } from '../../utils/fileDisplay'
 import { useToast } from '../../context/ToastContext'
+import { supabase } from '../../lib/supabase'
 import RatingBadge from './RatingBadge'
 import ViewCountBadge from './ViewCountBadge'
 import PinButton from './PinButton'
@@ -53,8 +54,10 @@ export default function FileCard({
     e.stopPropagation()
     showToast(`Downloading ${file.name}`, 'success', 2500)
     if (file.id) {
-      // Fire-and-forget download counter — wire to your increment_download_count RPC.
-      // supabase.rpc('increment_download_count', { file_id: file.id })
+      // Fire-and-forget download counter
+      supabase.rpc('increment_download_count', { file_id: file.id }).then(() => {}, () => {
+        /* swallow — non-critical analytics */
+      })
     }
   }
 

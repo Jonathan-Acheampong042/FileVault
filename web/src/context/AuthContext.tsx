@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { Session } from '@supabase/supabase-js'
+import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { UserProfile } from '../types'
 
 interface AuthContextValue {
   session: Session | null
+  user: User | null
   profile: UserProfile | null
   loading: boolean
   signOut: () => Promise<void>
@@ -42,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value: AuthContextValue = {
     session,
+    user: session?.user ?? null,
     profile: profileFromSession(session),
     loading,
     signOut: async () => {

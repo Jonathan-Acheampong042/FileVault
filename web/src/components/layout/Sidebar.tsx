@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 interface SidebarProps {
@@ -47,12 +48,12 @@ export default function Sidebar({ folders, activeFolder, onSelectFolder }: Sideb
       </nav>
 
       <div className="mt-auto border-t border-white/5 px-4 pt-8">
-        <a
-          href="/upload-request"
+        <Link
+          to="/request"
           className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-400 hover:text-primary"
         >
-          <span className="material-symbols-outlined">upload_file</span> Request a File
-        </a>
+          <span className="material-symbols-outlined">add_circle</span> Request a File
+        </Link>
 
         {!session ? (
           <a href="/login" className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-red-400/80">

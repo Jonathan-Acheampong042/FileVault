@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 interface MobileNavProps {
@@ -18,10 +19,10 @@ export default function MobileNav({ onSelectAll, onFocusSearch }: MobileNavProps
         <span className="material-symbols-outlined text-xl">search</span>
         <span className="text-[9px] font-bold uppercase">Search</span>
       </button>
-      <a href="/upload-request" className="flex flex-col items-center gap-0.5 px-3 py-1 text-slate-400">
-        <span className="material-symbols-outlined text-xl">upload_file</span>
-        <span className="text-[9px] font-bold uppercase">Request</span>
-      </a>
+      <Link to="/request" className="flex flex-col items-center gap-0.5 px-3 py-1 text-slate-400">
+        <span className="material-symbols-outlined text-[20px]">add_circle</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider">Request</span>
+      </Link>
       {session ? (
         <a href="/profile" className="flex flex-col items-center gap-0.5 px-3 py-1 text-primary">
           <span className="flex h-[22px] w-[22px] items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-[9px] font-extrabold uppercase text-white">

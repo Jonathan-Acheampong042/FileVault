@@ -21,6 +21,7 @@ export interface UserProfile {
   displayName: string
   avatarUrl: string | null
   emailVerified: boolean
+  role?: string
 }
 
 export interface ThemeSettings {

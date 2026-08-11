@@ -34,12 +34,16 @@ interface SettingsContextValue extends ThemeSettings {
   setFontSize: (size: ThemeSettings['fontSize']) => void
   setAccent: (accent: ThemeSettings['accent']) => void
   toggleCompactView: () => void
+  settingsOpen: boolean
+  toggleSettings: () => void
+  setSettingsOpen: (open: boolean) => void
 }
 
 const SettingsContext = createContext<SettingsContextValue | undefined>(undefined)
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<ThemeSettings>(readInitial)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   // Apply to <html> classList + CSS vars whenever settings change
   useEffect(() => {
@@ -84,6 +88,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(LS_KEYS.compactView, compactView ? '1' : '0')
         return { ...s, compactView }
       }),
+    settingsOpen,
+    toggleSettings: () => setSettingsOpen(s => !s),
+    setSettingsOpen,
   }
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>
