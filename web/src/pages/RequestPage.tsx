@@ -60,7 +60,7 @@ export default function RequestPage() {
         <div className="glass-card rounded-[24px] p-6 sm:p-8">
           <div className="mb-6 flex items-center gap-4">
             <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-white/5">
-              <img src="/filevault logo.png" alt="FileVault" className="h-full w-full object-contain" />
+              <img src="/filevault-logo.png" alt="FileVault" className="h-full w-full object-contain" />
             </div>
             <div>
               <h1 className="m-0 text-xl font-extrabold leading-snug text-white">Request a File</h1>
