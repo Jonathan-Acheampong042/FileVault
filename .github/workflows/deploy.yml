@@ -37,11 +37,11 @@ jobs:
       - name: Build
         run: npm run build
       - name: Copy CNAME
-        run: cp ../CNAME dist/CNAME || true
+        run: cp ../CNAME build/CNAME || true
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './web/dist'
+          path: './web/build'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
