@@ -134,8 +134,7 @@ export default function LoginPage() {
 
     if (isAdmin) {
       showToast('✓ Welcome, Admin!', 'success', 3000)
-      // For now navigate to vault; admin choice screen can be added later
-      navigate(dest, { replace: true })
+      setSection('adminChoice')
     } else {
       sessionStorage.setItem('fv_just_signed_in', authUser.email || '1')
       showToast('✓ Signed in! Welcome back.', 'success', 3000)
@@ -266,6 +265,28 @@ export default function LoginPage() {
                 setStudentTab('signup')
               }}
             />
+          )}
+
+          {/* Admin Choice */}
+          {section === 'adminChoice' && (
+            <div className="animate-[fadeIn_0.3s_ease] text-center">
+              <h2 className="mb-4 text-xl font-bold text-white">Where to?</h2>
+              <p className="mb-6 text-sm text-slate-400">Choose how you'd like to browse today.</p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => navigate('/manager')}
+                  className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition-all hover:bg-blue-500 hover:shadow-lg hover:shadow-blue-500/25"
+                >
+                  Manager Dashboard
+                </button>
+                <button
+                  onClick={() => navigate('/')}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 font-semibold text-white transition-all hover:bg-white/10"
+                >
+                  Student Vault
+                </button>
+              </div>
+            </div>
           )}
         </div>
 
