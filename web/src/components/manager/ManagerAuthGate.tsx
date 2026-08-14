@@ -40,8 +40,18 @@ export default function ManagerAuthGate({ children }: ManagerAuthGateProps) {
         }
 
         // 2. Role Check
-        const isAdmin = profile?.role === 'admin' || 
-                        profile?.role === 'manager' || 
+        let fetchedRole = profile?.role
+        if (!fetchedRole) {
+          const { data: profileData } = await supabase
+            .from('user_profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single()
+          fetchedRole = profileData?.role
+        }
+
+        const isAdmin = fetchedRole === 'admin' || 
+                        fetchedRole === 'manager' || 
                         (session.user.email && ADMIN_EMAIL_ALLOWLIST.includes(session.user.email))
         
         if (!isAdmin) {
