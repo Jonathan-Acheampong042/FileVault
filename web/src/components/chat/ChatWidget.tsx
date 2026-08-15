@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useChat } from '../../hooks/useChat'
+import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import ChatMessage from './ChatMessage'
+import ChatAuthGate from './ChatAuthGate'
 import { haptic } from '../../utils/haptics'
 
 const SYSTEM_PROMPT_USER = `You are the FileVault AI assistant helping a regular user on the USER PAGE.
@@ -41,6 +43,7 @@ export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false)
   const [input, setInput] = useState('')
   const { messages, loading, isOnline, offlineQueue, sendMessage, clearHistory } = useChat()
+  const { session } = useAuth()
   const location = useLocation()
   
   const isManager = location.pathname.startsWith('/manager')
@@ -518,6 +521,9 @@ JSON FORMAT:
                 Back to Chat
               </button>
             </div>
+          ) : !session ? (
+            /* Auth Gate for unauthenticated users */
+            <ChatAuthGate />
           ) : (
             /* Standard AI Chat Thread */
             <>
@@ -557,8 +563,8 @@ JSON FORMAT:
           </div>
         )}
 
-        {/* Input Form (hidden in Quiz Mode) */}
-        {!isQuizActive && !showHistory && (
+        {/* Input Form (hidden in Quiz Mode or if not authenticated) */}
+        {!isQuizActive && !showHistory && session && (
           <div className="border-t border-slate-700 bg-slate-800 p-4">
             <form onSubmit={handleSend} className="relative flex items-end gap-2">
               <textarea
