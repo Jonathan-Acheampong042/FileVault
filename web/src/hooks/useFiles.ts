@@ -83,7 +83,7 @@ export function useFiles() {
   // Realtime: refresh on any files_list change (insert/update/delete)
   useEffect(() => {
     const channel = supabase
-      .channel('filevault-files')
+      .channel(`filevault-files-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'files_list' }, () => {
         try {
           sessionStorage.removeItem(CACHE_KEY)

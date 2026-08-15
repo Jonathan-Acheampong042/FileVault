@@ -25,7 +25,7 @@ export function useRealtimeToasts() {
 
   useEffect(() => {
     const channel = supabase
-      .channel('filevault-realtime-toasts')
+      .channel(`filevault-realtime-toasts-${Date.now()}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'files_list' }, (payload) => {
         const row = payload.new as FilesListRow
         if (row.scheduled_at && new Date(row.scheduled_at) > new Date()) return // not visible yet

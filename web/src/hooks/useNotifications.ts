@@ -69,7 +69,7 @@ export function useNotifications() {
   useEffect(() => {
     if (!session) return
     const channel = supabase
-      .channel('filevault-notifications')
+      .channel(`filevault-notifications-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, (payload) => {
         const row = (payload.new || payload.old) as NotificationRow | undefined
         if (row?.user_id && row.user_id !== session.user.id) return
