@@ -25,7 +25,7 @@
 // chat-widget.js is intentionally excluded from PRECACHE_URLS and is served
 // network-first (see fetch handler below), so its on-disk changes are always
 // picked up on the next online request regardless of either value.
-const ASSET_VERSION = 1; // ← bump this when precached file contents change
+const ASSET_VERSION = 2; // ← bump this when precached file contents change
 
 const PRECACHE_URLS = [
     '/',
