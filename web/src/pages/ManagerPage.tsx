@@ -6,12 +6,26 @@ import ManagerDashboard from '../components/manager/ManagerDashboard'
 import ManagerFileGrid from '../components/manager/ManagerFileGrid'
 import ManagerUploadRequests from '../components/manager/ManagerUploadRequests'
 import ManagerUploadPanel from '../components/manager/ManagerUploadPanel'
+import ManagerAnnouncements from '../components/manager/ManagerAnnouncements'
+import ManagerScheduledFiles from '../components/manager/ManagerScheduledFiles'
+import ManagerDownloadTracker from '../components/manager/ManagerDownloadTracker'
+import ManagerLinkChecker from '../components/manager/ManagerLinkChecker'
 import ManagerAuditLogs from '../components/manager/ManagerAuditLogs'
 import ManagerSyncRepair from '../components/manager/ManagerSyncRepair'
 import ProfileHeader from '../components/profile/ProfileHeader'
 import { useAuth } from '../context/AuthContext'
 
-type ManagerTab = 'dashboard' | 'files' | 'upload' | 'requests' | 'audit' | 'sync'
+type ManagerTab = 
+  | 'dashboard' 
+  | 'files' 
+  | 'upload' 
+  | 'requests' 
+  | 'announcements' 
+  | 'scheduled' 
+  | 'tracker' 
+  | 'linkcheck' 
+  | 'audit' 
+  | 'sync'
 
 function ManagerContent() {
   const [activeTab, setActiveTab] = useState<ManagerTab>('dashboard')
@@ -82,6 +96,46 @@ function ManagerContent() {
             Upload Requests
           </button>
           <button
+            onClick={() => setActiveTab('announcements')}
+            className={`py-3 text-[13px] font-bold border-b-2 transition-colors ${
+              activeTab === 'announcements' 
+                ? 'border-blue-500 text-blue-400' 
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Announcements
+          </button>
+          <button
+            onClick={() => setActiveTab('scheduled')}
+            className={`py-3 text-[13px] font-bold border-b-2 transition-colors ${
+              activeTab === 'scheduled' 
+                ? 'border-blue-500 text-blue-400' 
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Scheduled Releases
+          </button>
+          <button
+            onClick={() => setActiveTab('tracker')}
+            className={`py-3 text-[13px] font-bold border-b-2 transition-colors ${
+              activeTab === 'tracker' 
+                ? 'border-blue-500 text-blue-400' 
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Download Tracker
+          </button>
+          <button
+            onClick={() => setActiveTab('linkcheck')}
+            className={`py-3 text-[13px] font-bold border-b-2 transition-colors ${
+              activeTab === 'linkcheck' 
+                ? 'border-blue-500 text-blue-400' 
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Link Checker
+          </button>
+          <button
             onClick={() => setActiveTab('audit')}
             className={`py-3 text-[13px] font-bold border-b-2 transition-colors ${
               activeTab === 'audit' 
@@ -111,6 +165,10 @@ function ManagerContent() {
           {activeTab === 'files' && <ManagerFileGrid />}
           {activeTab === 'upload' && <ManagerUploadPanel />}
           {activeTab === 'requests' && <ManagerUploadRequests />}
+          {activeTab === 'announcements' && <ManagerAnnouncements />}
+          {activeTab === 'scheduled' && <ManagerScheduledFiles />}
+          {activeTab === 'tracker' && <ManagerDownloadTracker />}
+          {activeTab === 'linkcheck' && <ManagerLinkChecker />}
           {activeTab === 'audit' && <ManagerAuditLogs />}
           {activeTab === 'sync' && <ManagerSyncRepair />}
         </div>

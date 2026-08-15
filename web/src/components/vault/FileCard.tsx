@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase'
 import RatingBadge from './RatingBadge'
 import ViewCountBadge from './ViewCountBadge'
 import PinButton from './PinButton'
+import { haptic } from '../../utils/haptics'
 
 interface FileCardProps {
   file: VaultFile
@@ -44,6 +45,7 @@ export default function FileCard({
       .writeText(file.url)
       .then(() => {
         setCopied(true)
+        haptic('light')
         showToast('🔗 Link copied to clipboard!', 'success', 2200)
         setTimeout(() => setCopied(false), 1500)
       })
@@ -52,6 +54,7 @@ export default function FileCard({
 
   function handleDownload(e: React.MouseEvent) {
     e.stopPropagation()
+    haptic('success')
     showToast(`Downloading ${file.name}`, 'success', 2500)
     if (file.id) {
       // Fire-and-forget download counter
@@ -106,7 +109,14 @@ export default function FileCard({
           )}
           {typeof viewCount === 'number' && viewCount > 0 && <ViewCountBadge count={viewCount} />}
           {file.id && rating && onToggleRating && (
-            <RatingBadge count={rating.count} mine={rating.mine} onToggle={() => onToggleRating(file.id!)} />
+            <RatingBadge 
+              count={rating.count} 
+              mine={rating.mine} 
+              onToggle={() => {
+                haptic('light')
+                onToggleRating(file.id!)
+              }} 
+            />
           )}
         </div>
         {file.description && (
@@ -144,7 +154,15 @@ export default function FileCard({
         >
           <span className="material-symbols-outlined text-xl">download</span>
         </a>
-        {onTogglePin && <PinButton pinned={!!pinned} onToggle={() => onTogglePin(file)} />}
+        {onTogglePin && (
+          <PinButton 
+            pinned={!!pinned} 
+            onToggle={() => {
+              haptic('light')
+              onTogglePin(file)
+            }} 
+          />
+        )}
       </div>
     </div>
   )

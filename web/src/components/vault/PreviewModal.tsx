@@ -29,6 +29,16 @@ export default function PreviewModal({ file, onClose, isBookmarked, onToggleBook
   const isPdf = ext === 'pdf'
   const { pct, saveProgress } = useReadingProgress(isPdf || isImg ? file?.url ?? null : null)
 
+  const handleAskAi = () => {
+    window.dispatchEvent(new CustomEvent('fv-ask-ai', { detail: file }))
+    onClose()
+  }
+
+  const handleQuizMe = () => {
+    window.dispatchEvent(new CustomEvent('fv-quiz-me', { detail: file }))
+    onClose()
+  }
+
   useEffect(() => {
     if (!file) return
     document.body.style.overflow = 'hidden'
@@ -92,6 +102,20 @@ export default function PreviewModal({ file, onClose, isBookmarked, onToggleBook
               <span className="material-symbols-outlined text-base">download</span> Download
             </a>
             <button
+              onClick={handleAskAi}
+              className="flex items-center gap-1 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-2 text-xs font-bold text-emerald-300"
+              title="Ask AI about this file"
+            >
+              <span className="material-symbols-outlined text-base">smart_toy</span> Ask AI
+            </button>
+            <button
+              onClick={handleQuizMe}
+              className="flex items-center gap-1 rounded-2xl border border-purple-500/25 bg-purple-500/10 px-3.5 py-2 text-xs font-bold text-purple-300"
+              title="Quiz me on this file"
+            >
+              <span className="material-symbols-outlined text-base">quiz</span> Quiz me
+            </button>
+            <button
               onClick={onClose}
               className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-400"
               aria-label="Close preview"
@@ -125,6 +149,16 @@ export default function PreviewModal({ file, onClose, isBookmarked, onToggleBook
         </div>
 
         {(isPdf || isImg) && <ReadingProgressBar pct={pct} />}
+
+        {file.description && (
+          <div className="border-t border-white/10 px-5 py-3.5 bg-white/[0.01]">
+            <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-1 flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[14px] text-blue-400">info</span>
+              File Description
+            </p>
+            <p className="text-xs text-slate-300 leading-relaxed italic">{file.description}</p>
+          </div>
+        )}
 
         {file.id && (
           <>

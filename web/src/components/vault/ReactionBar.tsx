@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { REACTION_EMOJI_GROUPS } from '../../types'
 import type { ReactionMap } from '../../types'
+import { haptic } from '../../utils/haptics'
 
 interface ReactionBarProps {
   reactions: ReactionMap
@@ -17,7 +18,10 @@ export default function ReactionBar({ reactions, onToggle }: ReactionBarProps) {
       {activeEmojis.map(([emoji, r]) => (
         <button
           key={emoji}
-          onClick={() => onToggle(emoji)}
+          onClick={() => {
+            haptic('light')
+            onToggle(emoji)
+          }}
           title={`${emoji} · ${r.count}`}
           className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[13px] transition-all ${
             r.mine ? 'border-primary/50 bg-primary/20' : 'border-white/10 bg-white/5'
@@ -53,6 +57,7 @@ export default function ReactionBar({ reactions, onToggle }: ReactionBarProps) {
                       <button
                         key={emoji}
                         onClick={() => {
+                          haptic('light')
                           onToggle(emoji)
                         }}
                         className={`relative flex h-9 w-9 items-center justify-center rounded-lg border text-lg transition-all ${

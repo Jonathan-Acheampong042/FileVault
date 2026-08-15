@@ -21,6 +21,7 @@ import { useRecentlyViewed, useSuggestedFiles } from '../hooks/useRecentlyViewed
 import { useNotifications } from '../hooks/useNotifications'
 import { useServiceWorker } from '../hooks/useServiceWorker'
 import { useRealtimeToasts } from '../hooks/useRealtimeToasts'
+import AnnouncementBanner from '../components/layout/AnnouncementBanner'
 import type { AppNotification, SortType, TypeFilter, VaultFile, ViewType } from '../types'
 
 function fileKey(file: VaultFile): string {
@@ -111,6 +112,8 @@ export default function VaultPage() {
           unreadCount={unreadCount}
           onOpenNotifications={() => setNotifOpen(true)}
         />
+
+        <AnnouncementBanner />
 
         <main className="mx-auto w-full max-w-7xl flex-1 p-4 pb-24 sm:p-6 lg:p-10 lg:pb-10">
           <h2 className="mb-4 inline-block text-2xl font-extrabold text-white sm:mb-6 sm:text-3xl">FileVault</h2>
