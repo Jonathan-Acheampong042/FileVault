@@ -5,10 +5,13 @@ import ManagerAuthGate from '../components/manager/ManagerAuthGate'
 import ManagerDashboard from '../components/manager/ManagerDashboard'
 import ManagerFileGrid from '../components/manager/ManagerFileGrid'
 import ManagerUploadRequests from '../components/manager/ManagerUploadRequests'
+import ManagerUploadPanel from '../components/manager/ManagerUploadPanel'
+import ManagerAuditLogs from '../components/manager/ManagerAuditLogs'
+import ManagerSyncRepair from '../components/manager/ManagerSyncRepair'
 import ProfileHeader from '../components/profile/ProfileHeader'
 import { useAuth } from '../context/AuthContext'
 
-type ManagerTab = 'dashboard' | 'files' | 'requests'
+type ManagerTab = 'dashboard' | 'files' | 'upload' | 'requests' | 'audit' | 'sync'
 
 function ManagerContent() {
   const [activeTab, setActiveTab] = useState<ManagerTab>('dashboard')
@@ -36,8 +39,8 @@ function ManagerContent() {
       </header>
 
       {/* Tabs */}
-      <div className="border-b border-white/5 px-4 sm:px-6">
-        <div className="flex gap-4">
+      <div className="border-b border-white/5 px-4 sm:px-6 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-4 whitespace-nowrap">
           <button
             onClick={() => setActiveTab('dashboard')}
             className={`py-3 text-[13px] font-bold border-b-2 transition-colors ${
@@ -59,6 +62,16 @@ function ManagerContent() {
             Manage Files
           </button>
           <button
+            onClick={() => setActiveTab('upload')}
+            className={`py-3 text-[13px] font-bold border-b-2 transition-colors ${
+              activeTab === 'upload' 
+                ? 'border-blue-500 text-blue-400' 
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Publish Material
+          </button>
+          <button
             onClick={() => setActiveTab('requests')}
             className={`py-3 text-[13px] font-bold border-b-2 transition-colors ${
               activeTab === 'requests' 
@@ -68,6 +81,26 @@ function ManagerContent() {
           >
             Upload Requests
           </button>
+          <button
+            onClick={() => setActiveTab('audit')}
+            className={`py-3 text-[13px] font-bold border-b-2 transition-colors ${
+              activeTab === 'audit' 
+                ? 'border-blue-500 text-blue-400' 
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Audit Logs
+          </button>
+          <button
+            onClick={() => setActiveTab('sync')}
+            className={`py-3 text-[13px] font-bold border-b-2 transition-colors ${
+              activeTab === 'sync' 
+                ? 'border-blue-500 text-blue-400' 
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            System Sync
+          </button>
         </div>
       </div>
 
@@ -76,7 +109,10 @@ function ManagerContent() {
         <div className="mx-auto max-w-7xl animate-[fadeInUp_0.4s_ease-out_both]">
           {activeTab === 'dashboard' && <ManagerDashboard />}
           {activeTab === 'files' && <ManagerFileGrid />}
+          {activeTab === 'upload' && <ManagerUploadPanel />}
           {activeTab === 'requests' && <ManagerUploadRequests />}
+          {activeTab === 'audit' && <ManagerAuditLogs />}
+          {activeTab === 'sync' && <ManagerSyncRepair />}
         </div>
       </main>
     </div>

@@ -2,34 +2,81 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { formatFileSize, timeAgo } from '../../utils/fileDisplay'
 import { useToast } from '../../context/ToastContext'
+import { useManagerSettings } from '../../context/ManagerSettingsContext'
+import { logAudit } from '../../utils/audit'
 
 export default function ManagerFileGrid() {
   const [files, setFiles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [restrictedFolders, setRestrictedFolders] = useState<Set<string>>(new Set())
   const showToast = useToast()
+  
+  const { compactView, toggleCompactView } = useManagerSettings()
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    loadFiles()
+    loadFilesAndRestrictions()
   }, [])
 
-  async function loadFiles() {
+  async function loadFilesAndRestrictions() {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('files_list')
-        .select('*')
-        .order('created_at', { ascending: false })
-      
-      if (error) throw error
-      setFiles(data || [])
-    } catch (e) {
+      const [{ data: dbData, error: dbError }, { data: restrictionsData, error: resError }] = await Promise.all([
+        supabase.from('files_list').select('*').order('created_at', { ascending: false }),
+        supabase.from('folder_restrictions').select('folder_name')
+      ])
+
+      if (dbError) throw dbError
+      setFiles(dbData || [])
+
+      if (!resError && restrictionsData) {
+        setRestrictedFolders(new Set(restrictionsData.map(r => r.folder_name)))
+      }
+    } catch (e: any) {
       console.error(e)
-      showToast('Failed to load files.', 'error')
+      showToast('Failed to load manager files.', 'error')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Get distinct folders
+  const folders = Array.from(new Set(files.map(f => f.folder_name).filter(Boolean))) as string[]
+
+  async function toggleFolderRestriction(folderName: string) {
+    const isLocked = restrictedFolders.has(folderName)
+    try {
+      if (isLocked) {
+        const { error } = await supabase.from('folder_restrictions').delete().eq('folder_name', folderName)
+        if (error) throw error
+        
+        setRestrictedFolders(prev => {
+          const next = new Set(prev)
+          next.delete(folderName)
+          return next
+        })
+        showToast(`🔓 "${folderName}" folder is now public.`, 'success')
+        logAudit('edit', null, folderName, { restriction: 'removed' })
+      } else {
+        const { error } = await supabase.from('folder_restrictions').insert({ folder_name: folderName })
+        if (error) throw error
+        
+        setRestrictedFolders(prev => {
+          const next = new Set(prev)
+          next.add(folderName)
+          return next
+        })
+        showToast(`🔒 "${folderName}" restricted to authorised students only.`, 'success')
+        logAudit('edit', null, folderName, { restriction: 'added' })
+      }
+    } catch (err: any) {
+      if (err.message && err.message.includes('does not exist')) {
+        showToast('Restrictions table not set up in Supabase.', 'error')
+      } else {
+        showToast('Failed to toggle restriction: ' + err.message, 'error')
+      }
     }
   }
 
@@ -55,7 +102,12 @@ export default function ManagerFileGrid() {
     try {
       // 1. Get the files to delete their storage blobs
       const filesToDelete = files.filter(f => selectedIds.has(f.id))
-      const paths = filesToDelete.map(f => f.file_name) // assuming file_name is the storage path
+      const paths = filesToDelete.map(f => {
+        // storage path structure: either folder/filename or filename
+        return f.folder_name && f.folder_name !== 'Root'
+          ? `${f.folder_name}/${f.file_name}`
+          : f.file_name
+      })
 
       // 2. Delete from storage
       const { error: storageError } = await supabase.storage.from('vault-files').remove(paths)
@@ -67,16 +119,55 @@ export default function ManagerFileGrid() {
       if (dbError) throw dbError
 
       showToast(`Deleted ${selectedIds.size} file(s).`, 'success')
+      
+      // Log audit action
+      filesToDelete.forEach(f => {
+        logAudit('delete', f.file_name, f.folder_name || null)
+      })
+
       setSelectedIds(new Set())
-      loadFiles()
-    } catch (e) {
+      loadFilesAndRestrictions()
+    } catch (e: any) {
       console.error(e)
       showToast('Failed to delete files.', 'error')
     }
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      
+      {/* Folder Restrictions */}
+      {folders.length > 0 && (
+        <section className="rounded-2xl border border-white/10 bg-slate-900/40 p-4 backdrop-blur-xl">
+          <div className="mb-3 flex items-center justify-between">
+            <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">Folder Restrictions</h4>
+            <span className="text-[10px] text-slate-500">Lock folders to restrict access.</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            {folders.map(folder => {
+              const isLocked = restrictedFolders.has(folder)
+              return (
+                <div 
+                  key={folder}
+                  onClick={() => toggleFolderRestriction(folder)}
+                  className={`flex cursor-pointer items-center justify-between rounded-xl border p-3 transition-all hover:bg-white/5 ${
+                    isLocked ? 'border-amber-500/30 bg-amber-500/5 text-amber-400' : 'border-white/5 bg-white/[0.02] text-slate-300'
+                  }`}
+                >
+                  <div className="min-w-0 flex-1 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px]">folder</span>
+                    <span className="truncate text-xs font-bold">{folder}</span>
+                  </div>
+                  <span className="material-symbols-outlined text-[18px] ml-2 shrink-0">
+                    {isLocked ? 'lock' : 'lock_open'}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Action Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-3">
         <div className="flex items-center gap-3 px-2">
@@ -92,8 +183,21 @@ export default function ManagerFileGrid() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Compact View Toggle */}
+          <button
+            onClick={toggleCompactView}
+            className={`flex items-center justify-center rounded-xl border p-2 transition-all ${
+              compactView 
+                ? 'border-blue-500/40 bg-blue-500/20 text-blue-400' 
+                : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+            }`}
+            title="Toggle compact layout"
+          >
+            <span className="material-symbols-outlined text-[18px]">density_small</span>
+          </button>
+
           <button 
-            onClick={loadFiles}
+            onClick={loadFilesAndRestrictions}
             className="flex items-center justify-center rounded-xl border border-white/10 bg-white/5 p-2 text-slate-300 hover:bg-white/10 transition-colors"
             title="Refresh list"
           >
@@ -112,7 +216,7 @@ export default function ManagerFileGrid() {
         </div>
       </div>
 
-      {/* Grid */}
+      {/* List / Grid */}
       {loading && files.length === 0 ? (
         <div className="flex justify-center p-12">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500/20 border-t-blue-500"></div>
@@ -122,7 +226,48 @@ export default function ManagerFileGrid() {
           <span className="material-symbols-outlined mb-2 text-4xl opacity-50">folder_open</span>
           <p className="text-sm">No files found in the vault.</p>
         </div>
+      ) : compactView ? (
+        /* Compact Vertical List Layout */
+        <div className="divide-y divide-white/5 rounded-2xl border border-white/10 bg-slate-900/40 backdrop-blur-xl">
+          {files.map(file => (
+            <div 
+              key={file.id}
+              className={`flex items-center justify-between p-3 transition-colors ${
+                selectedIds.has(file.id) ? 'bg-blue-500/5' : 'hover:bg-white/[0.01]'
+              }`}
+            >
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <input 
+                  type="checkbox"
+                  checked={selectedIds.has(file.id)}
+                  onChange={() => toggleSelection(file.id)}
+                  className="h-4 w-4 rounded border-white/20 bg-black/20 accent-blue-500 cursor-pointer"
+                />
+                <div className="min-w-0 flex-1 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-slate-500 text-[18px] shrink-0">draft</span>
+                  <p className="truncate text-xs font-bold text-slate-200" title={file.file_name}>
+                    {file.file_name}
+                  </p>
+                  {file.folder_name && (
+                    <span className="shrink-0 rounded-sm bg-white/5 px-1 py-0.5 text-[9px] text-slate-500">
+                      📁 {file.folder_name}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-[11px] text-slate-500 shrink-0 ml-4 font-semibold">
+                <span>{formatFileSize(file.file_size)}</span>
+                <span className="flex items-center gap-0.5">
+                  <span className="material-symbols-outlined text-[13px]">download</span>
+                  {file.download_count || 0}
+                </span>
+                <span className="text-[10px]">{file.created_at ? timeAgo(file.created_at) : 'N/A'}</span>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
+        /* Grid Layout */
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {files.map(file => (
             <div 
