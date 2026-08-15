@@ -121,7 +121,10 @@ export default function LoginPage() {
         .eq('id', authUser.id)
         .single()
       if (profile?.role === 'admin' || profile?.role === 'manager') isAdmin = true
-    } catch {}
+      localStorage.setItem('fv_user_role', profile?.role || 'student')
+    } catch {
+      localStorage.setItem('fv_user_role', 'student')
+    }
 
     // Get destination
     let dest: string

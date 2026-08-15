@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useSettings } from '../../context/SettingsContext'
@@ -11,6 +11,7 @@ interface ProfileHeaderProps {
 
 export default function ProfileHeader({ compact = false }: ProfileHeaderProps) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { toggleSettings, settingsOpen, setSettingsOpen } = useSettings()
   const { profile, signOut } = useAuth()
   const [profileOpen, setProfileOpen] = useState(false)
@@ -47,7 +48,7 @@ export default function ProfileHeader({ compact = false }: ProfileHeaderProps) {
               <p className="mt-0.5 truncate text-[11px] text-slate-500">{profile.email}</p>
             </div>
             <div className="p-1.5">
-              <Link to="/profile" className="flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-slate-400 hover:bg-white/5 hover:text-slate-200">
+              <Link to="/profile" state={{ from: location.pathname }} className="flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-slate-400 hover:bg-white/5 hover:text-slate-200">
                 <span className="material-symbols-outlined text-[17px]">manage_accounts</span> My Profile
               </Link>
               <button
@@ -67,11 +68,14 @@ export default function ProfileHeader({ compact = false }: ProfileHeaderProps) {
     <div className="profile-header sticky top-0 z-40 bg-[#020617]/80 backdrop-blur-xl border-b border-white/5 pb-3 pt-4 mb-6">
       <header className="flex w-full max-w-2xl mx-auto items-center justify-between">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => {
+            const backUrl = location.state?.from || '/'
+            navigate(backUrl)
+          }}
           className="flex items-center gap-2 text-slate-400 transition hover:text-white"
         >
           <span className="material-symbols-outlined text-[20px]">arrow_back</span>
-          <span className="text-[13px] font-bold">Back to Vault</span>
+          <span className="text-[13px] font-bold">Back</span>
         </button>
         
         <div className="flex items-center gap-2 relative">

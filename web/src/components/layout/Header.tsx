@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import SearchBar from '../vault/SearchBar'
 import SettingsPanel from './SettingsPanel'
 import { useAuth } from '../../context/AuthContext'
@@ -15,6 +16,7 @@ export default function Header({ search, onSearchChange, unreadCount = 0, onOpen
   const [profileOpen, setProfileOpen] = useState(false)
   const { session, profile, signOut } = useAuth()
   const { theme, toggleTheme, toggleSettings, settingsOpen, setSettingsOpen } = useSettings()
+  const location = useLocation()
 
   return (
     <header className="sticky top-0 z-50 flex w-full items-center gap-3 border-b border-white/10 bg-slate-950/60 px-4 py-3 backdrop-blur-2xl sm:px-6">
@@ -81,9 +83,9 @@ export default function Header({ search, onSearchChange, unreadCount = 0, onOpen
                 <p className="mt-0.5 truncate text-[11px] text-slate-500">{profile.email}</p>
               </div>
               <div className="p-1.5">
-                <a href="/profile" className="flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-slate-400 hover:bg-white/5 hover:text-slate-200">
+                <Link to="/profile" state={{ from: location.pathname }} className="flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-[13px] font-semibold text-slate-400 hover:bg-white/5 hover:text-slate-200">
                   <span className="material-symbols-outlined text-[17px]">manage_accounts</span> My Profile
-                </a>
+                </Link>
                 <button
                   onClick={signOut}
                   className="flex w-full items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-left text-[13px] font-semibold text-red-400 hover:bg-red-500/10"
