@@ -47,7 +47,10 @@ export default function ChatWidget() {
   const location = useLocation()
   
   const isManager = location.pathname.startsWith('/manager')
+  const isLoginPage = location.pathname.startsWith('/login')
   const systemPrompt = isManager ? SYSTEM_PROMPT_MANAGER : SYSTEM_PROMPT_USER
+
+  if (isLoginPage) return null;
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
