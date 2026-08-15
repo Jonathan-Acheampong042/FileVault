@@ -86,6 +86,12 @@ export default function Sidebar({ folders, activeFolder, onSelectFolder }: Sideb
             </button>
           </div>
         )}
+
+        <div className="mt-4 flex justify-center gap-4 text-[10px] font-semibold text-slate-600 px-6">
+          <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-slate-400 transition-colors">Terms</a>
+          <span>·</span>
+          <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="hover:text-slate-400 transition-colors">Privacy</a>
+        </div>
       </div>
     </aside>
   )

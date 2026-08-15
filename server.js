@@ -1663,6 +1663,14 @@ process.on('uncaughtException', (err) => {
 
 // ── Serve React Frontend (SPA) ───────────────────────────────────────────────
 // Serve static files from the React app build directory
+app.get('/privacy.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'privacy.html'));
+});
+
+app.get('/terms.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'terms.html'));
+});
+
 app.use(express.static(path.join(__dirname, 'web/build')));
 
 // The "catchall" handler: for any request that doesn't match an API route,
