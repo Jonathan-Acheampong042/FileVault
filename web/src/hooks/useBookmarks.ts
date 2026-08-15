@@ -8,7 +8,8 @@ const MAX_BOOKMARKS = 50
 
 function readLocal(): BookmarkEntry[] {
   try {
-    return JSON.parse(localStorage.getItem(LS_KEY) || '[]')
+    const parsed = JSON.parse(localStorage.getItem(LS_KEY) || '[]')
+    return Array.isArray(parsed) ? parsed : []
   } catch {
     return []
   }

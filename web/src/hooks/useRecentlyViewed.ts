@@ -6,7 +6,8 @@ const MAX_ENTRIES = 12
 
 function readLocal(): RecentlyViewedEntry[] {
   try {
-    return JSON.parse(localStorage.getItem(LS_KEY) || '[]')
+    const parsed = JSON.parse(localStorage.getItem(LS_KEY) || '[]')
+    return Array.isArray(parsed) ? parsed : []
   } catch {
     return []
   }
