@@ -61,16 +61,16 @@ export default function Header({ search, onSearchChange, unreadCount = 0, onOpen
         <div className="relative shrink-0">
           <button
             onClick={() => setProfileOpen((o) => !o)}
-            className="flex max-w-[160px] items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] py-1 pl-1 pr-2"
+            className="flex max-w-[140px] items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] py-1 pl-1 pr-1.5 sm:max-w-[160px] sm:pr-2"
           >
-            <span className="flex h-6.5 w-6.5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-[11px] font-extrabold uppercase text-white">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-[11px] font-extrabold uppercase text-white">
               {profile.avatarUrl ? (
                 <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
               ) : (
                 profile.displayName.slice(0, 2)
               )}
             </span>
-            <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-300">
+            <span className="hidden min-w-0 flex-1 truncate text-xs font-bold text-slate-300 sm:block">
               {profile.displayName.length > 14 ? `${profile.displayName.slice(0, 14)}…` : profile.displayName}
             </span>
             <span className="material-symbols-outlined text-sm text-slate-500">expand_more</span>

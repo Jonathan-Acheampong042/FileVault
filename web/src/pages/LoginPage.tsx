@@ -299,9 +299,9 @@ export default function LoginPage() {
             FileVault · Built by <span className="font-semibold text-slate-600">Jonathan Acheampong</span>
           </p>
           <div className="flex justify-center gap-4 text-[11px] font-semibold text-slate-600">
-            <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-slate-400 transition-colors">Terms of Service</a>
+            <a href="/terms.html" className="hover:text-slate-400 transition-colors">Terms of Service</a>
             <span className="text-slate-800">·</span>
-            <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="hover:text-slate-400 transition-colors">Privacy Policy</a>
+            <a href="/privacy.html" className="hover:text-slate-400 transition-colors">Privacy Policy</a>
           </div>
         </div>
       </div>

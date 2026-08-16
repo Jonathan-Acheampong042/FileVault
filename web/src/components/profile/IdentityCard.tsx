@@ -122,15 +122,15 @@ export default function IdentityCard() {
   return (
     <div className="space-y-5">
       {/* Identity Card */}
-      <div className="rounded-[1.1rem] border border-white/[0.07] bg-white/[0.03] p-6 text-center shadow-lg backdrop-blur-xl">
+      <div className="rounded-[1.1rem] border border-white/[0.07] bg-white/[0.03] p-4 text-center shadow-lg backdrop-blur-xl sm:p-6">
         <AvatarUploader 
           photoUrl={photoUrl} 
           initials={initials} 
           onUpload={handleAvatarUpload} 
         />
         
-        <h2 className="text-[18px] font-extrabold text-slate-100">{displayName}</h2>
-        <p className="mt-1 text-[13px] text-slate-500">{email}</p>
+        <h2 className="text-base font-extrabold text-slate-100 sm:text-[18px]">{displayName}</h2>
+        <p className="mt-1 text-xs text-slate-500 truncate sm:text-[13px]">{email}</p>
         
         <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
           {isStudent && (

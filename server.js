@@ -659,6 +659,51 @@ app.post('/api/push/notify-one', pushRateLimit, requireManager, async (req, res)
     }
 });
 
+// Notify a single subscriber by email — used when manager approves a request
+app.post('/api/push/notify-email', pushRateLimit, requireManager, async (req, res) => {
+    const { email, title, body, url } = req.body;
+    if (!email) return res.status(400).json({ error: 'email required' });
+    if (!process.env.VAPID_PUBLIC_KEY) return res.status(503).json({ error: 'Push not configured' });
+
+    try {
+        const userId = await _findUserIdByEmail(email);
+        if (!userId) return res.status(404).json({ error: 'User not found' });
+
+        const { data: subs } = await _supa.from('push_subscriptions').select('subscription, endpoint').eq('user_id', userId);
+        if (!subs || subs.length === 0) return res.status(404).json({ error: 'No active subscriptions for this user' });
+
+        const payload = JSON.stringify({
+            title: title || 'FileVault',
+            body: body || 'Your file request has been fulfilled.',
+            url: url || '/',
+            icon: '/filevault%20logo.png',
+            badge: '/filevault%20logo.png'
+        });
+
+        let sent = 0;
+        let failed = 0;
+
+        const results = await Promise.allSettled(
+            subs.map(sub => webpush.sendNotification(sub.subscription, payload))
+        );
+        await Promise.all(results.map(async (result, i) => {
+            if (result.status === 'fulfilled') {
+                sent++;
+            } else {
+                const code = result.reason?.statusCode;
+                if (code === 410 || code === 404) {
+                    await dbDeleteSub(subs[i].endpoint);
+                }
+                failed++;
+            }
+        }));
+
+        res.json({ ok: true, sent, failed, total: subs.length });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ── Summarise queue ────────────────────────────────────────────────────────────────────────────
 // Serialises Groq calls so a bulk upload of N files doesn't fire N simultaneous
 // requests. At most SUMMARISE_CONCURRENCY jobs run at once; extras wait in line.
@@ -946,7 +991,7 @@ app.post('/api/chat', aiRateLimit, requireAuth, aiDailyCapCheck, async (req, res
         const {
             message,
             history,
-            systemPrompt
+            context
         } = req.body;
 
         // Strip ASCII control characters from the incoming message as defence-in-depth
@@ -973,7 +1018,7 @@ app.post('/api/chat', aiRateLimit, requireAuth, aiDailyCapCheck, async (req, res
 
         const messages = [{
                 role: 'system',
-                content: systemPrompt || ''
+                content: context || ''
             },
             ...historyMessages,
             {
@@ -983,7 +1028,7 @@ app.post('/api/chat', aiRateLimit, requireAuth, aiDailyCapCheck, async (req, res
         ];
 
         const response = await groq.chat.completions.create({
-            model: 'openai/gpt-oss-20b',
+            model: 'llama3-8b-8192',
             max_tokens: 1024,
             messages
         });

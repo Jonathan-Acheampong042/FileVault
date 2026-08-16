@@ -167,7 +167,7 @@ JSON FORMAT:
         headers['Authorization'] = `Bearer ${session.access_token}`
       }
 
-      const apiHost = import.meta.env.DEV ? 'http://localhost:3000' : 'https://project-one-187u.onrender.com'
+      const apiHost = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:3000' : 'https://project-one-187u.onrender.com')
       const response = await fetch(`${apiHost}/api/chat`, {
         method: 'POST',
         headers,

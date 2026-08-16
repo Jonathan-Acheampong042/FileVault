@@ -26,16 +26,16 @@ export default function ProfileHeader({ compact = false }: ProfileHeaderProps) {
       <div className="relative shrink-0">
         <button
           onClick={() => setProfileOpen((o) => !o)}
-          className="flex max-w-[160px] items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] py-1 pl-1 pr-2"
+          className="flex max-w-[140px] items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] py-1 pl-1 pr-1.5 sm:max-w-[160px] sm:pr-2"
         >
-          <span className="flex h-6.5 w-6.5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-[11px] font-extrabold uppercase text-white">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-[11px] font-extrabold uppercase text-white">
             {profile.avatarUrl ? (
               <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
             ) : (
               profile.displayName.slice(0, 2).toUpperCase()
             )}
           </span>
-          <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-300">
+          <span className="hidden min-w-0 flex-1 truncate text-xs font-bold text-slate-300 sm:block">
             {profile.displayName.length > 14 ? `${profile.displayName.slice(0, 14)}…` : profile.displayName}
           </span>
           <span className="material-symbols-outlined text-sm text-slate-500">expand_more</span>
@@ -65,43 +65,43 @@ export default function ProfileHeader({ compact = false }: ProfileHeaderProps) {
   }
 
   return (
-    <div className="profile-header sticky top-0 z-40 bg-[#020617]/80 backdrop-blur-xl border-b border-white/5 pb-3 pt-4 mb-6">
-      <header className="flex w-full max-w-2xl mx-auto items-center justify-between">
+    <div className="profile-header sticky top-0 z-40 bg-[#020617]/80 backdrop-blur-xl border-b border-white/5 pb-3 pt-4 mb-4 sm:mb-6">
+      <header className="flex w-full max-w-2xl mx-auto items-center justify-between gap-2 px-3 sm:px-0">
         <button
           onClick={() => {
             const backUrl = location.state?.from || '/'
             navigate(backUrl)
           }}
-          className="flex items-center gap-2 text-slate-400 transition hover:text-white"
+          className="flex shrink-0 items-center gap-1.5 text-slate-400 transition hover:text-white sm:gap-2"
         >
-          <span className="material-symbols-outlined text-[20px]">arrow_back</span>
-          <span className="text-[13px] font-bold">Back</span>
+          <span className="material-symbols-outlined text-[18px] sm:text-[20px]">arrow_back</span>
+          <span className="text-[12px] font-bold sm:text-[13px]">Back</span>
         </button>
         
-        <div className="flex items-center gap-2 relative">
+        <div className="flex items-center gap-1.5 relative sm:gap-2">
           <button
             onClick={toggleSettings}
             title="Display settings"
             aria-label="Open display settings"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-400 transition hover:border-blue-500/30 hover:bg-blue-500/20 hover:text-blue-500"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-400 transition hover:border-blue-500/30 hover:bg-blue-500/20 hover:text-blue-500 sm:h-9 sm:w-9"
           >
-            <span className="material-symbols-outlined text-[18px]">palette</span>
+            <span className="material-symbols-outlined text-[16px] sm:text-[18px]">palette</span>
           </button>
           <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
           <img
             src="/filevault-logo.png"
             alt="FileVault"
-            className="h-[22px] w-[22px] shrink-0 rounded-md object-contain"
+            className="h-[20px] w-[20px] shrink-0 rounded-md object-contain sm:h-[22px] sm:w-[22px]"
           />
-          <span className="text-[14px] font-extrabold text-slate-100">My Profile</span>
+          <span className="text-[13px] font-extrabold text-slate-100 sm:text-[14px]">My Profile</span>
         </div>
 
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-1.5 text-[13px] font-bold text-slate-400 transition hover:text-red-400"
+          className="flex shrink-0 items-center gap-1 text-[12px] font-bold text-slate-400 transition hover:text-red-400 sm:gap-1.5 sm:text-[13px]"
         >
-          <span className="material-symbols-outlined text-[14px]">logout</span>
-          Sign out
+          <span className="material-symbols-outlined text-[13px] sm:text-[14px]">logout</span>
+          <span className="hidden xs:inline sm:inline">Sign out</span>
         </button>
       </header>
     </div>

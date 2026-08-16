@@ -60,6 +60,33 @@ export default function ManagerUploadRequests() {
       if (error) throw error
 
       showToast(`Request marked as ${status}.`, 'success')
+
+      // Notify the user if we approved/dismissed their request
+      if (status !== 'pending') {
+        try {
+          const session = (await supabase.auth.getSession()).data.session
+          const apiHost = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:3000' : 'https://project-one-187u.onrender.com')
+          
+          await fetch(`${apiHost}/api/push/notify-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session?.access_token}`
+            },
+            body: JSON.stringify({
+              email: activeRequest.requester_email,
+              title: status === 'approved' ? '✅ Request Approved' : '❌ Request Dismissed',
+              body: status === 'approved' 
+                ? `Your request for "${activeRequest.filename}" has been uploaded! ${managerNote ? `Note: ${managerNote}` : ''}`
+                : `Your request for "${activeRequest.filename}" could not be fulfilled. ${managerNote ? `Note: ${managerNote}` : ''}`,
+              url: '/'
+            })
+          })
+        } catch (notifyErr) {
+          console.warn('Failed to send push notification to user:', notifyErr)
+        }
+      }
+
       setRequests(prev => prev.map(r => r.id === activeRequest.id ? { ...r, status, manager_note: managerNote || undefined } : r))
       setActiveRequest(null)
       setManagerNote('')

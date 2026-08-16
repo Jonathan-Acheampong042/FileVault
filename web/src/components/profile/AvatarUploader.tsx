@@ -164,18 +164,17 @@ export default function AvatarUploader({ photoUrl, initials, onUpload }: Props) 
         onChange={handleFileChange}
       />
 
-      {/* Crop Modal */}
       {cropModalOpen && imageSrc && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="flex w-full max-w-[420px] flex-col items-center gap-4 rounded-3xl border border-white/10 bg-slate-950/98 p-6 shadow-[0_32px_80px_rgba(0,0,0,0.7)]">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm">
+          <div className="flex w-full max-w-[420px] flex-col items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/98 p-4 shadow-[0_32px_80px_rgba(0,0,0,0.7)] sm:gap-4 sm:p-6">
             <div className="w-full">
-              <h3 className="text-base font-extrabold text-slate-100">Crop Profile Photo</h3>
-              <p className="-mt-1 text-xs text-slate-500">Drag to reposition · use the slider to zoom</p>
+              <h3 className="text-sm font-extrabold text-slate-100 sm:text-base">Crop Profile Photo</h3>
+              <p className="-mt-1 text-[11px] text-slate-500 sm:text-xs">Drag to reposition · use the slider to zoom</p>
             </div>
             
             <div 
               ref={containerRef}
-              className="relative h-[300px] w-[300px] cursor-grab overflow-hidden rounded-2xl bg-slate-900 active:cursor-grabbing"
+              className="relative aspect-square w-full max-w-[300px] cursor-grab overflow-hidden rounded-2xl bg-slate-900 active:cursor-grabbing"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -201,11 +200,11 @@ export default function AvatarUploader({ photoUrl, initials, onUpload }: Props) 
                 className="pointer-events-none absolute inset-0"
                 style={{
                   background: 'linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55))',
-                  WebkitMaskImage: 'radial-gradient(circle at 50% 50%, transparent 100px, black 101px)',
-                  maskImage: 'radial-gradient(circle at 50% 50%, transparent 100px, black 101px)'
+                  WebkitMaskImage: 'radial-gradient(circle at 50% 50%, transparent 33%, black calc(33% + 1px))',
+                  maskImage: 'radial-gradient(circle at 50% 50%, transparent 33%, black calc(33% + 1px))'
                 }}
               />
-              <div className="pointer-events-none absolute left-[50px] top-[50px] h-[200px] w-[200px] rounded-full border-2 border-white/70" />
+              <div className="pointer-events-none absolute inset-[16.7%] rounded-full border-2 border-white/70" />
             </div>
 
             <div className="flex w-full items-center gap-2.5">
@@ -223,22 +222,22 @@ export default function AvatarUploader({ photoUrl, initials, onUpload }: Props) 
             </div>
 
             <div className="flex w-full items-center gap-3">
-              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-white/15 bg-black">
+              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-white/15 bg-black sm:h-14 sm:w-14">
                 <canvas ref={previewCanvasRef} width={56} height={56} className="h-full w-full" />
               </div>
-              <span className="text-xs text-slate-500">Circle preview</span>
+              <span className="text-[11px] text-slate-500 sm:text-xs">Circle preview</span>
             </div>
 
-            <div className="flex w-full gap-2.5 mt-2">
+            <div className="flex w-full gap-2.5 mt-1 sm:mt-2">
               <button
                 onClick={() => setCropModalOpen(false)}
-                className="flex-1 rounded-[13px] border border-white/10 bg-white/5 p-3 text-[13px] font-bold text-slate-400 transition-colors hover:bg-white/10"
+                className="flex-1 rounded-[13px] border border-white/10 bg-white/5 p-2.5 text-xs font-bold text-slate-400 transition-colors hover:bg-white/10 sm:p-3 sm:text-[13px]"
               >
                 Cancel
               </button>
               <button
                 onClick={applyCrop}
-                className="flex-1 rounded-[13px] bg-gradient-to-br from-blue-500 to-violet-500 p-3 text-[13px] font-bold text-white transition-opacity hover:opacity-90"
+                className="flex-1 rounded-[13px] bg-gradient-to-br from-blue-500 to-violet-500 p-2.5 text-xs font-bold text-white transition-opacity hover:opacity-90 sm:p-3 sm:text-[13px]"
               >
                 Use Photo
               </button>

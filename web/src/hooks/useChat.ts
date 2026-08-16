@@ -6,9 +6,9 @@ export interface ChatMessage {
   content: string
 }
 
-const CHAT_API_URL = import.meta.env.DEV 
-  ? 'http://localhost:3000/api/chat' 
-  : 'https://project-one-187u.onrender.com/api/chat'
+const CHAT_API_URL = import.meta.env.VITE_API_BASE 
+  ? `${import.meta.env.VITE_API_BASE}/api/chat`
+  : (import.meta.env.DEV ? 'http://localhost:3000/api/chat' : 'https://project-one-187u.onrender.com/api/chat')
 
 const HISTORY_KEY = 'fvChatHistory'
 const HISTORY_MAX = 20

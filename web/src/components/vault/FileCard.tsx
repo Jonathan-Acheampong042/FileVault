@@ -66,7 +66,7 @@ export default function FileCard({
 
   return (
     <div
-      className="file-card glass-card group flex items-center gap-3 rounded-card p-4 cursor-pointer"
+      className="file-card glass-card group flex items-center gap-2.5 rounded-card p-3 cursor-pointer sm:gap-3 sm:p-4"
       onClick={() => onPreview(file)}
       data-file-id={file.id ?? undefined}
     >
@@ -124,7 +124,7 @@ export default function FileCard({
         )}
       </div>
 
-      <div className="flex shrink-0 gap-0.5 opacity-100">
+      <div className="hidden shrink-0 gap-0.5 sm:flex">
         <button
           onClick={(e) => {
             e.stopPropagation()
@@ -164,6 +164,8 @@ export default function FileCard({
           />
         )}
       </div>
+      {/* Mobile tap indicator */}
+      <span className="material-symbols-outlined shrink-0 text-lg text-slate-600 sm:hidden">chevron_right</span>
     </div>
   )
 }

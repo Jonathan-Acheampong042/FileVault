@@ -172,7 +172,7 @@ export default function ManagerUploadPanel() {
   async function autoSummariseFile(dbId: string, fileName: string, folder: string) {
     try {
       const session = (await supabase.auth.getSession()).data.session
-      const apiHost = import.meta.env.DEV ? 'http://localhost:3000' : 'https://project-one-187u.onrender.com'
+      const apiHost = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:3000' : 'https://project-one-187u.onrender.com')
       
       const res = await fetch(`${apiHost}/api/summarise`, {
         method: 'POST',
@@ -201,7 +201,7 @@ export default function ManagerUploadPanel() {
   async function triggerPushNotification(count: number, folder: string) {
     try {
       const session = (await supabase.auth.getSession()).data.session
-      const apiHost = import.meta.env.DEV ? 'http://localhost:3000' : 'https://project-one-187u.onrender.com'
+      const apiHost = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:3000' : 'https://project-one-187u.onrender.com')
       
       await fetch(`${apiHost}/api/push/notify`, {
         method: 'POST',
@@ -234,7 +234,7 @@ export default function ManagerUploadPanel() {
     const resolvedFolder = finalFolder || 'Root'
 
     // Wake up Render server (fire-and-forget)
-    const wakeHost = import.meta.env.DEV ? 'http://localhost:3000' : 'https://project-one-187u.onrender.com'
+    const wakeHost = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:3000' : 'https://project-one-187u.onrender.com')
     fetch(`${wakeHost}/health`).catch(() => {})
 
     for (let i = 0; i < selectedFiles.length; i++) {

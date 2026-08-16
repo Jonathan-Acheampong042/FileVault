@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useToast } from '../../context/ToastContext'
+import { supabase } from '../../lib/supabase'
 
 interface NotifPrefs {
   newFiles: boolean
@@ -43,7 +44,6 @@ export default function NotificationPrefs() {
 
   async function togglePush(enabled: boolean) {
     if (!enabled) {
-      // Disable
       try {
         const reg = await navigator.serviceWorker.ready
         const sub = await reg.pushManager.getSubscription()
@@ -56,7 +56,6 @@ export default function NotificationPrefs() {
       return
     }
 
-    // Enable
     try {
       const permission = await Notification.requestPermission()
       if (permission !== 'granted') {
@@ -65,14 +64,47 @@ export default function NotificationPrefs() {
         return
       }
 
+      const apiHost = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:3000' : 'https://project-one-187u.onrender.com');
+      const keyRes = await fetch(`${apiHost}/api/push/vapid-public-key`);
+      const { key: publicVapidKey } = await keyRes.json();
+      
+      if (!publicVapidKey) throw new Error('Push not configured on server');
+
+      const urlBase64ToUint8Array = (base64String: string) => {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+          outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+      };
+
       const reg = await navigator.serviceWorker.ready
       let sub = await reg.pushManager.getSubscription()
       if (!sub) {
-        // Need applicationServerKey here. Assuming the VAPID key is in env or window.
-        // For now, this is a stub as per the vanilla JS version which requires the server key
-        // showToast('Push subscription setup requires VAPID key.', 'info')
-        // In real port, we'd fetch the key or use a constant.
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+        });
       }
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      await fetch(`${apiHost}/api/push/subscribe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({
+          subscription: sub,
+          userId: session?.user?.id,
+          role: 'student'
+        })
+      });
+
       setPushEnabled(true)
       showToast('Push notifications enabled', 'success')
     } catch (e: any) {
