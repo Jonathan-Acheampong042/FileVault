@@ -57,6 +57,7 @@
                 font-size: 1rem;
                 line-height: 1.75;
                 min-height: 100vh;
+                -webkit-font-smoothing: antialiased;
             }
 
             header {
@@ -211,6 +212,14 @@
                 opacity: 0.88;
             }
 
+            @media (max-width: 640px) {
+                header { padding: 1rem; }
+                main { padding: 2rem 1rem 4rem; }
+                h1 { font-size: 1.75rem; }
+                .card { padding: 1rem; }
+                #consent-banner { flex-direction: column; text-align: center; gap: 1rem; }
+            }
+
             @media print {
 
                 header,
@@ -270,6 +279,9 @@
     <body>
 
         <header>
+            <a href="index.html" style="display:flex;align-items:center;gap:0.5rem;color:var(--muted);text-decoration:none;margin-right:1rem;font-weight:600;font-size:0.9rem;">
+                <span style="font-size:1.2rem;">&larr;</span> Back
+            </a>
             <img src="/filevault%20logo.png" alt="FileVault logo" />
             <a href="index.html">FileVault</a>
             <span>Privacy Policy</span>

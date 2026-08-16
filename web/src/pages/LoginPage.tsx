@@ -201,7 +201,7 @@ export default function LoginPage() {
                     <button
                       key={id}
                       onClick={() => setStudentTab(id)}
-                      className={`flex-1 rounded-[10px] border px-2 py-2.5 text-xs font-bold transition-all ${
+                      className={`flex-1 rounded-[10px] border px-2 py-3 text-[13px] font-bold transition-all ${
                         studentTab === id
                           ? 'border-blue-500/35 bg-blue-500/[0.22] text-blue-300'
                           : 'border-white/[0.07] bg-white/[0.04] text-slate-500 hover:bg-white/[0.08] hover:text-slate-400'

@@ -43,8 +43,8 @@ export default function ReactionBar({ reactions, onToggle }: ReactionBarProps) {
       {pickerOpen && (
         <>
           {/* Click-outside catcher */}
-          <div className="fixed inset-0 z-40" onClick={() => setPickerOpen(false)} />
-          <div className="absolute bottom-full left-0 z-50 mb-2 w-72 rounded-2xl border border-white/10 bg-slate-900/97 p-3.5 shadow-2xl backdrop-blur-xl">
+          <div className="fixed inset-0 z-[9990]" onClick={() => setPickerOpen(false)} />
+          <div className="fixed left-4 right-4 bottom-20 z-[9991] mx-auto max-w-xs rounded-2xl border border-white/10 bg-slate-900/97 p-3.5 shadow-2xl backdrop-blur-xl sm:absolute sm:bottom-full sm:left-0 sm:right-auto sm:mb-2 sm:w-72 sm:max-w-none">
             {REACTION_EMOJI_GROUPS.map((group) => (
               <div key={group.label} className="mb-2.5 last:mb-0">
                 <p className="mb-1.5 text-[9px] font-extrabold uppercase tracking-widest text-slate-500">

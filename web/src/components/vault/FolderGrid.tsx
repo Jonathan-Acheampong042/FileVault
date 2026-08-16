@@ -10,14 +10,14 @@ export default function FolderGrid({ folders, activeFolder, onSelect }: FolderGr
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
+    <div className="hide-scrollbar flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-3 sm:gap-3 sm:overflow-x-visible sm:pb-0 lg:grid-cols-4">
       {folders.map((folder) => {
         const active = activeFolder === folder.name
         return (
           <button
             key={folder.name}
             onClick={() => onSelect(active ? null : folder.name)}
-            className={`group flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition-all ${
+            className={`group flex w-48 shrink-0 sm:w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition-all ${
               active
                 ? 'border-primary/40 bg-primary/10'
                 : 'border-white/[0.06] bg-white/[0.03] hover:border-primary/40 hover:bg-primary/5'

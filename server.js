@@ -1034,7 +1034,7 @@ app.post('/api/chat', aiRateLimit, requireAuth, aiDailyCapCheck, async (req, res
         });
 
         res.json({
-            text: response.choices[0].message.content
+            reply: response.choices[0].message.content
         });
     } catch (error) {
         console.error('SERVER ERROR:', error);

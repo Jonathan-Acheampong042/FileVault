@@ -28,12 +28,12 @@ export default function PinnedFilesSection({ pins, totalBytes, onOpen, onUnpin, 
           </button>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="hide-scrollbar flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-x-visible sm:pb-0">
         {pins.map((p) => (
           <div
             key={p.url}
             onClick={() => onOpen(p.url, p.name)}
-            className="flex max-w-[220px] cursor-pointer items-center gap-1.5 rounded-lg border border-amber-400/20 bg-amber-500/[0.08] px-2.5 py-1.5"
+            className="flex shrink-0 max-w-[220px] cursor-pointer items-center gap-1.5 rounded-lg border border-amber-400/20 bg-amber-500/[0.08] px-2.5 py-1.5"
           >
             <span className="material-symbols-outlined shrink-0 text-[14px] text-amber-400">{getFileIcon(p.name)}</span>
             <span className="flex-1 truncate text-[11px] font-semibold text-amber-400">{p.name}</span>

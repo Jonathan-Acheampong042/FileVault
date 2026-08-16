@@ -6,6 +6,7 @@ import TwoFactorSetup from '../components/profile/TwoFactorSetup'
 import ConnectedAccounts from '../components/profile/ConnectedAccounts'
 import NotificationPrefs from '../components/profile/NotificationPrefs'
 import ActivitySections from '../components/profile/ActivitySections'
+import SupportSection from '../components/profile/SupportSection'
 import DangerZone from '../components/profile/DangerZone'
 import AchievementBadges, { Badge } from '../components/profile/AchievementBadges'
 import { useSettings } from '../context/SettingsContext'
@@ -177,6 +178,8 @@ export default function ProfilePage() {
           <NotificationPrefs />
           
           <ActivitySections />
+
+          <SupportSection />
           
           {/* Session Info */}
           <div className="section-card border border-white/5 bg-white/[0.03] p-5 rounded-[1.1rem]">

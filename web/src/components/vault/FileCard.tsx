@@ -86,7 +86,7 @@ export default function FileCard({
         <span className="material-symbols-outlined text-xl">{getFileIcon(file.name)}</span>
       </div>
 
-      <div className="min-w-0 flex-1 overflow-hidden">
+      <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold leading-snug text-white">
           {file.name}
           {isNewFile(file.date) && (

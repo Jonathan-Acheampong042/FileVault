@@ -182,7 +182,13 @@ JSON FORMAT:
       const data = await response.json()
       
       const rawText = (data.reply || data.response || '').replace(/```json|```/g, '').trim()
-      const parsed = JSON.parse(rawText)
+      
+      const startIdx = rawText.indexOf('{')
+      const endIdx = rawText.lastIndexOf('}')
+      if (startIdx === -1 || endIdx === -1) throw new Error('No JSON object found in response')
+      
+      const jsonStr = rawText.substring(startIdx, endIdx + 1)
+      const parsed = JSON.parse(jsonStr)
 
       setQuizTitle(parsed.title || 'Subject Quiz')
       setQuizQuestions(parsed.questions || [])

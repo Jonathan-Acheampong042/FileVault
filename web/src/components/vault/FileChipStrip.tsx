@@ -32,13 +32,13 @@ export default function FileChipStrip({ title, icon, iconColorClass, items, onOp
           </button>
         )}
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="hide-scrollbar flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-x-visible sm:pb-0">
         {items.slice(0, 8).map((item) => (
           <button
             key={item.url}
             onClick={() => onOpen(item)}
             title={item.name}
-            className="flex max-w-[200px] items-center gap-1.5 rounded-lg border border-white/[0.07] bg-white/[0.04] px-2.5 py-1.5 text-[11px] text-slate-400 transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+            className="flex shrink-0 max-w-[200px] items-center gap-1.5 rounded-lg border border-white/[0.07] bg-white/[0.04] px-2.5 py-1.5 text-[11px] text-slate-400 transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
           >
             <span className="material-symbols-outlined shrink-0 text-[13px]">{getFileIcon(item.name)}</span>
             <span className="truncate">{item.name}</span>
