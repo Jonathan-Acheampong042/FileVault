@@ -217,7 +217,7 @@ export default function ManagerUploadRequests() {
 
               <div>
                 <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Reason</p>
-                <p className="mt-1 whitespace-pre-wrap rounded-lg bg-white/5 p-3 text-[13px] text-slate-300">
+                <p className="mt-1 whitespace-pre-wrap break-words rounded-lg bg-white/5 p-3 text-[13px] text-slate-300">
                   {activeRequest.reason}
                 </p>
               </div>
@@ -225,7 +225,7 @@ export default function ManagerUploadRequests() {
               {activeRequest.description && (
                 <div>
                   <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Description</p>
-                  <p className="mt-1 text-[13px] text-slate-400">{activeRequest.description}</p>
+                  <p className="mt-1 whitespace-pre-wrap break-words text-[13px] text-slate-400">{activeRequest.description}</p>
                 </div>
               )}
 

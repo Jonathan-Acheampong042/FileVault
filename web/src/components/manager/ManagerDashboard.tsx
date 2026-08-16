@@ -14,6 +14,7 @@ export default function ManagerDashboard() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<FileStats | null>(null)
   const [popularFiles, setPopularFiles] = useState<any[]>([])
+  const [mostReacted, setMostReacted] = useState<any[]>([])
   const [neverDownloaded, setNeverDownloaded] = useState<any[]>([])
 
   useEffect(() => {
@@ -23,9 +24,10 @@ export default function ManagerDashboard() {
   async function loadDashboard() {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('files_list')
-        .select('id, file_name, folder_name, download_count, file_size, expires_at, created_at')
+      const [{ data, error }, { data: reactionsData }] = await Promise.all([
+        supabase.from('files_list').select('id, file_name, folder_name, download_count, file_size, expires_at, created_at'),
+        supabase.from('file_reactions').select('file_id')
+      ])
       
       if (error) throw error
       
@@ -49,6 +51,22 @@ export default function ManagerDashboard() {
         .sort((a, b) => (b.download_count || 0) - (a.download_count || 0))
         .slice(0, 5)
       setPopularFiles(popular)
+
+      // Most Reacted
+      if (reactionsData) {
+        const counts: Record<string, number> = {}
+        reactionsData.forEach(r => {
+          counts[r.file_id] = (counts[r.file_id] || 0) + 1
+        })
+        const reacted = [...rows]
+          .filter(f => counts[f.id] > 0)
+          .map(f => ({ ...f, reaction_count: counts[f.id] }))
+          .sort((a, b) => b.reaction_count - a.reaction_count)
+          .slice(0, 5)
+        setMostReacted(reacted)
+      } else {
+        setMostReacted([])
+      }
 
       // Never Downloaded
       const never = [...rows]
@@ -116,7 +134,7 @@ export default function ManagerDashboard() {
       )}
 
       {/* Analytics Lists */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         
         {/* Most Downloaded */}
         {popularFiles.length > 0 && (
@@ -139,6 +157,33 @@ export default function ManagerDashboard() {
                     </div>
                   </div>
                   <span className="shrink-0 text-[11px] font-bold text-blue-400">{f.download_count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Most Reacted */}
+        {mostReacted.length > 0 && (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6">
+            <h4 className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-300">
+              <span className="material-symbols-outlined text-rose-400">favorite</span> 
+              Most Reacted
+            </h4>
+            <div className="space-y-2">
+              {mostReacted.map((f, i) => (
+                <div key={f.id} className="flex items-center gap-3 border-b border-white/5 py-2 last:border-0">
+                  <span className="min-w-[20px] text-[11px] font-extrabold text-slate-500">#{i + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-semibold text-slate-200">{f.file_name}</p>
+                    <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-white/5">
+                      <div 
+                        className="h-full rounded-full bg-gradient-to-r from-rose-500 to-orange-500" 
+                        style={{ width: `${Math.round(((f.reaction_count || 0) / (mostReacted[0].reaction_count || 1)) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-[11px] font-bold text-rose-400">{f.reaction_count}</span>
                 </div>
               ))}
             </div>

@@ -339,7 +339,7 @@ export default function ManagerAnnouncements() {
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-300 leading-relaxed font-semibold">{ann.message}</p>
+                  <p className="text-xs text-slate-300 leading-relaxed font-semibold break-words whitespace-pre-wrap">{ann.message}</p>
 
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500">
                     {ann.event_date && (
