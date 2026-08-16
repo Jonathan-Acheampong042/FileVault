@@ -1028,7 +1028,7 @@ app.post('/api/chat', aiRateLimit, requireAuth, aiDailyCapCheck, async (req, res
         ];
 
         const response = await groq.chat.completions.create({
-            model: 'llama3-8b-8192',
+            model: 'openai/gpt-oss-20b',
             max_tokens: 1024,
             messages
         });

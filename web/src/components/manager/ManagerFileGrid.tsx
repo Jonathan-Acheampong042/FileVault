@@ -8,6 +8,7 @@ import { logAudit } from '../../utils/audit'
 export default function ManagerFileGrid() {
   const [files, setFiles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [reactionCounts, setReactionCounts] = useState<Record<string, Record<string, number>>>({})
   const [restrictedFolders, setRestrictedFolders] = useState<Set<string>>(new Set())
   const showToast = useToast()
   
@@ -23,9 +24,10 @@ export default function ManagerFileGrid() {
   async function loadFilesAndRestrictions() {
     setLoading(true)
     try {
-      const [{ data: dbData, error: dbError }, { data: restrictionsData, error: resError }] = await Promise.all([
+      const [{ data: dbData, error: dbError }, { data: restrictionsData, error: resError }, { data: reactionsData }] = await Promise.all([
         supabase.from('files_list').select('*').order('created_at', { ascending: false }),
-        supabase.from('folder_restrictions').select('folder_name')
+        supabase.from('folder_restrictions').select('folder_name'),
+        supabase.from('file_reactions').select('file_id, emoji')
       ])
 
       if (dbError) throw dbError
@@ -33,6 +35,15 @@ export default function ManagerFileGrid() {
 
       if (!resError && restrictionsData) {
         setRestrictedFolders(new Set(restrictionsData.map(r => r.folder_name)))
+      }
+
+      if (reactionsData) {
+        const counts: Record<string, Record<string, number>> = {}
+        reactionsData.forEach(r => {
+          if (!counts[r.file_id]) counts[r.file_id] = {}
+          counts[r.file_id][r.emoji] = (counts[r.file_id][r.emoji] || 0) + 1
+        })
+        setReactionCounts(counts)
       }
     } catch (e: any) {
       console.error(e)
@@ -261,6 +272,11 @@ export default function ManagerFileGrid() {
                   <span className="material-symbols-outlined text-[13px]">download</span>
                   {file.download_count || 0}
                 </span>
+                {reactionCounts[file.id] && Object.entries(reactionCounts[file.id]).map(([emoji, count]) => (
+                  <span key={emoji} className="flex items-center gap-0.5">
+                    {emoji} {count}
+                  </span>
+                ))}
                 <span className="text-[10px]">{file.created_at ? timeAgo(file.created_at) : 'N/A'}</span>
               </div>
             </div>
@@ -302,10 +318,15 @@ export default function ManagerFileGrid() {
                 </div>
                 
                 <div className="mt-2 flex items-center gap-3 text-[11px] font-semibold text-slate-500">
-                  <span className="flex items-center gap-1" title="Downloads">
-                    <span className="material-symbols-outlined text-[14px]">download</span>
+                  <span className="flex items-center gap-0.5" title="Downloads">
+                    <span className="material-symbols-outlined text-[13px]">download</span>
                     {file.download_count || 0}
                   </span>
+                  {reactionCounts[file.id] && Object.entries(reactionCounts[file.id]).map(([emoji, count]) => (
+                    <span key={emoji} className="flex items-center gap-0.5" title={`${count} ${emoji} reactions`}>
+                      {emoji} {count}
+                    </span>
+                  ))}
                   {file.expires_at && (
                     <span className="flex items-center gap-1 text-amber-500" title={`Expires ${new Date(file.expires_at).toLocaleDateString()}`}>
                       <span className="material-symbols-outlined text-[14px]">timer</span>

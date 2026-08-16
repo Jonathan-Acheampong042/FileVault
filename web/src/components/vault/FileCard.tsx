@@ -3,9 +3,11 @@ import type { VaultFile } from '../../types'
 import { formatFileSize, getFileColorClasses, getFileIcon, isNewFile, timeAgo } from '../../utils/fileDisplay'
 import { useToast } from '../../context/ToastContext'
 import { supabase } from '../../lib/supabase'
+import { useReactions } from '../../hooks/useReactions'
 import RatingBadge from './RatingBadge'
 import ViewCountBadge from './ViewCountBadge'
 import PinButton from './PinButton'
+import ReactionBar from './ReactionBar'
 import { haptic } from '../../utils/haptics'
 
 interface FileCardProps {
@@ -32,6 +34,7 @@ export default function FileCard({
   onTogglePin,
 }: FileCardProps) {
   const showToast = useToast()
+  const { reactions, toggle: toggleReaction } = useReactions(file.id ?? null)
   const [copied, setCopied] = useState(false)
 
   const sizeLabel = formatFileSize(file.fileSize)
@@ -121,6 +124,11 @@ export default function FileCard({
         </div>
         {file.description && (
           <p className="mt-0.5 truncate text-[11px] italic text-slate-400">{file.description}</p>
+        )}
+        {file.id && (
+          <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+            <ReactionBar reactions={reactions} onToggle={toggleReaction} />
+          </div>
         )}
       </div>
 
